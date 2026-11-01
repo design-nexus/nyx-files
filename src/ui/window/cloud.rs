@@ -110,11 +110,24 @@ fn append_remote(holder: &gtk::Box, state: &Rc<SidebarState>, remote: Remote) {
     holder.append(&row);
 }
 
-/// Cloud owns this private mount namespace, including hidden Notes-only accounts.
+/// Cloud mounts each account as an rclone FUSE folder directly in the home directory.
 pub(super) fn is_cloud_mount(path: &std::path::Path) -> bool {
-    let data = std::env::var_os("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| super::home_directory().join(".local/share"));
-    path.strip_prefix(data.join("nyx/cloud/mounts"))
-        .is_ok_and(|relative| relative.components().count() == 1)
+    if path.parent() != Some(super::home_directory().as_path()) {
+        return false;
+    }
+    let escaped = path
+        .to_string_lossy()
+        .replace('\\', "\\134")
+        .replace(' ', "\\040")
+        .replace('\t', "\\011")
+        .replace('\n', "\\012");
+    std::fs::read_to_string("/proc/self/mountinfo")
+        .unwrap_or_default()
+        .lines()
+        .any(|line| {
+            let mut halves = line.splitn(2, " - ");
+            let mount_point = halves.next().and_then(|f| f.split_whitespace().nth(4));
+            let fs_type = halves.next().and_then(|f| f.split_whitespace().next());
+            mount_point == Some(escaped.as_str()) && fs_type == Some("fuse.rclone")
+        })
 }
