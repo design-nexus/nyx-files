@@ -18,8 +18,11 @@ and selectable preview presentation. Its origin and licenses are in
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/design-nexus/nyx-files/main/install-nyx.sh | bash
+curl -fsSL https://raw.githubusercontent.com/design-nexus/nyx-files/main/install.sh | bash
 ```
+
+This installs the latest release; `NYX_BUILD=1` builds from source instead.
+`./uninstall.sh` removes Files (`--purge` also removes its settings and data).
 
 ## Build and install
 
@@ -29,13 +32,13 @@ GStreamer with app/base development libraries, and the existing preview helpers
 and FUSE3 for cloud features; Settings provides graphical account configuration.
 
 ```
-cargo build --release --locked
-./install-nyx.sh
+./install.sh
 ```
 
-The installer installs the binary, launcher and icon and makes Files the default
-folder handler. An existing per-user FileManager1 activation file is backed up
-before replacement. Installation does not launch or restart the application.
+From a checkout, the installer builds it and installs the binary, launcher and
+icon, and makes Files the default app for folders and Trash links. An existing
+per-user FileManager1 activation file is set aside before replacement, and
+`./uninstall.sh` puts it back. Installation does not launch or restart the application.
 Files keeps its settings, state and cache in its own folders.
 
 Public dependencies are pinned to immutable Git revisions. CI builds the app

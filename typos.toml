@@ -32,8 +32,6 @@ extend-ignore-re = [
   '"Ausgewählte Elemente kopieren / ausschneiden"',
   # Non-English values in the multilingual count and calendar catalogs.
   '(?m)^\s*"(?:fr|de|es|ja|pt-BR|ko|vi|it|ru|zh-CN|zh-TW)": ".*"',
-  # Non-English installer messages generated from data/locales/installer.json.
-  '(?s)\n  (?:fr|de|es|ja|pt-BR|ko|vi|it|ru|zh-CN|zh-TW)\) INSTALLER_MESSAGES=\(.*?\n  \) ;;',
   # Localized desktop-entry values.
   '(?m)^\w+\[(?:fr|de|es|ja|pt_BR|ko|vi|it|ru|zh_CN|zh_TW)\]=.*$',
   # "café" fixtures spelled as raw, escaped or percent-encoded bytes, and the name they fix to.

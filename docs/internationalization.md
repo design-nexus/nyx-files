@@ -14,9 +14,6 @@ user-defined names, or the locale environment inherited by other programs.
   using rust-i18n's multilingual `_version: 2` format.
 - `data/locales/dates.json`: month/weekday names and date presentation patterns,
   also multilingual. ISO 8601 remains language-independent.
-- `data/locales/installer.json`: multilingual setup screens and status messages
-  shared with the standalone Bash installer. After editing, regenerate its
-  embedded catalog with `python3 scripts/installer_messages.py --write`.
 
 Locales are `en`, `fr`, `de`, `es`, `ja`, `pt-BR`, `ko`, `vi`, `it`, `ru`,
 `zh-CN`, and `zh-TW`.

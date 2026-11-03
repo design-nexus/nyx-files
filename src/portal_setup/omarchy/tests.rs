@@ -2,16 +2,24 @@
 
 use super::*;
 
+/// The block the Strata installer wrote, which Files still recognizes and restores.
 fn installed(major: u8) -> String {
-    let installer = include_str!("../../../install.sh");
-    let prefix = if major == 4 { "--" } else { "#" };
-    let start = format!("{prefix} strata-installer: file-manager start");
-    let end = format!("{prefix} strata-installer: file-manager end");
-    let from = installer.find(&start).expect("valid test fixture");
-    let to = installer[from..].find(&end).expect("valid test fixture") + from + end.len();
-    let block = installer[from..to]
-        .replace("$BIN_PATH", "/home/test/.local/bin/strata")
-        .replace("\\$", "$");
+    let block = if major == 4 {
+        r#"-- strata-installer: file-manager start
+hl.unbind("SUPER + SHIFT + F")
+hl.unbind("SUPER + ALT + SHIFT + F")
+o.bind("SUPER + SHIFT + F", "File manager", { launch = "/home/test/.local/bin/strata" })
+o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)",
+  "uwsm-app -- /home/test/.local/bin/strata \"$(omarchy-cmd-terminal-cwd)\"")
+-- strata-installer: file-manager end"#
+    } else {
+        r#"# strata-installer: file-manager start
+unbind = SUPER SHIFT, F
+unbind = SUPER ALT SHIFT, F
+bindd = SUPER SHIFT, F, File manager, exec, uwsm-app -- /home/test/.local/bin/strata
+bindd = SUPER ALT SHIFT, F, File manager (cwd), exec, uwsm-app -- /home/test/.local/bin/strata "$(omarchy-cmd-terminal-cwd)"
+# strata-installer: file-manager end"#
+    };
     format!("unrelated-before\n{block}\nunrelated-after\n")
 }
 
