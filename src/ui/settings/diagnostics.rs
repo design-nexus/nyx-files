@@ -30,7 +30,7 @@ const COPY_FEEDBACK: Duration = Duration::from_millis(1500);
 
 type Spawner = Rc<dyn Fn(Sender<Check>)>;
 
-pub(super) fn diagnostics_page() -> gtk::Widget {
+pub(crate) fn diagnostics_page() -> gtk::Widget {
     diagnostics_page_with(Rc::new(diagnostics::spawn))
 }
 

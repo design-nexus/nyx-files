@@ -16,12 +16,12 @@ use crate::{
 mod tests;
 
 mod about;
-mod actions;
+pub(crate) mod actions;
 mod bindings;
-mod cloud;
-mod diagnostics;
-mod exclusions;
-mod general;
+pub(crate) mod cloud;
+pub(crate) mod diagnostics;
+pub(crate) mod exclusions;
+pub(crate) mod general;
 mod keyboard;
 mod install_command;
 mod search;
@@ -849,7 +849,7 @@ fn restart_waiter(current_exe: &std::path::Path, parent_pid: u32) -> Option<Comm
     Some(command)
 }
 
-fn restart(application: Option<&gtk::Application>) {
+pub(crate) fn restart(application: Option<&gtk::Application>) {
     restart_with(application, start_restart_waiter);
 }
 
@@ -1076,7 +1076,7 @@ fn page_content() -> gtk::Box {
 }
 
 /// Translates Settings copy, rendering the shortcuts it names.
-fn translated(message: &str) -> String {
+pub(crate) fn translated(message: &str) -> String {
     translated_in(&rust_i18n::locale(), message)
 }
 

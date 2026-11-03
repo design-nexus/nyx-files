@@ -39,7 +39,7 @@ const GENERAL_TAB: u32 = 0;
 const SCRIPT_TAB: u32 = 1;
 const BEHAVIOR_TAB: u32 = 2;
 
-pub(super) fn actions_page() -> gtk::Widget {
+pub(crate) fn actions_page() -> gtk::Widget {
     let content = page_content();
     content.add_css_class("settings-actions-page");
     append_heading(&content, "CUSTOM ACTIONS");

@@ -151,6 +151,15 @@ impl Window {
 
         this.add_tab(location.unwrap_or_else(start_location));
         this.window.present();
+        // Developer aid, like nyx-ui's NYX_PALETTE: open settings once the window is up.
+        if std::env::var_os("NYX_FILES_SETTINGS").is_some() {
+            let weak = Rc::downgrade(&this);
+            glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
+                if let Some(w) = weak.upgrade() {
+                    settings::open(&w);
+                }
+            });
+        }
         this
     }
 

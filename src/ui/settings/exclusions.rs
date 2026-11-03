@@ -16,7 +16,7 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
-pub(super) fn search_exclusions_control(manager: &Rc<PreferenceManager>) -> gtk::Box {
+pub(crate) fn search_exclusions_control(manager: &Rc<PreferenceManager>) -> gtk::Box {
     let control = gtk::Box::new(gtk::Orientation::Vertical, 8);
     control.set_hexpand(true);
     let field = form_entry();

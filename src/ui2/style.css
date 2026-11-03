@@ -43,3 +43,25 @@ window.files-window columnview.file-list > listview > row > cell {
   color: @theme_dim_text;
   font-feature-settings: "tnum";
 }
+
+/* Settings */
+
+.files-settings .files-section {
+  margin: 18px 14px 6px;
+}
+
+
+window.files-window button.chip {
+  min-height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--nyx-radius-small);
+  background: @field;
+  color: @theme_dim_text;
+}
+
+window.files-window button.chip:checked {
+  background: @nav_active;
+  color: @theme_text;
+  box-shadow: inset 0 0 0 1px alpha(@theme_accent, 0.45);
+}

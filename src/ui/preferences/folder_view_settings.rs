@@ -140,13 +140,13 @@ impl PreferenceManager {
         self.folder_views.get_or_init(FolderViewStore::load)
     }
 
-    pub(in crate::ui) fn remember_folder_views(&self) -> bool {
+    pub(crate) fn remember_folder_views(&self) -> bool {
         self.preferences.borrow().remember_folder_views
     }
 
     /// Defaults changed while this was off can equal saved values, which are
     /// dropped when it is turned back on.
-    pub(in crate::ui) fn set_remember_folder_views(&self, enabled: bool) {
+    pub(crate) fn set_remember_folder_views(&self, enabled: bool) {
         self.preferences.borrow_mut().remember_folder_views = enabled;
         if enabled {
             let (sort, size) = (self.default_sort(), self.icons_thumbnail_size());
@@ -224,11 +224,11 @@ impl PreferenceManager {
         });
     }
 
-    pub(in crate::ui) fn default_sort(&self) -> (SortKey, SortDirection) {
+    pub(crate) fn default_sort(&self) -> (SortKey, SortDirection) {
         self.sort_preferences().sort()
     }
 
-    pub(in crate::ui) fn set_default_sort(&self, sort_key: SortKey, sort_direction: SortDirection) {
+    pub(crate) fn set_default_sort(&self, sort_key: SortKey, sort_direction: SortDirection) {
         if !store_sort(
             &mut self.preferences.borrow_mut(),
             (sort_key, sort_direction),
@@ -291,12 +291,12 @@ impl PreferenceManager {
         }
     }
 
-    pub(in crate::ui) fn has_folder_views(&self) -> bool {
+    pub(crate) fn has_folder_views(&self) -> bool {
         !self.folder_view_store().views.borrow().is_empty()
     }
 
     /// Also clears what another Files process saved and this one has not merged yet.
-    pub(in crate::ui) fn forget_folder_views(&self) {
+    pub(crate) fn forget_folder_views(&self) {
         self.change_folder_views(Affects::Sorts, |views| {
             views.clear();
             true

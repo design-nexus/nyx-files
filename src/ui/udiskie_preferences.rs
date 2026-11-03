@@ -11,7 +11,7 @@ use super::desktop_integration::{SETUP_RUNNING, set_search_available};
 #[cfg(test)]
 mod tests;
 
-pub(super) fn settings_row() -> gtk::Box {
+pub(crate) fn settings_row() -> gtk::Box {
     let row = gtk::Box::new(gtk::Orientation::Vertical, 2);
     row.add_css_class("settings-option");
     let content = gtk::Box::new(gtk::Orientation::Vertical, 2);

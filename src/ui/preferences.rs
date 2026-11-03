@@ -592,7 +592,7 @@ fn normalized_volume(volume: f64) -> f64 {
     }
 }
 
-pub(in crate::ui) const SEARCH_TIME_LIMIT_CHOICES: [(&str, u32); 6] = [
+pub(crate) const SEARCH_TIME_LIMIT_CHOICES: [(&str, u32); 6] = [
     ("10 s", 10),
     ("30 s", 30),
     ("1 min", 60),
@@ -601,7 +601,7 @@ pub(in crate::ui) const SEARCH_TIME_LIMIT_CHOICES: [(&str, u32); 6] = [
     ("No limit", 0),
 ];
 
-pub(in crate::ui) const SEARCH_ENTRY_LIMIT_CHOICES: [(&str, u32); 5] = [
+pub(crate) const SEARCH_ENTRY_LIMIT_CHOICES: [(&str, u32); 5] = [
     ("200,000", 200_000),
     ("500,000", 500_000),
     ("1,000,000", 1_000_000),

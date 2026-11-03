@@ -3,7 +3,7 @@
 use super::*;
 use nyx_cloud::{Client, Remote};
 
-pub(super) fn cloud_page(manager: Rc<PreferenceManager>) -> gtk::Widget {
+pub(crate) fn cloud_page(manager: Rc<PreferenceManager>) -> gtk::Widget {
     let content = page_content();
     let group = settings_group(&content, "CLOUD STORAGE");
     let (row, toggle) = settings_option(
