@@ -1,0 +1,45 @@
+/* Files' own parts on the Nyx 2.0 tokens. */
+
+.files-pages {
+  background: @theme_bg;
+}
+
+window.files-window columnview.file-list {
+  background: transparent;
+  padding: 0 8px 8px 0;
+}
+
+window.files-window columnview.file-list > header > button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: @theme_text_tertiary;
+  font-size: 0.885em;
+  font-weight: 500;
+  padding: 4px 10px;
+}
+
+window.files-window columnview.file-list > listview > row {
+  min-height: 34px;
+}
+
+window.files-window columnview.file-list > listview > row:hover {
+  background: @row_hover;
+}
+
+window.files-window columnview.file-list > listview > row:selected {
+  background: @nav_active;
+}
+
+window.files-window columnview.file-list > listview > row > cell {
+  padding: 0 10px;
+}
+
+.file-list .entry-icon {
+  -gtk-icon-size: 18px;
+}
+
+.file-list .dim-cell {
+  color: @theme_dim_text;
+  font-feature-settings: "tnum";
+}

@@ -31,6 +31,7 @@ mod storage;
 mod test_support;
 mod trusted_command;
 mod ui;
+mod ui2;
 mod util;
 
 use std::{
@@ -309,7 +310,15 @@ fn main() -> gtk::glib::ExitCode {
 
     let application = gtk::Application::builder()
         .application_id(APPLICATION_ID)
-        .flags(gio::ApplicationFlags::HANDLES_OPEN | gio::ApplicationFlags::HANDLES_COMMAND_LINE)
+        .flags(
+            gio::ApplicationFlags::HANDLES_OPEN
+                | gio::ApplicationFlags::HANDLES_COMMAND_LINE
+                | if ui2::enabled() {
+                    gio::ApplicationFlags::NON_UNIQUE
+                } else {
+                    gio::ApplicationFlags::empty()
+                },
+        )
         .build();
 
     application.add_main_option(
@@ -346,13 +355,26 @@ fn main() -> gtk::glib::ExitCode {
     });
     application.connect_activate(|application| {
         if let Err(error) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            ui::present(application);
+            if ui2::enabled() {
+                ui2::present(application);
+            } else {
+                ui::present(application);
+            }
         })) {
             tracing::error!("panic during application activation: {error:?}");
         }
     });
     application.connect_open(|application, files, _| {
         if let Err(error) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if ui2::enabled() {
+                if files.is_empty() {
+                    ui2::present(application);
+                }
+                for file in files {
+                    ui2::present_open(application, file);
+                }
+                return;
+            }
             if files.is_empty() {
                 ui::present(application);
             }
