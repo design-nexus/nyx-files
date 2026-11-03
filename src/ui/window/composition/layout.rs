@@ -98,19 +98,14 @@ impl Header {
         let minimizing_window = window.downgrade();
         minimize.connect_clicked(move |_| {
             if let Some(window) = minimizing_window.upgrade() {
-                window.minimize();
+                nyx_ui::chrome::minimize(&window);
             }
         });
         let maximize = header_action(icons::MAXIMIZE, &crate::i18n::tr("Maximize window"));
         let maximizing_window = window.downgrade();
         maximize.connect_clicked(move |_| {
-            let Some(window) = maximizing_window.upgrade() else {
-                return;
-            };
-            if window.is_maximized() {
-                window.unmaximize();
-            } else {
-                window.maximize();
+            if let Some(window) = maximizing_window.upgrade() {
+                nyx_ui::chrome::toggle_maximized(&window);
             }
         });
         bind_maximize_icon(window, &maximize);
@@ -123,16 +118,18 @@ impl Header {
                 window.close();
             }
         });
-        for (button, read) in [
+        type Needs = fn(&nyx_ui::chrome::Placement) -> bool;
+        for (button, read, needs) in [
             (
                 &minimize,
                 PreferenceManager::window_show_minimize as fn(&PreferenceManager) -> bool,
+                (|p| p.can_minimize) as Needs,
             ),
-            (&maximize, PreferenceManager::window_show_maximize),
-            (&close, PreferenceManager::window_show_close),
+            (&maximize, PreferenceManager::window_show_maximize, |_| true),
+            (&close, PreferenceManager::window_show_close, |p| p.floating),
         ] {
-            preferences.bind_preference(button, read, |widget, visible| {
-                widget.set_visible(visible && is_floating(widget));
+            preferences.bind_preference(button, read, move |widget, visible| {
+                widget.set_visible(visible && needs(&placement(widget)));
             });
         }
         let actions = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -153,7 +150,7 @@ impl Header {
         window_buttons.append(&minimize);
         window_buttons.append(&maximize);
         window_buttons.append(&close);
-        show_while_floating(window, &window_buttons, &close, preferences);
+        show_while_floating(window, &window_buttons, [&minimize, &maximize, &close], preferences);
         actions.append(&window_buttons);
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         content.add_css_class("header-row");
@@ -189,26 +186,19 @@ impl Header {
     }
 }
 
-/// A tiled, maximized or fullscreen window is placed by the compositor, so it
-/// has no use for window buttons.
-pub(super) fn is_floating(widget: &impl IsA<gtk::Widget>) -> bool {
+/// Where the compositor has the widget's window (see `nyx_ui::chrome::placement`).
+fn placement(widget: &impl IsA<gtk::Widget>) -> nyx_ui::chrome::Placement {
     widget
-        .native()
-        .and_then(|native| native.surface())
-        .and_downcast::<gdk::Toplevel>()
-        .is_none_or(|toplevel| floating_state(toplevel.state()))
+        .root()
+        .and_downcast::<gtk::Window>()
+        .map(|window| nyx_ui::chrome::placement(&window))
+        .unwrap_or_default()
 }
 
-fn floating_state(state: gdk::ToplevelState) -> bool {
-    use gdk::ToplevelState as S;
-    let placed = S::TILED
-        | S::TOP_TILED
-        | S::RIGHT_TILED
-        | S::BOTTOM_TILED
-        | S::LEFT_TILED
-        | S::MAXIMIZED
-        | S::FULLSCREEN;
-    !state.intersects(placed)
+/// A floating window shows its own buttons; a tiled, maximized or fullscreen one is
+/// placed by the compositor and has no use for them.
+pub(super) fn is_floating(widget: &impl IsA<gtk::Widget>) -> bool {
+    placement(widget).floating
 }
 
 /// The close button moves to the tab strip with several tabs, so it is
@@ -216,35 +206,30 @@ fn floating_state(state: gdk::ToplevelState) -> bool {
 fn show_while_floating(
     window: &gtk::ApplicationWindow,
     buttons: &gtk::Box,
-    close: &gtk::Button,
+    [minimize, maximize, close]: [&gtk::Button; 3],
     preferences: &Rc<PreferenceManager>,
 ) {
-    let update = {
-        let (buttons, close) = (buttons.downgrade(), close.downgrade());
-        let preferences = preferences.clone();
-        move |toplevel: &gdk::Toplevel| {
-            let floating = floating_state(toplevel.state());
-            if let Some(buttons) = buttons.upgrade() {
-                buttons.set_visible(floating);
-            }
-            if let Some(close) = close.upgrade() {
-                close.set_visible(floating && preferences.window_show_close());
-            }
+    let (buttons, minimize, maximize, close) = (
+        buttons.downgrade(),
+        minimize.downgrade(),
+        maximize.downgrade(),
+        close.downgrade(),
+    );
+    let preferences = preferences.clone();
+    nyx_ui::chrome::follow_placement(window, move |p| {
+        if let Some(buttons) = buttons.upgrade() {
+            buttons.set_visible(p.floating);
         }
-    };
-    let watch = move |window: &gtk::ApplicationWindow| {
-        let Some(toplevel) = window.surface().and_downcast::<gdk::Toplevel>() else {
-            return;
-        };
-        update(&toplevel);
-        let update = update.clone();
-        toplevel.connect_state_notify(move |toplevel| update(toplevel));
-    };
-    if window.is_realized() {
-        watch(window);
-    } else {
-        window.connect_realize(watch);
-    }
+        if let Some(minimize) = minimize.upgrade() {
+            minimize.set_visible(p.can_minimize && preferences.window_show_minimize());
+        }
+        if let Some(maximize) = maximize.upgrade() {
+            maximize.set_visible(preferences.window_show_maximize());
+        }
+        if let Some(close) = close.upgrade() {
+            close.set_visible(p.floating && preferences.window_show_close());
+        }
+    });
 }
 
 fn bind_maximize_icon(window: &gtk::ApplicationWindow, button: &gtk::Button) {
