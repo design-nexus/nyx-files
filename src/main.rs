@@ -208,6 +208,7 @@ fn main() -> gtk::glib::ExitCode {
             leave_launch_folder();
             util::ui_thread::mark();
             return portal::run(
+                &ui::CHOOSER_UI,
                 #[cfg(feature = "qa")]
                 None,
             );
@@ -257,7 +258,7 @@ fn main() -> gtk::glib::ExitCode {
         ui::read_install_facts();
         leave_launch_folder();
         util::ui_thread::mark();
-        return portal::run(qa_session);
+        return portal::run(&ui::CHOOSER_UI, qa_session);
     }
     #[cfg(feature = "qa")]
     let application_arguments = qa_session.as_ref().map_or_else(

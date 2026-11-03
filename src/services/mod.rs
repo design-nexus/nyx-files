@@ -28,6 +28,7 @@ mod remote_download;
 pub(crate) mod rtf;
 mod search;
 pub(crate) mod table;
+pub(crate) mod thumbnail_cache;
 mod transfer_action;
 
 pub use actions::{

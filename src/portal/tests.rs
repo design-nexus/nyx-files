@@ -75,7 +75,7 @@ fn folder_hints_override_defaults_and_invalid_hints_preserve_save_names() {
         let expected = if hint.as_deref() == Some(current.path()) {
             current.path().to_path_buf()
         } else {
-            crate::ui::default_save_folder()
+            super::default_save_folder()
         };
         assert_eq!(
             run_async(accessible_folder(hint.clone())).expect("open/save-files folder"),
@@ -150,7 +150,7 @@ fn current_file_rejects_directories_and_missing_parents() {
     ] {
         let suggestion =
             run_async(save_file_suggestion(Some(file), None, None)).expect("save suggestion");
-        assert_eq!(suggestion, (crate::ui::default_save_folder(), None));
+        assert_eq!(suggestion, (super::default_save_folder(), None));
     }
 }
 
@@ -163,7 +163,7 @@ fn invalid_current_file_falls_back_without_using_lower_priority_suggestions() {
         Some("ignored.txt".to_owned()),
     ))
     .expect("save suggestion");
-    assert_eq!(suggestion, (crate::ui::default_save_folder(), None));
+    assert_eq!(suggestion, (super::default_save_folder(), None));
 }
 
 #[test]

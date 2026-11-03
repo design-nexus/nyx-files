@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 
 mod dbus;
+mod ui_hooks;
 mod window_geometry;
+
+pub(crate) use ui_hooks::ChooserUi;
 
 pub(crate) use window_geometry::prepare_chooser_placement;
 
@@ -196,9 +199,13 @@ impl FileChooserBackend {
         let cancelled = tracked.cancelled.clone();
         let (send, receive) = oneshot::channel();
         glib::MainContext::default().invoke(move || {
-            crate::ui::present_chooser(request, cancelled, move |result| {
-                let _result = send.send(result);
-            });
+            (ui_hooks::ui().present)(
+                request,
+                cancelled,
+                Box::new(move |result| {
+                    let _result = send.send(result);
+                }),
+            );
         });
         receive.await.unwrap_or_else(|_| {
             Err(PortalError::Cancelled(format!(
@@ -220,7 +227,11 @@ pub(crate) fn chooser_application_id() -> &'static str {
     })
 }
 
-pub(crate) fn run(#[cfg(feature = "qa")] qa: Option<crate::qa::Session>) -> glib::ExitCode {
+pub(crate) fn run(
+    ui: &'static ChooserUi,
+    #[cfg(feature = "qa")] qa: Option<crate::qa::Session>,
+) -> glib::ExitCode {
+    ui_hooks::register(ui);
     glib::set_prgname(Some(chooser_application_id()));
     glib::set_application_name("Files");
 
@@ -281,7 +292,7 @@ pub(crate) fn run(#[cfg(feature = "qa")] qa: Option<crate::qa::Session>) -> glib
         eprintln!("Unable to prepare bundled assets: {error}");
     }
     crate::assets::register_icon_theme();
-    crate::ui::prepare_portal_ui();
+    (ui.prepare)();
     // Sweep off the main loop: a large stale download tree must not stall startup.
     std::thread::spawn(crate::services::prune_stale_downloads);
 
@@ -293,7 +304,7 @@ pub(crate) fn run(#[cfg(feature = "qa")] qa: Option<crate::qa::Session>) -> glib
         session.start_portal(&main_loop);
     }
     main_loop.run();
-    crate::ui::preferences::flush_pending_folder_views();
+    (ui.flush)();
     crate::storage::writer::flush_at_exit();
     if service_failed.load(Ordering::SeqCst) {
         glib::ExitCode::FAILURE
@@ -586,7 +597,7 @@ where
 
 async fn accessible_folder(suggestion: Option<PathBuf>) -> ashpd::backend::Result<PathBuf> {
     run_on_main(move || async move {
-        let default = crate::ui::default_save_folder();
+        let default = default_save_folder();
         let Some(path) = suggestion.filter(|path| path.is_absolute()) else {
             return default;
         };
@@ -615,7 +626,7 @@ async fn save_file_suggestion(
     current_name: Option<String>,
 ) -> ashpd::backend::Result<(PathBuf, Option<OsString>)> {
     run_on_main(move || async move {
-        let default = crate::ui::default_save_folder();
+        let default = default_save_folder();
         let fallback = (default.clone(), None);
         glib::future_with_timeout(
             PATH_IO_TIMEOUT,
@@ -656,7 +667,7 @@ async fn resolve_save_file_suggestion(
         {
             return (parent.to_path_buf(), Some(name.to_owned()));
         }
-        return (crate::ui::default_save_folder(), None);
+        return (default_save_folder(), None);
     }
 
     let name = current_name
@@ -668,7 +679,7 @@ async fn resolve_save_file_suggestion(
     {
         folder
     } else {
-        crate::ui::default_save_folder()
+        default_save_folder()
     };
     (folder, name)
 }
@@ -852,4 +863,10 @@ fn folder_exists_message(name: &OsStr) -> String {
         name = name.to_string_lossy()
     )
     .into_owned()
+}
+
+pub(crate) fn default_save_folder() -> PathBuf {
+    glib::user_special_dir(glib::UserDirectory::Downloads).unwrap_or_else(|| {
+        std::env::var_os("HOME").map_or_else(|| PathBuf::from("/"), PathBuf::from)
+    })
 }

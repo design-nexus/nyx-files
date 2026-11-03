@@ -55,7 +55,6 @@ mod tenxer_mode;
 mod terminal;
 mod theme;
 mod thumbnail;
-pub(crate) mod thumbnail_cache;
 mod top_bar_navigation;
 mod udiskie_preferences;
 mod virtual_preview;
@@ -63,8 +62,6 @@ mod window;
 
 #[cfg(feature = "qa")]
 pub(crate) use accessibility::qa as accessibility_qa;
-pub(crate) use chooser::{cancel_chooser, present_chooser};
-pub(crate) use window::default_save_folder;
 #[cfg(test)]
 pub(in crate::ui) use window::offer_removable_destinations_for_test;
 pub(in crate::ui) use window::{
@@ -78,6 +75,15 @@ pub(crate) use {inline_search::SEARCH_RESULTS_LABEL, preview::PREVIEW_LABEL};
 pub(crate) fn prepare_portal_ui() {
     let _theme = theme::ThemeManager::shared();
 }
+
+pub(crate) static CHOOSER_UI: crate::portal::ChooserUi = crate::portal::ChooserUi {
+    prepare: prepare_portal_ui,
+    present: |request, cancelled, completion| {
+        chooser::present_chooser(request, cancelled, completion);
+    },
+    cancel: chooser::cancel_chooser,
+    flush: preferences::flush_pending_folder_views,
+};
 
 pub(crate) fn read_install_facts() {
     let _startup = crate::util::ui_thread::allow(crate::util::ui_thread::Exception::Startup);

@@ -161,7 +161,7 @@ impl RequestInterface {
     async fn close(&self) {
         if self.requests.cancel(&self.token) {
             let token = self.token.clone();
-            glib::MainContext::default().invoke(move || crate::ui::cancel_chooser(&token));
+            glib::MainContext::default().invoke(move || (super::ui_hooks::ui().cancel)(&token));
         }
     }
 }

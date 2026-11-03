@@ -173,7 +173,7 @@ fn pump_persist_queue() {
                 break;
             };
             // Best effort: store failures are dropped; the in-memory result already applied.
-            super::thumbnail_cache::store(&job.path, job.mtime, &job.png);
+            crate::services::thumbnail_cache::store(&job.path, job.mtime, &job.png);
         }
         PERSIST_RUNNING.store(false, Ordering::SeqCst);
         // A job enqueued after the drain but before the flag cleared
@@ -297,7 +297,7 @@ pub(in crate::ui) fn cached_thumbnail(entry: &FileEntry) -> Option<gdk::Texture>
         path: entry.local_thumbnail_path()?.to_path_buf(),
         modified: known_metadata(&entry.modified_unix_seconds),
         file_size: known_metadata(&entry.size),
-        thumbnail_size: super::thumbnail_cache::CANONICAL_MAX_EDGE,
+        thumbnail_size: crate::services::thumbnail_cache::CANONICAL_MAX_EDGE,
     };
     match THUMBNAIL_CACHE.with(|cache| cache.borrow_mut().get(&key)) {
         Some(CacheHit::Ready(texture)) => Some(texture),
@@ -314,7 +314,7 @@ pub(in crate::ui) fn remember_thumbnail_for_test(entry: &FileEntry, texture: gdk
             .to_path_buf(),
         modified: known_metadata(&entry.modified_unix_seconds),
         file_size: known_metadata(&entry.size),
-        thumbnail_size: super::thumbnail_cache::CANONICAL_MAX_EDGE,
+        thumbnail_size: crate::services::thumbnail_cache::CANONICAL_MAX_EDGE,
     };
     THUMBNAIL_CACHE.with(|cache| cache.borrow_mut().insert(key, texture));
 }
@@ -337,7 +337,7 @@ pub(super) fn preserve_renamed_thumbnail(from: &crate::model::Location, entry: &
             path: from.to_path_buf(),
             modified: Some(modified),
             file_size: Some(file_size),
-            thumbnail_size: super::thumbnail_cache::CANONICAL_MAX_EDGE,
+            thumbnail_size: crate::services::thumbnail_cache::CANONICAL_MAX_EDGE,
         };
         if let Some(CacheHit::Ready(texture)) = cache.get(&key) {
             cache.remove(&key);
@@ -572,7 +572,7 @@ fn display_thumbnail_for_path(request: ThumbnailRequest<'_>) {
         path: path.clone(),
         modified: request.modified,
         file_size: request.file_size,
-        thumbnail_size: super::thumbnail_cache::CANONICAL_MAX_EDGE,
+        thumbnail_size: crate::services::thumbnail_cache::CANONICAL_MAX_EDGE,
     };
     match THUMBNAIL_CACHE.with(|cache| cache.borrow_mut().get(&key)) {
         Some(CacheHit::Ready(texture)) => {
@@ -913,7 +913,7 @@ async fn run_thumbnail_job(mut job: ThumbnailJob) {
             }
             let png = key
                 .modified
-                .and_then(|mtime| super::thumbnail_cache::lookup(&key.path, mtime));
+                .and_then(|mtime| crate::services::thumbnail_cache::lookup(&key.path, mtime));
             (key, png)
         })
         .await;
