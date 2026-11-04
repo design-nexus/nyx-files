@@ -50,7 +50,7 @@ pub(crate) mod shortcut_reference;
 mod sidebar_toggle;
 mod special_folders;
 mod table_view;
-mod tabs_session;
+pub(crate) mod tabs_session;
 pub(crate) mod tenxer_mode;
 mod terminal;
 pub(crate) mod theme;

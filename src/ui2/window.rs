@@ -841,6 +841,13 @@ impl Window {
 
     /// Brings the header, tab row and sidebar up to date with the tabs.
     fn sync(&self) {
+        let locations: Vec<Location> = self
+            .tabs
+            .borrow()
+            .iter()
+            .filter_map(|t| t.location())
+            .collect();
+        super::launch::persist_session(&locations, self.active.get());
         let tabs = self.tabs.borrow().clone();
         let shown: Vec<nyx_ui::tabs::Tab> = tabs
             .iter()

@@ -178,14 +178,14 @@ fn apply_resolved_unlock(browser: &BrowserView, resolved: ResolvedUnlock) {
     }
 }
 
-enum ResolvedUnlock {
+pub(crate) enum ResolvedUnlock {
     Volume(gio::Volume),
     PasswordDrive(gio::Drive),
     NotEncrypted,
     Unmatched,
 }
 
-fn resolve_unlock_target(target: &UnlockTarget, monitor: &gio::VolumeMonitor) -> ResolvedUnlock {
+pub(crate) fn resolve_unlock_target(target: &UnlockTarget, monitor: &gio::VolumeMonitor) -> ResolvedUnlock {
     let volumes = monitor.volumes();
     let volume_identities: Vec<_> = volumes.iter().map(volume_unlock_identity).collect();
     let drives = super::orphaned_password_drives(&volumes, &monitor.connected_drives());

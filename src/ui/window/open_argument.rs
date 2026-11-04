@@ -53,7 +53,7 @@ pub(super) fn route_location(browser: BrowserView, location: Location) {
     classify(browser, gio_file_for_location(&location), location);
 }
 
-enum Kind {
+pub(crate) enum Kind {
     Directory,
     File,
 }
@@ -114,7 +114,7 @@ fn classify(browser: BrowserView, file: gio::File, location: Location) -> Rc<Ope
     let retry_location = location.clone();
     let query_request = request.clone();
     glib::MainContext::default().spawn_local(async move {
-        let outcome = query_kind(&file, Some(&query_request.operation)).await;
+        let outcome = query_kind(&file, Some(query_request.operation.upcast_ref())).await;
         let Some(browser) = weak.upgrade() else {
             query_request.abort();
             return;
@@ -143,9 +143,9 @@ fn classify(browser: BrowserView, file: gio::File, location: Location) -> Rc<Ope
 }
 
 /// A no-follow fallback preserves broken native symlinks as revealable entries.
-async fn query_kind(
+pub(crate) async fn query_kind(
     file: &gio::File,
-    operation: Option<&gtk::MountOperation>,
+    operation: Option<&gio::MountOperation>,
 ) -> Result<Kind, glib::Error> {
     let mut mounted = false;
     loop {

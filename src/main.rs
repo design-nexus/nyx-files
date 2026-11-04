@@ -317,11 +317,7 @@ fn main() -> gtk::glib::ExitCode {
         .flags(
             gio::ApplicationFlags::HANDLES_OPEN
                 | gio::ApplicationFlags::HANDLES_COMMAND_LINE
-                | if ui2::enabled() {
-                    gio::ApplicationFlags::NON_UNIQUE
-                } else {
-                    gio::ApplicationFlags::empty()
-                },
+
         )
         .build();
 
@@ -472,7 +468,11 @@ fn handle_command_line(
         cmdline.is_remote(),
     ) {
         CommandLineAction::Unlock(target) => {
-            ui::present_unlock(application, target);
+            if ui2::enabled() {
+                ui2::present_unlock(application, target);
+            } else {
+                ui::present_unlock(application, target);
+            }
             glib::ExitCode::SUCCESS
         }
         CommandLineAction::Open(files) => {
@@ -547,7 +547,11 @@ fn export_file_manager_interface(application: &gtk::Application) {
     };
     let target = application.clone();
     if let Err(error) = adapters::export_file_manager(&connection, move |request| {
-        ui::present_reveal(&target, request);
+        if ui2::enabled() {
+            ui2::present_reveal(&target, request);
+        } else {
+            ui::present_reveal(&target, request);
+        }
     }) {
         tracing::warn!(%error, "unable to export the file manager interface");
     }

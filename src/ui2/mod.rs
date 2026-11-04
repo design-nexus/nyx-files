@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-//! The Nyx 2.0 interface, built on nyx-ui. Runs instead of `crate::ui` when
-//! `NYX_FILES_UI=2` is set, as its own (non-unique) instance.
+//! The Nyx 2.0 interface, built on nyx-ui. `NYX_FILES_UI=1` runs the previous
+//! interface instead while it remains.
 
 mod actions;
 mod appearance;
@@ -12,6 +12,7 @@ mod devices;
 mod drives;
 mod icons;
 mod icons_theme;
+mod launch;
 mod list;
 mod menus;
 mod model;
@@ -30,7 +31,7 @@ mod window;
 pub(crate) const ENV: &str = "NYX_FILES_UI";
 
 pub(crate) fn enabled() -> bool {
-    std::env::var(ENV).is_ok_and(|value| value == "2")
+    std::env::var(ENV).map_or(true, |value| value != "1")
 }
 
 pub(crate) fn present(application: &gtk::Application) {
@@ -39,7 +40,25 @@ pub(crate) fn present(application: &gtk::Application) {
         chooser::present_for_development(&kind);
         return;
     }
-    window::Window::open(application, None);
+    launch::present(application);
+}
+
+pub(crate) fn present_open(application: &gtk::Application, file: &gio::File) {
+    theme::install();
+    launch::present_open(application, file);
+}
+
+pub(crate) fn present_reveal(
+    application: &gtk::Application,
+    request: crate::adapters::RevealRequest,
+) {
+    theme::install();
+    launch::present_reveal(application, request);
+}
+
+pub(crate) fn present_unlock(application: &gtk::Application, target: crate::ui::UnlockTarget) {
+    theme::install();
+    launch::present_unlock(application, target);
 }
 
 /// The portal's chooser on the 2.0 interface.
@@ -49,10 +68,3 @@ pub(crate) static CHOOSER_UI: crate::portal::ChooserUi = crate::portal::ChooserU
     cancel: chooser::cancel,
     flush: crate::ui::preferences::flush_pending_folder_views,
 };
-
-pub(crate) fn present_open(application: &gtk::Application, file: &gio::File) {
-    use gio::prelude::FileExt;
-    theme::install();
-    let location = crate::model::Location::uri(file.uri().to_string());
-    window::Window::open(application, Some(location));
-}

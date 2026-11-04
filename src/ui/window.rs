@@ -58,11 +58,11 @@ pub(crate) mod drive_dialogs;
 pub(crate) mod drive_ops;
 pub(crate) mod keyboard;
 mod network_location;
-mod open_argument;
+pub(crate) mod open_argument;
 mod pinned_drop;
 mod sidebar;
 mod sidebar_drop_feedback;
-mod unlock_argument;
+pub(crate) mod unlock_argument;
 pub(crate) mod volume_password;
 
 #[cfg(test)]
