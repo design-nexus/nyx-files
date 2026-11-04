@@ -104,6 +104,9 @@ impl Tab {
         let results = gtk::ListBox::new();
         results.add_css_class("search-results");
         results.add_css_class("filter-results");
+        results.update_property(&[gtk::accessible::Property::Label(&crate::i18n::tr(
+            crate::ui::SEARCH_RESULTS_LABEL,
+        ))]);
         let results_scroll = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
             .vexpand(true)

@@ -69,7 +69,10 @@ pub(in crate::ui) use window::{
     send_to_recent_folders, };
 pub use window::{UnlockTarget};
 #[cfg(feature = "qa")]
-pub(crate) use {inline_search::SEARCH_RESULTS_LABEL, preview::PREVIEW_LABEL};
+pub(crate) use preview::PREVIEW_LABEL;
+
+/// The accessible name of the filter and search results list.
+pub(crate) const SEARCH_RESULTS_LABEL: &str = "Search results";
 
 
 
