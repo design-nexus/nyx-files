@@ -179,6 +179,21 @@ impl Window {
 
         this.wire();
         *holder.borrow_mut() = Rc::downgrade(&this);
+        let weak = Rc::downgrade(&this);
+        this.content
+            .connect_drop(move |destination, sources, action| {
+                let Some(w) = weak.upgrade() else { return };
+                let Some(tab) = w.current() else { return };
+                if destination.uri_value() == Some("trash:///") {
+                    let entries: Vec<_> = sources
+                        .iter()
+                        .filter_map(super::actions::entry_for)
+                        .collect();
+                    actions::trash(&w, &tab, entries);
+                } else {
+                    actions::drop_into(&w, &tab, destination, sources, action);
+                }
+            });
         this.sidebar.follow_window(&this.window);
         let expanded = PreferenceManager::shared().sidebar_expanded();
         this.sidebar_toggle.set_active(expanded);

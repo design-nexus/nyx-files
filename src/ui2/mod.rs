@@ -5,6 +5,7 @@
 
 mod actions;
 mod columns;
+mod customize;
 mod devices;
 mod drives;
 mod icons;

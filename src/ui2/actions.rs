@@ -506,6 +506,21 @@ pub(super) fn item_menu(
                 .icon("edit-copy-symbolic"),
         );
     }
+    if let [entry] = entries.as_slice()
+        && let Some(path) = entry.location.native_path()
+    {
+        let (path, directory, name) = (
+            path.to_path_buf(),
+            entry.is_directory(),
+            entry.display_name.clone(),
+        );
+        items.push(
+            menu::item(&crate::i18n::tr("Customize…"), move || {
+                super::customize::show(path.clone(), directory, &name)
+            })
+            .icon("applications-graphics-symbolic"),
+        );
+    }
     if let [entry] = entries.as_slice() {
         let entry = entry.clone();
         items.push(
@@ -695,8 +710,28 @@ pub(super) fn sidebar_menu(
             .icon("tab-new-symbolic"),
         );
     }
+    if let Target::Pin(location) | Target::Place(_, location) = &target
+        && location.native_path().is_some()
+        && let Some(entry) = entry_for(location)
+    {
+        items.push(
+            menu::item(&crate::i18n::tr("Properties"), move || {
+                super::properties::show(&entry)
+            })
+            .icon("document-properties-symbolic"),
+        );
+    }
     match &target {
         Target::Pin(location) => {
+            if let Some(path) = location.native_path() {
+                let (path, name) = (path.to_path_buf(), location.display_name());
+                items.push(
+                    menu::item(&crate::i18n::tr("Customize…"), move || {
+                        super::customize::show(path.clone(), true, &name)
+                    })
+                    .icon("applications-graphics-symbolic"),
+                );
+            }
             let l = location.clone();
             items.push(
                 menu::item(&crate::i18n::tr("Unpin"), move || {
@@ -888,4 +923,30 @@ pub(super) fn connect_to_server(window: &Rc<Window>) {
         }
         w.navigate_to(location);
     });
+}
+
+/// A plain entry for a dropped location, enough to trash it.
+pub(super) fn entry_for(location: &Location) -> Option<FileEntry> {
+    let name = location.file_name()?;
+    let directory = location.native_path().is_some_and(std::path::Path::is_dir);
+    Some(FileEntry {
+        location: location.clone(),
+        thumbnail_path: None,
+        native_name: name.clone(),
+        display_name: name.to_string_lossy().into_owned(),
+        kind: if directory {
+            crate::model::EntryKind::Directory
+        } else {
+            crate::model::EntryKind::File
+        },
+        size: crate::model::MetadataValue::Unknown,
+        modified_unix_seconds: crate::model::MetadataValue::Unknown,
+        recent_unix_seconds: crate::model::MetadataValue::Unknown,
+        recent_uri: None,
+        mode: crate::model::MetadataValue::Unknown,
+        image_dimensions: crate::model::MetadataValue::Unknown,
+        child_count: crate::model::MetadataValue::Unknown,
+        duration_seconds: crate::model::MetadataValue::Unknown,
+        is_hidden: name.to_string_lossy().starts_with('.'),
+    })
 }

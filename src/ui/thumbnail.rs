@@ -1287,7 +1287,7 @@ pub(super) fn show_customized_icon(
     set_fallback_icon(image, Some(path), fallback_icon, size);
 }
 
-pub(super) fn show_customized_icon_image(
+pub(crate) fn show_customized_icon_image(
     image: &gtk::Image,
     path: &Path,
     fallback_icon: &str,

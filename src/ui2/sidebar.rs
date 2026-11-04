@@ -28,12 +28,14 @@ pub(super) enum Target {
 
 type OpenFn = Rc<dyn Fn(Location)>;
 type MenuFn = Rc<dyn Fn(Target, &gtk::Widget, f64, f64)>;
+type DropFn = Rc<dyn Fn(Location, Vec<Location>, gtk::gdk::DragAction)>;
 
 pub(super) struct SidebarContent {
     pub(super) sidebar: Rc<Sidebar>,
     rows: RefCell<Vec<(Location, NavItem)>>,
     open: OpenFn,
     menu: MenuFn,
+    dropped: RefCell<Option<DropFn>>,
     current: RefCell<Option<Location>>,
     pins: RefCell<bookmarks::Pins>,
     queued: Cell<bool>,
@@ -160,6 +162,7 @@ impl SidebarContent {
             rows: RefCell::default(),
             open: Rc::new(open),
             menu: Rc::new(menu),
+            dropped: RefCell::new(None),
             current: RefCell::default(),
             pins: RefCell::new(bookmarks::current()),
             queued: Cell::new(false),
@@ -227,6 +230,7 @@ impl SidebarContent {
                 }
             },
         );
+        content.pin_on_drop();
         content.rebuild();
         content
     }
@@ -242,6 +246,52 @@ impl SidebarContent {
                 c.rebuild();
             }
         });
+    }
+
+    /// Files dropped on a row: its folder, the files, and Shift/Ctrl's choice.
+    pub(super) fn connect_drop(
+        self: &Rc<Self>,
+        f: impl Fn(Location, Vec<Location>, gtk::gdk::DragAction) + 'static,
+    ) {
+        *self.dropped.borrow_mut() = Some(Rc::new(f));
+        self.rebuild();
+    }
+
+    fn drop_target(
+        &self,
+        widget: &impl IsA<gtk::Widget>,
+        accepts: impl Fn() -> Option<Location> + 'static,
+    ) {
+        let target = gtk::DropTarget::new(
+            gtk::gdk::FileList::static_type(),
+            gtk::gdk::DragAction::COPY | gtk::gdk::DragAction::MOVE,
+        );
+        target.connect_enter(|t, _, _| {
+            if let Some(w) = t.widget() {
+                w.add_css_class("drop-target");
+            }
+            super::actions::drop_action(t)
+        });
+        target.connect_motion(|t, _, _| super::actions::drop_action(t));
+        target.connect_leave(|t| {
+            if let Some(w) = t.widget() {
+                w.remove_css_class("drop-target");
+            }
+        });
+        let dropped = self.dropped.borrow().clone();
+        target.connect_drop(move |t, value, _, _| {
+            if let Some(w) = t.widget() {
+                w.remove_css_class("drop-target");
+            }
+            let (Some(destination), Some(sources), Some(f)) =
+                (accepts(), super::actions::dropped(value), dropped.as_ref())
+            else {
+                return false;
+            };
+            f(destination, sources, super::actions::forced_action(t));
+            true
+        });
+        widget.add_controller(target);
     }
 
     /// Marks the row for `location` as the one showing.
@@ -261,6 +311,13 @@ impl SidebarContent {
         target: Target,
     ) -> NavItem {
         let item = sidebar::nav_item(icon, title, tooltip);
+        if let Some(location) = location
+            .clone()
+            .filter(|l| !l.is_recent_location() && l.uri_value() != Some("network:///"))
+        {
+            let l = location.clone();
+            self.drop_target(&item.button, move || Some(l.clone()));
+        }
         if let Some(location) = location {
             let (open, target_location) = (self.open.clone(), location.clone());
             item.button
@@ -335,10 +392,33 @@ impl SidebarContent {
                 &name,
                 &location.display_path(),
                 Some(location.clone()),
-                Target::Pin(location),
+                Target::Pin(location.clone()),
             );
+            reorderable(&item.button, &location);
             self.sidebar.append(&item.button);
         }
+    }
+
+    /// Folders dropped on the sidebar's empty space are pinned.
+    fn pin_on_drop(&self) {
+        let target = gtk::DropTarget::new(
+            gtk::gdk::FileList::static_type(),
+            gtk::gdk::DragAction::LINK | gtk::gdk::DragAction::COPY,
+        );
+        target.connect_drop(|_, value, _, _| {
+            let Some(sources) = super::actions::dropped(value) else {
+                return false;
+            };
+            let folders: Vec<Location> = sources
+                .into_iter()
+                .filter(|l| l.native_path().is_none_or(std::path::Path::is_dir))
+                .collect();
+            for folder in &folders {
+                pin(folder.clone(), folder.display_name());
+            }
+            !folders.is_empty()
+        });
+        self.sidebar.list.add_controller(target);
     }
 
     fn devices(self: &Rc<Self>) {
@@ -623,4 +703,47 @@ impl SidebarContent {
             }
         });
     }
+}
+
+const PIN_PREFIX: &str = "nyx-files-pin:";
+
+/// A pin row can be dragged onto another to move it there.
+fn reorderable(button: &gtk::Button, location: &Location) {
+    let source = gtk::DragSource::new();
+    source.set_actions(gtk::gdk::DragAction::MOVE);
+    let key = format!("{PIN_PREFIX}{}", location.display_path());
+    source.connect_prepare(move |_, _, _| {
+        Some(gtk::gdk::ContentProvider::for_value(&key.to_value()))
+    });
+    button.add_controller(source);
+    let target = gtk::DropTarget::new(String::static_type(), gtk::gdk::DragAction::MOVE);
+    let here = location.clone();
+    target.connect_drop(move |_, value, _, _| {
+        let Some(from) = value
+            .get::<String>()
+            .ok()
+            .and_then(|v| v.strip_prefix(PIN_PREFIX).map(str::to_string))
+        else {
+            return false;
+        };
+        let here = here.clone();
+        glib::MainContext::default().spawn_local(async move {
+            let edit = move |contents: &[u8]| {
+                let mut places = bookmarks::parse_pinned_places(contents);
+                let source = places.iter().position(|(l, _)| l.display_path() == from)?;
+                let entry = places.remove(source);
+                let target = places
+                    .iter()
+                    .position(|(l, _)| *l == here)
+                    .unwrap_or(places.len());
+                places.insert(target, entry);
+                Some(bookmarks::serialize_pinned_places(&places).into_bytes())
+            };
+            if let Err(error) = bookmarks::update(edit).await {
+                tracing::warn!(%error, "unable to reorder pins");
+            }
+        });
+        true
+    });
+    button.add_controller(target);
 }

@@ -189,3 +189,22 @@ window.files-window button.chip.permission-bit {
 .device-row button.device-eject:hover {
   color: @theme_text;
 }
+
+/* Customize */
+
+.customize-card {
+  padding: 18px;
+}
+
+window.files-window button.customize-swatch {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 13px;
+  border: none;
+}
+
+window.files-window button.customize-icon {
+  min-width: 34px;
+  min-height: 34px;
+}

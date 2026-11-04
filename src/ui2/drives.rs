@@ -181,7 +181,7 @@ pub(super) fn format(target: &Target, overlay: &gtk::Overlay) {
         .collect();
     let c = chosen.clone();
     let list = available.clone();
-    let switch = widgets::segmented(&options, &chosen.get().label().to_string(), move |id| {
+    let switch = widgets::segmented(&options, chosen.get().label(), move |id| {
         if let Some(fs) = list.iter().find(|fs| fs.label() == id) {
             c.set(*fs);
         }
