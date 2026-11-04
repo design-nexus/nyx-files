@@ -1389,6 +1389,49 @@ fn set_fallback_icon(
     ids
 }
 
+const THEME_ICON: &str = "theme:";
+
+/// A fallback drawn from the icon theme by name. `asset` is the built-in icon
+/// used when the user has customized the item (colour or custom icon).
+pub(crate) fn theme_icon(name: &str, asset: &str) -> String {
+    format!("{THEME_ICON}{name}|{asset}")
+}
+
+fn split_theme_icon(icon: &str) -> Option<(&str, &str)> {
+    icon.strip_prefix(THEME_ICON)?.split_once('|')
+}
+
+thread_local! {
+    static THEME_TEXTURES: RefCell<HashMap<(String, i32, i32), Option<gdk::Texture>>> =
+        RefCell::new(HashMap::new());
+}
+
+fn theme_icon_texture(name: &str, size: i32, scale: i32) -> Option<gdk::Texture> {
+    let key = (name.to_owned(), size, scale);
+    if let Some(cached) = THEME_TEXTURES.with_borrow(|t| t.get(&key).cloned()) {
+        return cached;
+    }
+    let texture = gdk::Display::default().and_then(|display| {
+        let theme = gtk::IconTheme::for_display(&display);
+        let icon = theme.lookup_icon(
+            name,
+            &[],
+            size,
+            scale,
+            gtk::TextDirection::None,
+            gtk::IconLookupFlags::empty(),
+        );
+        let path = icon.file()?.path()?;
+        let px = size * scale.max(1);
+        let pixbuf = gdk_pixbuf::Pixbuf::from_file_at_size(path, px, px).ok()?;
+        #[expect(deprecated, reason = "the slot keeps a texture; pixbuf loading sizes SVGs")]
+        let texture = gdk::Texture::for_pixbuf(&pixbuf);
+        Some(texture)
+    });
+    THEME_TEXTURES.with_borrow_mut(|t| t.insert(key, texture.clone()));
+    texture
+}
+
 fn path_icon_texture(
     path: Option<&Path>,
     fallback_icon: &str,
@@ -1396,6 +1439,16 @@ fn path_icon_texture(
     scale_factor: i32,
     context: crate::assets::IconContext,
 ) -> (Option<gdk::Texture>, bool) {
+    if let Some((name, asset)) = split_theme_icon(fallback_icon) {
+        let preferences = super::preferences::PreferenceManager::shared();
+        let customized = path.is_some_and(|path| {
+            preferences.custom_icon(path).is_some() || preferences.folder_color(path).is_some()
+        });
+        if customized {
+            return path_icon_texture(path, asset, size, scale_factor, context);
+        }
+        return (theme_icon_texture(name, size, scale_factor), false);
+    }
     let Some(path) = path else {
         return (
             crate::assets::sized_icon_paintable(

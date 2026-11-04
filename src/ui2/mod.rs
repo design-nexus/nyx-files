@@ -11,6 +11,7 @@ mod customize;
 mod devices;
 mod drives;
 mod icons;
+mod icons_theme;
 mod list;
 mod menus;
 mod model;
