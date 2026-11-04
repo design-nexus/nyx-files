@@ -617,7 +617,7 @@ fn notify(owner: &glib::WeakRef<gtk::Widget>, message: &str) {
     super::modal::show_information_dialog(&owner, &crate::i18n::tr("File availability"), message);
 }
 /// The caller owns the epoch: rebuilding/closing a menu cancels its old watcher.
-pub(super) fn watch_menu(
+pub(crate) fn watch_menu(
     models: (gio::Menu, Option<gio::Menu>),
     group: gio::SimpleActionGroup,
     owner: (&gtk::Widget, &gtk::PopoverMenu),

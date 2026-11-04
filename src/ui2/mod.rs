@@ -11,6 +11,7 @@ mod devices;
 mod drives;
 mod icons;
 mod list;
+mod menus;
 mod model;
 mod mount;
 mod open_with;

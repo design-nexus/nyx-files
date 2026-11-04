@@ -70,7 +70,7 @@ pub(super) fn device_identity(
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::ui) struct RemovableDestination {
+pub(crate) struct RemovableDestination {
     pub id: String,
     pub name: String,
     pub root: PathBuf,
@@ -235,13 +235,13 @@ pub(in crate::ui) fn watch_removable_destinations(changed: impl Fn() + 'static) 
     }
 }
 
-pub(in crate::ui) fn removable_destinations() -> Vec<RemovableDestination> {
+pub(crate) fn removable_destinations() -> Vec<RemovableDestination> {
     start_removable_destinations();
     probe_unanswered_roots();
     REMOVABLE.with(|cache| cache.destinations.borrow().clone())
 }
 
-pub(in crate::ui) fn send_to_recent_folders(destination: &RemovableDestination) -> Vec<PathBuf> {
+pub(crate) fn send_to_recent_folders(destination: &RemovableDestination) -> Vec<PathBuf> {
     let remembered = crate::ui::preferences::PreferenceManager::shared()
         .send_to_recent_destinations(&destination.id);
     if remembered.is_empty() {

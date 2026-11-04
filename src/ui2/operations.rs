@@ -309,6 +309,16 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, event: &BrowserEvent) {
             progress.finish();
             browser.refresh_operation_columns(depths);
         }
+        BrowserEvent::EntryCreated { location } => {
+            let group = window.pending_group.borrow().clone();
+            if let Some((folder, sources)) = group
+                && &folder == location
+            {
+                window.pending_group.take();
+                browser.expect_group_folder(folder.clone());
+                super::actions::transfer(window, tab, folder, sources, true);
+            }
+        }
         BrowserEvent::RenameFailed { message, .. } => toast::show(&window.overlay, message),
         BrowserEvent::ColumnNotResponding {
             not_responding: true,

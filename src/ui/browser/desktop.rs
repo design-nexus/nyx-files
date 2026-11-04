@@ -189,7 +189,7 @@ fn report_open_result(
     }
 }
 
-pub(super) fn entry_is_regular_executable(entry: &FileEntry) -> bool {
+pub(crate) fn entry_is_regular_executable(entry: &FileEntry) -> bool {
     entry.location.native_path().is_some()
         && matches!(
             entry.kind,
@@ -198,7 +198,7 @@ pub(super) fn entry_is_regular_executable(entry: &FileEntry) -> bool {
         && matches!(entry.mode, crate::model::MetadataValue::Known(mode) if mode & 0o111 != 0)
 }
 
-pub(super) fn confirm_run_program(location: &Location, parent: &impl IsA<gtk::Widget>) {
+pub(crate) fn confirm_run_program(location: &Location, parent: &impl IsA<gtk::Widget>) {
     let Some(ModalHost {
         overlay: window_overlay,
         blurred_root,
@@ -323,7 +323,7 @@ pub(super) fn selected_terminal_location(entries: &[FileEntry]) -> Option<Locati
     entry.is_directory().then(|| entry.location.clone())
 }
 
-pub(in crate::ui) fn launch_terminal(location: &Location, parent: &impl IsA<gtk::Widget>) {
+pub(crate) fn launch_terminal(location: &Location, parent: &impl IsA<gtk::Widget>) {
     let Some(path) = location.native_path() else {
         show_error_dialog(
             parent,

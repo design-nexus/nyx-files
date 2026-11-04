@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 mod accessibility;
-mod actions;
+pub(crate) mod actions;
 mod blur;
 pub(crate) mod browser;
 pub(crate) mod browser_modes;
@@ -15,7 +15,7 @@ mod desktop_integration;
 mod document_media;
 mod document_view;
 mod entry_list_model;
-mod file_providers;
+pub(crate) mod file_providers;
 mod focus_navigation;
 mod folder_picker;
 mod frame;

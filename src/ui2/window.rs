@@ -46,6 +46,8 @@ pub(super) struct Window {
     view_switch: RefCell<Vec<(BrowserMode, gtk::ToggleButton)>>,
     filter: gtk::SearchEntry,
     pub(super) progress: Rc<super::operations::Progress>,
+    /// A folder being made for the selection, and what moves into it.
+    pub(super) pending_group: RefCell<Option<(Location, Vec<Location>)>>,
 }
 
 /// The window with focus, for keys that reach every window.
@@ -172,6 +174,7 @@ impl Window {
             active: Cell::new(0),
             view_switch: RefCell::new(Vec::new()),
             progress,
+            pending_group: RefCell::new(None),
             filter,
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
@@ -480,6 +483,12 @@ impl Window {
         }
     }
 
+    pub(super) fn open_window(&self, location: Location) {
+        if let Some(app) = self.window.application() {
+            Window::open(&app, Some(location));
+        }
+    }
+
     pub(super) fn open_tab(self: &Rc<Self>, location: Location) {
         self.add_tab(location);
     }
@@ -493,8 +502,8 @@ impl Window {
         y: f64,
     ) {
         let items = match entry {
-            Some(_) => actions::item_menu(self, tab, tab.selected()),
-            None => actions::folder_menu(self, tab),
+            Some(_) => super::menus::item_menu(self, tab, tab.selected()),
+            None => super::menus::folder_menu(self, tab),
         };
         nyx_ui::menu::popup_at(widget, x, y, items);
     }
@@ -513,8 +522,14 @@ impl Window {
             if let Some(here) = tab.location() {
                 actions::paste(self, &tab, here);
             }
+        } else if press.is(bindings::DELETE_PERMANENTLY) {
+            super::menus::delete_permanently(self, &tab, selected);
         } else if press.is(bindings::DELETE) {
-            actions::trash(self, &tab, selected);
+            super::menus::remove(self, &tab, selected);
+        } else if press.is(bindings::DUPLICATE) {
+            super::menus::duplicate(self, &tab, &selected);
+        } else if press.is(bindings::NEW_FOLDER_WITH_SELECTION) {
+            super::menus::new_folder_with_selection(self, &tab, selected);
         } else if press.is(bindings::RENAME) {
             if let [entry] = selected.as_slice() {
                 actions::rename(&tab, entry.clone());
@@ -541,9 +556,7 @@ impl Window {
         } else if press.is_any(&[bindings::REDO, bindings::REDO_Y]) {
             actions::redo(&tab);
         } else if press.is(bindings::PROPERTIES) {
-            if let [entry] = selected.as_slice() {
-                super::properties::show(entry);
-            }
+            super::menus::properties(selected);
         } else if press.is(bindings::SELECT_ALL) {
             tab.active_model().selection.select_all();
         } else if press.is(bindings::OPEN_IN_NEW_TAB) {

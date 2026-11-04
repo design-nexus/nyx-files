@@ -1,0 +1,887 @@
+// SPDX-License-Identifier: MIT
+
+//! The item and folder menus, with every action Files offers there, and the
+//! actions only these menus (and their keys) reach.
+
+use std::{path::PathBuf, rc::Rc};
+
+use gtk::{gio, glib, prelude::*};
+use nyx_ui::{menu, toast, widgets};
+
+use crate::{
+    model::{FileEntry, Location},
+    ui::{browser::desktop, keys::bindings},
+};
+
+use super::{
+    actions::{self, keys},
+    tab::Tab,
+    window::Window,
+};
+
+fn in_trash(location: &Location) -> bool {
+    location
+        .uri_value()
+        .is_some_and(|uri| uri.starts_with("trash:"))
+}
+
+fn copy_text(text: &str) {
+    if let Some(display) = gtk::gdk::Display::default() {
+        display.clipboard().set_text(text);
+    }
+}
+
+/// Asks before deleting for good; Trash can't take these back.
+pub(super) fn delete_permanently(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>) {
+    if entries.is_empty() {
+        return;
+    }
+    let (dialog, card) = widgets::dialog(&crate::i18n::tr("Delete permanently?"), 420);
+    let names: Vec<String> = entries
+        .iter()
+        .take(4)
+        .map(|e| e.display_name.clone())
+        .collect();
+    let mut text = names.join(", ");
+    if entries.len() > names.len() {
+        text.push_str(&format!(" +{}", entries.len() - names.len()));
+    }
+    let note = widgets::label(
+        &format!("{text}\n\n{}", crate::i18n::tr("This can't be undone.")),
+        "dim",
+    );
+    note.set_wrap(true);
+    card.append(&note);
+    let buttons = widgets::hbox(8);
+    buttons.set_halign(gtk::Align::End);
+    buttons.set_margin_top(6);
+    let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
+    let delete = gtk::Button::with_label(&crate::i18n::tr("Delete"));
+    delete.add_css_class("destructive-action");
+    buttons.append(&cancel);
+    buttons.append(&delete);
+    card.append(&buttons);
+    let d = dialog.clone();
+    cancel.connect_clicked(move |_| d.close());
+    let (d, t) = (dialog.clone(), tab.clone());
+    delete.connect_clicked(move |_| {
+        d.close();
+        t.browser.delete(entries.clone(), true);
+    });
+    let _ = window;
+    dialog.present();
+    cancel.grab_focus();
+}
+
+/// Trash, or deleting for good where Trash can't take them (inside Trash, or
+/// a place without one).
+pub(super) fn remove(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>) {
+    let here = tab.location();
+    let no_trash = here.as_ref().is_some_and(in_trash)
+        || tab
+            .browser
+            .active_depth()
+            .and_then(|d| tab.browser.can_trash_at(d))
+            == Some(false);
+    if no_trash {
+        delete_permanently(window, tab, entries);
+    } else {
+        actions::trash(window, tab, entries);
+    }
+}
+
+/// Puts trashed items back where they came from, after showing where that is.
+pub(super) fn restore(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>) {
+    let (window, tab) = (window.clone(), tab.clone());
+    glib::MainContext::default().spawn_local(async move {
+        let lookups = entries
+            .iter()
+            .map(|e| (e.location.clone(), e.thumbnail_path.clone()))
+            .collect();
+        let found =
+            crate::adapters::trash_restore::restore_destinations_for_locations(lookups).await;
+        let mut items = Vec::new();
+        let mut problems = Vec::new();
+        for (entry, destination) in entries.into_iter().zip(found) {
+            match destination {
+                Ok(destination) => {
+                    items.push(crate::services::RestoreTrashItem { entry, destination })
+                }
+                Err(error) => {
+                    problems.push(format!("{}: {}", entry.display_name, error.user_message()))
+                }
+            }
+        }
+        if items.is_empty() {
+            toast::show(&window.overlay, &problems.join("\n"));
+            return;
+        }
+        let (dialog, card) = widgets::dialog(&crate::i18n::tr("Restore"), 460);
+        for item in &items {
+            let row = widgets::hbox(8);
+            let name = widgets::label(&item.entry.display_name, "search-name");
+            name.set_hexpand(true);
+            row.append(&name);
+            row.append(&widgets::label(
+                &item.destination.display().to_string(),
+                "dim",
+            ));
+            card.append(&row);
+        }
+        if !problems.is_empty() {
+            let note = widgets::label(&problems.join("\n"), "dim");
+            note.set_wrap(true);
+            card.append(&note);
+        }
+        let buttons = widgets::hbox(8);
+        buttons.set_halign(gtk::Align::End);
+        buttons.set_margin_top(6);
+        let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
+        let ok = gtk::Button::with_label(&crate::i18n::tr("Restore"));
+        ok.add_css_class("suggested-action");
+        buttons.append(&cancel);
+        buttons.append(&ok);
+        card.append(&buttons);
+        let d = dialog.clone();
+        cancel.connect_clicked(move |_| d.close());
+        let d = dialog.clone();
+        ok.connect_clicked(move |_| {
+            d.close();
+            tab.browser.restore(items.clone());
+        });
+        dialog.present();
+        ok.grab_focus();
+    });
+}
+
+/// A copy of each item beside it.
+pub(super) fn duplicate(window: &Rc<Window>, tab: &Rc<Tab>, entries: &[FileEntry]) {
+    let Some(parent) = entries.first().and_then(|e| e.location.parent()) else {
+        return;
+    };
+    if entries
+        .iter()
+        .any(|e| e.location.parent().as_ref() != Some(&parent))
+    {
+        return;
+    }
+    actions::transfer(
+        window,
+        tab,
+        parent,
+        entries.iter().map(|e| e.location.clone()).collect(),
+        false,
+    );
+}
+
+/// Names a new folder, then moves the selection into it.
+pub(super) fn new_folder_with_selection(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    entries: Vec<FileEntry>,
+) {
+    let Some(parent) = tab.location() else { return };
+    let (w, t) = (window.clone(), tab.clone());
+    widgets::ask_text(
+        &crate::i18n::tr("New folder with selection"),
+        "",
+        &crate::i18n::tr("New Folder"),
+        &crate::i18n::tr("Create"),
+        move |name| {
+            let Some(folder) = parent.child(std::ffi::OsStr::new(&name)) else {
+                return;
+            };
+            w.pending_group.replace(Some((
+                folder,
+                entries.iter().map(|e| e.location.clone()).collect(),
+            )));
+            t.browser.create_exact_entry(parent.clone(), name, true);
+        },
+    );
+}
+
+pub(super) fn new_file(tab: &Rc<Tab>) {
+    let Some(parent) = tab.location() else { return };
+    let tab = tab.clone();
+    widgets::ask_text(
+        &crate::i18n::tr("New file"),
+        "",
+        &crate::i18n::tr("New File"),
+        &crate::i18n::tr("Create"),
+        move |name| tab.browser.create_exact_entry(parent.clone(), name, false),
+    );
+}
+
+/// Moves or copies the selection into a folder chosen in a dialog.
+fn transfer_to(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>, moving: bool) {
+    let title = crate::i18n::tr(if moving { "Move to" } else { "Copy to" });
+    let dialog = gtk::FileDialog::builder().title(title).modal(true).build();
+    if let Some(folder) = tab
+        .location()
+        .and_then(|l| l.native_path().map(gio::File::for_path))
+    {
+        dialog.set_initial_folder(Some(&folder));
+    }
+    let (w, t) = (window.clone(), tab.clone());
+    dialog.select_folder(
+        Some(&window.window),
+        gio::Cancellable::NONE,
+        move |result| {
+            if let Some(path) = result.ok().and_then(|f| f.path()) {
+                let sources = entries.iter().map(|e| e.location.clone()).collect();
+                actions::transfer(&w, &t, Location::local(path), sources, moving);
+            }
+        },
+    );
+}
+
+/// Send to: removable drives (their root, a recent folder there, or one chosen).
+fn send_to(window: &Rc<Window>, tab: &Rc<Tab>, entries: &[FileEntry]) -> Option<menu::Entry> {
+    let destinations = crate::ui::window::devices::removable_destinations();
+    if destinations.is_empty() {
+        return None;
+    }
+    let sources: Vec<Location> = entries.iter().map(|e| e.location.clone()).collect();
+    let mut items = Vec::new();
+    for destination in destinations {
+        let (w, t, s, root) = (
+            window.clone(),
+            tab.clone(),
+            sources.clone(),
+            destination.root.clone(),
+        );
+        items.push(
+            menu::item(&destination.name, move || {
+                actions::transfer(&w, &t, Location::local(root.clone()), s.clone(), false)
+            })
+            .icon("drive-removable-media-symbolic"),
+        );
+        for folder in crate::ui::window::devices::send_to_recent_folders(&destination)
+            .into_iter()
+            .take(3)
+        {
+            let (w, t, s) = (window.clone(), tab.clone(), sources.clone());
+            let target: PathBuf = destination.root.join(&folder);
+            let label = format!("{} › {}", destination.name, folder.display());
+            items.push(
+                menu::item(&label, move || {
+                    actions::transfer(&w, &t, Location::local(target.clone()), s.clone(), false)
+                })
+                .icon("folder-symbolic"),
+            );
+        }
+    }
+    Some(menu::sub(&crate::i18n::tr("Send to…"), items).icon("document-send-symbolic"))
+}
+
+/// Your own actions that apply to these items (or this folder).
+fn custom_actions(
+    window: &Rc<Window>,
+    inputs: Vec<crate::model::ActionInput>,
+    paths: Vec<PathBuf>,
+    parent: PathBuf,
+    background: bool,
+) -> Option<menu::Entry> {
+    let catalog = crate::ui::actions::shared().catalog();
+    let matched = catalog.matches(&inputs);
+    if matched.is_empty() {
+        return None;
+    }
+    let source = if background {
+        crate::services::InvocationSource::Background
+    } else {
+        crate::services::InvocationSource::Selection
+    };
+    let mut items = Vec::new();
+    for found in matched {
+        let action = found.action.clone();
+        let (w, paths, parent) = (window.clone(), paths.clone(), parent.clone());
+        let name = action.name().to_string();
+        let enabled = action.is_available();
+        items.push(
+            menu::item(&name, move || {
+                crate::ui::actions::run_action(
+                    &w.window,
+                    action.clone(),
+                    paths.clone(),
+                    parent.clone(),
+                    source,
+                    None,
+                )
+            })
+            .icon(crate::ui::actions::action_icon(
+                found.action.definition.icon.as_deref(),
+            ))
+            .enabled(enabled),
+        );
+    }
+    Some(menu::sub(&crate::i18n::tr("Actions"), items).icon("system-run-symbolic"))
+}
+
+/// What sync and storage providers offer for these paths, in their own menu.
+fn providers(window: &Rc<Window>, paths: Vec<PathBuf>, background: bool) -> Option<menu::Entry> {
+    let root = crate::services::file_providers::config_root()?;
+    if crate::services::file_providers::discover(&root).is_empty() {
+        return None;
+    }
+    let w = window.clone();
+    Some(
+        menu::item(&crate::i18n::tr("Sync and storage…"), move || {
+            let model = gio::Menu::new();
+            let group = gio::SimpleActionGroup::new();
+            let popover = gtk::PopoverMenu::from_model(Some(&model));
+            popover.insert_action_group("provider", Some(&group));
+            popover.set_parent(&w.window);
+            popover.set_has_arrow(false);
+            let anchor: gtk::Widget = w.window.clone().upcast();
+            crate::ui::file_providers::watch_menu(
+                (model, None),
+                group,
+                (&anchor, &popover),
+                paths.clone(),
+                background,
+                (Rc::new(std::cell::Cell::new(0)), 0),
+                |_| {},
+            );
+            popover.connect_closed(|p| {
+                let p = p.clone();
+                glib::idle_add_local_once(move || p.unparent());
+            });
+            popover.popup();
+        })
+        .icon("emblem-shared-symbolic"),
+    )
+}
+
+/// Properties for several items: how many, of what kinds, and how big.
+fn selection_properties(entries: Vec<FileEntry>) {
+    let (dialog, card) = widgets::dialog(&crate::i18n::count("items", entries.len()), 420);
+    let folders = entries.iter().filter(|e| e.is_directory()).count();
+    let files = entries.len() - folders;
+    let size: u64 = entries
+        .iter()
+        .filter_map(|e| match e.size {
+            crate::model::MetadataValue::Known(s) if !e.is_directory() => Some(s),
+            _ => None,
+        })
+        .sum();
+    let details = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    details.add_css_class("properties-details");
+    for (title, value) in [
+        (
+            "Contains",
+            format!(
+                "{}, {}",
+                crate::i18n::count("files", files),
+                crate::i18n::count("folders", folders)
+            ),
+        ),
+        (
+            "Size",
+            if folders > 0 {
+                format!("≥ {}", glib::format_size(size))
+            } else {
+                glib::format_size(size).to_string()
+            },
+        ),
+        (
+            "Location",
+            entries
+                .first()
+                .and_then(|e| e.location.parent())
+                .map(|l| l.display_path())
+                .unwrap_or_default(),
+        ),
+    ] {
+        let line = widgets::hbox(12);
+        let key = widgets::label(&crate::i18n::tr(title), "properties-row-label");
+        key.set_width_chars(12);
+        line.append(&key);
+        let value = widgets::label(&value, "properties-row-value");
+        value.set_selectable(true);
+        value.set_wrap(true);
+        line.append(&value);
+        details.append(&line);
+    }
+    card.append(&details);
+    let close = gtk::Button::with_label(&crate::i18n::tr("Close"));
+    close.set_halign(gtk::Align::End);
+    let d = dialog.clone();
+    close.connect_clicked(move |_| d.close());
+    card.append(&close);
+    dialog.present();
+}
+
+pub(super) fn properties(entries: Vec<FileEntry>) {
+    match entries.as_slice() {
+        [entry] => super::properties::show(entry),
+        [] => {}
+        _ => selection_properties(entries),
+    }
+}
+
+/// The menu for the selected items (a right-click on one of them).
+pub(super) fn item_menu(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    entries: Vec<FileEntry>,
+) -> Vec<menu::Entry> {
+    let one = (entries.len() == 1).then(|| entries[0].clone());
+    let folder = one.as_ref().filter(|e| e.is_directory()).cloned();
+    let trashed = entries.iter().all(|e| in_trash(&e.location));
+    let native = entries.iter().all(|e| e.location.native_path().is_some());
+    let mut items = Vec::new();
+    {
+        let (t, e) = (tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Open"), move || {
+                e.iter().for_each(|x| t.open(x))
+            })
+            .icon("document-open-symbolic")
+            .key("Enter"),
+        );
+    }
+    if let Some(folder) = folder.clone() {
+        let w = window.clone();
+        let l = folder.location.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("New Tab"), move || w.open_tab(l.clone()))
+                .icon("tab-new-symbolic")
+                .key(&keys(bindings::OPEN_IN_NEW_TAB)),
+        );
+        let w = window.clone();
+        let l = folder.location.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("New Window"), move || {
+                w.open_window(l.clone())
+            })
+            .icon("window-new-symbolic"),
+        );
+    }
+    if entries.iter().all(|e| !e.is_directory()) && !trashed {
+        items.push(super::open_with::submenu(window, &entries));
+    }
+    if let Some(entry) = one.clone() {
+        if !entry.is_directory() && crate::ui::preview::entry_supports_quick_preview(&entry) {
+            let t = tab.clone();
+            let e = entry.clone();
+            items.push(
+                menu::item(&crate::i18n::tr("Quick preview"), move || {
+                    t.preview.toggle(
+                        crate::ui::preview::preview_target(Some(e.clone())),
+                        t.browser.active_depth(),
+                    )
+                })
+                .icon("view-reveal-symbolic")
+                .key("Space"),
+            );
+        }
+        if desktop::entry_is_regular_executable(&entry) {
+            let (l, w) = (entry.location.clone(), window.clone());
+            items.push(
+                menu::item(&crate::i18n::tr("Run"), move || {
+                    desktop::confirm_run_program(&l, &w.window)
+                })
+                .icon("media-playback-start-symbolic"),
+            );
+        }
+        let shown_elsewhere = tab.location().as_ref() != entry.location.parent().as_ref();
+        if shown_elsewhere && let Some(parent) = entry.location.parent() {
+            let (t, l) = (tab.clone(), entry.location.clone());
+            items.push(
+                menu::item(&crate::i18n::tr("Open file location"), move || {
+                    t.browser.reveal_locations(parent.clone(), vec![l.clone()]);
+                })
+                .icon("folder-open-symbolic"),
+            );
+        }
+        if entry.is_directory() && entry.location.native_path().is_some() {
+            let (l, w) = (entry.location.clone(), window.clone());
+            items.push(
+                menu::item(&crate::i18n::tr("Open in Terminal"), move || {
+                    desktop::launch_terminal(&l, &w.window)
+                })
+                .icon("utilities-terminal-symbolic"),
+            );
+        }
+        if !entry.is_directory() && crate::ui::preview::entry_supports_quick_preview(&entry) {
+            let (t, e) = (tab.clone(), entry.clone());
+            items.push(
+                menu::item(&crate::i18n::tr("Print"), move || {
+                    t.preview.print_entry(e.clone())
+                })
+                .icon("document-print-symbolic"),
+            );
+        }
+    }
+    if trashed {
+        items.push(menu::separator());
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Restore"), move || {
+                restore(&w, &t, e.clone())
+            })
+            .icon("edit-undo-symbolic"),
+        );
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Delete permanently"), move || {
+                delete_permanently(&w, &t, e.clone())
+            })
+            .icon("edit-delete-symbolic")
+            .danger(),
+        );
+        return items;
+    }
+    if let Some(recent) = one.as_ref().and_then(|e| e.recent_uri.clone()) {
+        items.push(
+            menu::item(&crate::i18n::tr("Remove from Recent"), move || {
+                let _ = gtk::RecentManager::default().remove_item(&recent);
+            })
+            .icon("edit-clear-symbolic"),
+        );
+    }
+    items.push(menu::separator());
+    {
+        let e = entries.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("Cut"), move || actions::copy(&e, true))
+                .icon("edit-cut-symbolic")
+                .key(&keys(bindings::CUT)),
+        );
+    }
+    {
+        let e = entries.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("Copy"), move || actions::copy(&e, false))
+                .icon("edit-copy-symbolic")
+                .key(&keys(bindings::COPY)),
+        );
+    }
+    if let Some(folder) = folder.clone() {
+        let (w, t) = (window.clone(), tab.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Paste into folder"), move || {
+                actions::paste(&w, &t, folder.location.clone())
+            })
+            .icon("edit-paste-symbolic"),
+        );
+    }
+    {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Duplicate"), move || duplicate(&w, &t, &e))
+                .icon("edit-copy-symbolic")
+                .key(&keys(bindings::DUPLICATE)),
+        );
+    }
+    {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        let (w2, t2, e2) = (window.clone(), tab.clone(), entries.clone());
+        let mut transfer = vec![
+            menu::item(&crate::i18n::tr("Move to…"), move || {
+                transfer_to(&w, &t, e.clone(), true)
+            })
+            .icon("go-jump-symbolic"),
+            menu::item(&crate::i18n::tr("Copy to…"), move || {
+                transfer_to(&w2, &t2, e2.clone(), false)
+            })
+            .icon("folder-symbolic"),
+        ];
+        if let Some(send) = send_to(window, tab, &entries) {
+            transfer.push(send);
+        }
+        items.extend(transfer);
+    }
+    if native && tab.location().is_some_and(|l| !l.is_recent_location()) {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("New Folder with Selection"), move || {
+                new_folder_with_selection(&w, &t, e.clone())
+            })
+            .icon("folder-new-symbolic")
+            .key(&keys(bindings::NEW_FOLDER_WITH_SELECTION)),
+        );
+    }
+    items.push(menu::separator());
+    if let Some(entry) = one.clone() {
+        let t = tab.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("Rename…"), move || {
+                actions::rename(&t, entry.clone())
+            })
+            .icon("document-edit-symbolic")
+            .key(&keys(bindings::RENAME)),
+        );
+    }
+    {
+        let e = entries.clone();
+        items.push(
+            menu::item(
+                &crate::i18n::tr(if entries.len() == 1 {
+                    "Copy path"
+                } else {
+                    "Copy paths"
+                }),
+                move || actions::copy_paths(&e),
+            )
+            .icon("edit-copy-symbolic"),
+        );
+    }
+    {
+        let names: Vec<String> = entries.iter().map(|e| e.display_name.clone()).collect();
+        items.push(
+            menu::item(
+                &crate::i18n::tr(if entries.len() == 1 {
+                    "Copy name"
+                } else {
+                    "Copy names"
+                }),
+                move || copy_text(&names.join("\n")),
+            )
+            .icon("edit-copy-symbolic"),
+        );
+    }
+    if let Some(folder) = folder.clone() {
+        let location = folder.location.clone();
+        if super::sidebar::is_pinned(&location) {
+            if !super::sidebar::is_place_location(&location) {
+                items.push(
+                    menu::item(&crate::i18n::tr("Unpin from sidebar"), move || {
+                        super::sidebar::unpin(location.clone())
+                    })
+                    .icon("view-pin-symbolic"),
+                );
+            }
+        } else {
+            let name = folder.display_name.clone();
+            items.push(
+                menu::item(&crate::i18n::tr("Pin to sidebar"), move || {
+                    super::sidebar::pin(location.clone(), name.clone())
+                })
+                .icon("view-pin-symbolic"),
+            );
+        }
+    }
+    if native {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Compress…"), move || {
+                super::operations::compress(&w, &t, e.clone())
+            })
+            .icon("package-x-generic-symbolic"),
+        );
+    }
+    if let Some(entry) = one.clone()
+        && !entry.is_directory()
+        && crate::services::ArchiveFormat::from_extension(&entry.display_name).is_some()
+    {
+        let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Extract here"), move || {
+                super::operations::extract(&w, &t, e.clone(), None)
+            })
+            .icon("archive-extract-symbolic"),
+        );
+        let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Extract to…"), move || {
+                let (w, t, e) = (w.clone(), t.clone(), e.clone());
+                let dialog = gtk::FileDialog::builder()
+                    .title(crate::i18n::tr("Extract to"))
+                    .modal(true)
+                    .build();
+                let window = w.window.clone();
+                dialog.select_folder(Some(&window), gio::Cancellable::NONE, move |result| {
+                    if let Some(path) = result.ok().and_then(|f| f.path()) {
+                        super::operations::extract(&w, &t, e.clone(), Some(Location::local(path)));
+                    }
+                });
+            })
+            .icon("folder-open-symbolic"),
+        );
+    }
+    if let (Some(inputs), Some(paths), Some(parent)) = (
+        crate::ui::actions::inputs_for_entries(&entries),
+        crate::ui::actions::native_paths(&entries),
+        tab.location()
+            .and_then(|l| l.native_path().map(PathBuf::from)),
+    ) {
+        if let Some(custom) = custom_actions(window, inputs, paths.clone(), parent, false) {
+            items.push(custom);
+        }
+        if let Some(provider) = providers(window, paths, false) {
+            items.push(provider);
+        }
+    }
+    if let Some(entry) = one.as_ref()
+        && let Some(path) = entry.location.native_path()
+    {
+        let (path, directory, name) = (
+            path.to_path_buf(),
+            entry.is_directory(),
+            entry.display_name.clone(),
+        );
+        items.push(
+            menu::item(&crate::i18n::tr("Customize…"), move || {
+                super::customize::show(path.clone(), directory, &name)
+            })
+            .icon("applications-graphics-symbolic"),
+        );
+    }
+    {
+        let e = entries.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("Properties"), move || {
+                properties(e.clone())
+            })
+            .icon("document-properties-symbolic")
+            .key(&keys(bindings::PROPERTIES)),
+        );
+    }
+    items.push(menu::separator());
+    {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Move to Trash"), move || {
+                actions::trash(&w, &t, e.clone())
+            })
+            .icon("user-trash-symbolic")
+            .key(&keys(bindings::DELETE))
+            .danger(),
+        );
+    }
+    {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Delete without Trash"), move || {
+                delete_permanently(&w, &t, e.clone())
+            })
+            .icon("edit-delete-symbolic")
+            .key(&keys(bindings::DELETE_PERMANENTLY))
+            .danger(),
+        );
+    }
+    items
+}
+
+/// The menu for the folder showing (a right-click on empty space).
+pub(super) fn folder_menu(window: &Rc<Window>, tab: &Rc<Tab>) -> Vec<menu::Entry> {
+    let Some(here) = tab.location() else {
+        return Vec::new();
+    };
+    let mut items = Vec::new();
+    if in_trash(&here) {
+        items.push(
+            menu::item(&crate::i18n::tr("Empty Trash…"), {
+                let w = window.clone();
+                move || actions::empty_trash(&w)
+            })
+            .icon("user-trash-full-symbolic")
+            .danger(),
+        );
+        return items;
+    }
+    {
+        let t = tab.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("New Folder…"), move || {
+                actions::new_folder(&t)
+            })
+            .icon("folder-new-symbolic")
+            .key(&keys(bindings::NEW_FOLDER)),
+        );
+    }
+    {
+        let t = tab.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("New File…"), move || new_file(&t))
+                .icon("document-new-symbolic"),
+        );
+    }
+    {
+        let (w, t, h) = (window.clone(), tab.clone(), here.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Paste"), move || {
+                actions::paste(&w, &t, h.clone())
+            })
+            .icon("edit-paste-symbolic")
+            .key(&keys(bindings::PASTE)),
+        );
+    }
+    {
+        let t = tab.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("Select All"), move || {
+                t.active_model().selection.select_all();
+            })
+            .icon("edit-select-all-symbolic")
+            .key(&keys(bindings::SELECT_ALL)),
+        );
+    }
+    items.push(menu::separator());
+    if here.native_path().is_some() {
+        let (l, w) = (here.clone(), window.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Open in Terminal"), move || {
+                desktop::launch_terminal(&l, &w.window)
+            })
+            .icon("utilities-terminal-symbolic"),
+        );
+    }
+    {
+        let (w, l) = (window.clone(), here.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("New Window"), move || {
+                w.open_window(l.clone())
+            })
+            .icon("window-new-symbolic"),
+        );
+    }
+    let shown = tab.shows_hidden();
+    {
+        let t = tab.clone();
+        items.push(
+            menu::check(&crate::i18n::tr("Show hidden files"), shown, move |_| {
+                t.browser.toggle_hidden()
+            })
+            .key(&keys(bindings::HIDDEN_FILES)),
+        );
+    }
+    {
+        let t = tab.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("Refresh"), move || {
+                t.browser.reload_active()
+            })
+            .icon("view-refresh-symbolic")
+            .key(&keys(bindings::REFRESH)),
+        );
+    }
+    if let (Some(input), Some(path)) = (crate::ui::actions::folder_input(&here), here.native_path())
+    {
+        if let Some(custom) = custom_actions(
+            window,
+            vec![input],
+            vec![path.to_path_buf()],
+            path.to_path_buf(),
+            true,
+        ) {
+            items.push(menu::separator());
+            items.push(custom);
+        }
+        if let Some(provider) = providers(window, vec![path.to_path_buf()], true) {
+            items.push(provider);
+        }
+    }
+    if let Some(entry) = here.native_path().and_then(|_| actions::entry_for(&here)) {
+        items.push(menu::separator());
+        items.push(
+            menu::item(&crate::i18n::tr("Properties"), move || {
+                super::properties::show(&entry)
+            })
+            .icon("document-properties-symbolic"),
+        );
+    }
+    items
+}
