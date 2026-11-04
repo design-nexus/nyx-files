@@ -164,6 +164,23 @@ impl ListView {
             .hexpand(true)
             .child(&view)
             .build();
+        // Narrow lists drop Kind, then Modified, so names keep their room.
+        let columns = view.columns();
+        let last = std::cell::Cell::new(-1);
+        root.add_tick_callback(move |root, _| {
+            let width = root.width();
+            if width != last.get() {
+                last.set(width);
+                for (index, min) in [(3u32, 560), (2u32, 440)] {
+                    if let Some(column) =
+                        columns.item(index).and_downcast::<gtk::ColumnViewColumn>()
+                    {
+                        column.set_visible(width >= min);
+                    }
+                }
+            }
+            glib::ControlFlow::Continue
+        });
         Self { root, view }
     }
 }

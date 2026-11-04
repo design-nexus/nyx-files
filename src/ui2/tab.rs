@@ -36,6 +36,9 @@ pub(super) struct Tab {
     list: ListView,
     icons: IconsView,
     pub(super) page: gtk::Stack,
+    /// The views and the preview beside them.
+    pub(super) root: gtk::Paned,
+    pub(super) preview: crate::ui::preview::PreviewDrawer,
     status: gtk::Label,
     mode: Cell<BrowserMode>,
     refresh_queued: Cell<bool>,
@@ -75,6 +78,25 @@ impl Tab {
         status.set_wrap(true);
         status.set_justify(gtk::Justification::Center);
         page.add_named(&status, Some("status"));
+        let backend = PreferenceManager::shared();
+        let preview = crate::ui::preview::PreviewDrawer::new(
+            Rc::new(crate::adapters::LocalPreviewProvider::new(Rc::new(
+                move || backend.media_preview_backend(),
+            ))),
+            true,
+        );
+        preview.bind_find_shortcut(&PreferenceManager::shared());
+        let root = gtk::Paned::new(gtk::Orientation::Horizontal);
+        root.add_css_class("preview-split");
+        root.set_wide_handle(true);
+        root.set_resize_start_child(true);
+        root.set_resize_end_child(false);
+        root.set_shrink_start_child(false);
+        root.set_shrink_end_child(true);
+        root.set_start_child(Some(&page));
+        root.set_position(i32::MAX);
+        root.set_vexpand(true);
+        preview.attach_split_only(&root);
         let tab = Rc::new(Tab {
             browser,
             model,
@@ -82,6 +104,8 @@ impl Tab {
             list,
             icons,
             page,
+            root,
+            preview,
             status,
             mode: Cell::new(PreferenceManager::shared().browser_mode()),
             refresh_queued: Cell::new(false),
@@ -147,6 +171,21 @@ impl Tab {
             }
         }));
         tab.wire_dnd(&tab.model.clone());
+        tab.preview.observe_browser(&tab.browser);
+        let weak = Rc::downgrade(&tab);
+        tab.preview.set_stepper(move |delta| {
+            let tab = weak.upgrade()?;
+            let model = tab.active_model();
+            let current = model
+                .selected_positions()
+                .first()
+                .map(|(i, _)| *i as i64)
+                .unwrap_or(-1);
+            let next = (current + i64::from(delta)).clamp(0, i64::from(model.len()) - 1);
+            let next = u32::try_from(next).ok()?;
+            model.selection.select_item(next, true);
+            model.entry(next)
+        });
         tab.browser.navigate(location);
         tab
     }
@@ -328,6 +367,7 @@ impl Tab {
         self.browser
             .set_selection(depth, &positions, positions.last().copied());
         let entries = column.model.selected();
+        self.preview_single_click(&entries);
         match entries.as_slice() {
             [entry] if entry.is_directory() => {
                 self.browser.show_child(depth, entry.location.clone())
@@ -409,6 +449,20 @@ impl Tab {
         let positions: Vec<usize> = selected.iter().map(|(_, p)| *p).collect();
         self.browser
             .set_selection(depth, &positions, positions.last().copied());
+        self.preview_single_click(&self.model.selected());
+    }
+
+    /// With single-click previews on, selecting one file previews it.
+    fn preview_single_click(&self, selected: &[FileEntry]) {
+        if !PreferenceManager::shared().single_click_previews() {
+            return;
+        }
+        if let [entry] = selected
+            && !entry.is_directory()
+            && let Some(entry) = crate::ui::preview::preview_target(Some(entry.clone()))
+        {
+            self.browser.request_automatic_preview(entry);
+        }
     }
 
     /// The tab's folder or title changed (for the tab row and header).

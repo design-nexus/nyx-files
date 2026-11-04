@@ -313,7 +313,7 @@ impl PreviewState {
 }
 
 impl PreviewDrawer {
-    pub(in crate::ui) fn bind_find_shortcut(
+    pub(crate) fn bind_find_shortcut(
         &self,
         preferences: &super::super::preferences::PreferenceManager,
     ) {

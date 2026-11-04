@@ -237,6 +237,14 @@ impl PreviewDrawer {
                 }
             });
         }));
+        self.attach_split_only(split);
+    }
+
+    /// Hosts the preview at the end of `split`, without an old browser view:
+    /// sizing, the resize grip and the preview style follow the split alone.
+    pub(crate) fn attach_split_only(&self, split: &gtk::Paned) {
+        self.state.split.replace(Some(split.clone()));
+        self.state.panel_split.replace(Some(split.clone()));
         split.set_end_child(Some(&self.state.slot));
         self.state.revealer.set_visible(self.state.is_enabled());
         self.state

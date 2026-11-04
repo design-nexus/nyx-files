@@ -1,0 +1,1128 @@
+/* The preview's own parts (text, code, documents, tables, PDF, images, media,
+ * archives), on the 2.0 colours. */
+
+@define-color files_bg @theme_bg;
+@define-color files_surface @theme_surface;
+@define-color files_text @theme_text;
+@define-color files_dim_text @theme_dim_text;
+@define-color files_accent @theme_accent;
+@define-color files_danger @theme_danger;
+@define-color files_muted @theme_muted;
+@define-color files_highlight @theme_highlight;
+@define-color files_border @theme_border;
+@define-color files_glow @theme_glow;
+
+button.column-header-action image,
+menubutton.column-header-action > button image,
+.list-navigation-button image,
+menubutton.icons-thumbnail-menu > button image,
+.preview-header-action image {
+  -gtk-icon-size: 16px;
+}
+
+.preview-panel-option:checked {
+  background: alpha(@files_accent, 0.10);
+  color: @files_text;
+}
+
+.preview-panel-option:checked:hover {
+  background: alpha(@files_accent, 0.18);
+}
+
+.preview-panel-option:checked:active {
+  background: alpha(@files_accent, 0.22);
+}
+
+.preview-panel-option:focus-visible {
+  outline: 2px solid alpha(@files_accent, 0.6);
+  outline-offset: -2px;
+}
+
+.mode-scroll scrollbar.horizontal > range > trough,
+.preview-content scrollbar.horizontal > range > trough {
+  margin-top: 3px;
+  margin-bottom: 3px;
+  box-shadow: inset 0 0 0 1px alpha(@files_border, 0.45);
+}
+
+.preview-split > separator,
+.preview-split > separator.wide {
+  background: mix(@files_bg, @files_border, 0.6);
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  margin: 0 0 0 -1px;
+  padding: 0;
+  min-width: 1px;
+}
+
+.preview-split > separator:hover,
+.preview-split > separator.resize-hover {
+  background: @files_accent;
+}
+
+.preview-resize-grip {
+  background: transparent;
+}
+
+.preview-resize-grip:hover,
+.preview-resize-grip.resize-hover {
+  background: alpha(@files_accent, 0.18);
+}
+
+.preview-pane {
+  background: @files_surface;
+  color: @files_text;
+}
+
+.preview-header {
+  border-bottom: none;
+  box-shadow: inset 0 -1px alpha(@files_border, 0.6);
+  min-height: 40px;
+  padding: 0 6px 0 8px;
+}
+
+.preview-pane.preview-keyboard-owner .preview-header {
+  box-shadow: inset 0 3px 0 @files_accent, inset 0 -1px alpha(@files_border, 0.6);
+}
+
+.preview-content:focus-visible {
+  outline: none;
+}
+
+.preview-pane.preview-keyboard-owner :focus-visible {
+  outline: none;
+}
+
+.preview-find {
+  background: @files_surface;
+  color: @files_text;
+  border-bottom: 1px solid alpha(@files_border, 0.6);
+  padding: 6px 8px;
+}
+
+.preview-find-status {
+  color: @files_dim_text;
+  font-size: 0.8em;
+}
+
+.preview-title {
+  color: @files_text;
+  font-size: 0.9em;
+  font-weight: 700;
+}
+
+.preview-header-action {
+  background: transparent;
+  background-image: none;
+  border: none;
+  border-radius: 5px;
+  box-shadow: none;
+  color: @files_accent;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0;
+  transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out;
+}
+
+.preview-header-action:hover {
+  background: alpha(@files_accent, 0.15);
+  border-color: alpha(@files_border, 0.42);
+  color: @files_accent;
+}
+
+.preview-header-action:checked {
+  background: alpha(@files_accent, 0.22);
+  color: @files_accent;
+}
+
+.preview-header-action:active {
+  background: alpha(@files_accent, 0.22);
+  border-color: @files_accent;
+  color: @files_accent;
+  transform: scale(0.97);
+}
+
+.preview-header-action:focus-visible {
+  outline: 2px solid alpha(@files_accent, 0.52);
+  outline-offset: 1px;
+}
+
+.preview-header-action:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: @files_dim_text;
+  opacity: 0.46;
+}
+
+.preview-metadata {
+  margin-top: -0.1em;
+}
+
+.preview-metadata label {
+  color: @files_dim_text;
+  font-size: 0.65em;
+}
+
+.preview-content,
+.preview-content scrolledwindow,
+.preview-content viewport {
+  background: @files_surface;
+  transition: opacity 200ms ease-out, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.preview-content.dragging {
+  opacity: 0.48;
+}
+
+.preview-content.slide-out {
+  animation: slide-out-up 240ms ease-out;
+}
+
+.preview-text,
+.preview-text text {
+  background: @files_surface;
+  color: @files_text;
+  font-family: "JetBrains Mono", "JetBrainsMono Nerd Font", monospace;
+}
+
+.preview-text border.left {
+  background: @files_surface;
+  border-right: 1px solid mix(@files_bg, @files_border, 0.6);
+  box-shadow: none;
+}
+
+.preview-text border.left gutter {
+  border-right: none;
+  box-shadow: none;
+}
+
+.preview-text selection,
+.preview-text text selection {
+  background: @files_accent;
+  color: @files_bg;
+}
+
+.preview-document-notice {
+  background: alpha(@files_accent, 0.1);
+  border: 1px solid alpha(@files_accent, 0.42);
+  border-radius: 5px;
+  color: @files_text;
+  font-size: 0.82em;
+  margin: 8px 12px;
+  padding: 7px 9px;
+}
+
+.preview-document-notice selection {
+  background: @files_accent;
+  color: @files_bg;
+}
+
+.preview-document {
+  background: @files_surface;
+  color: @files_text;
+}
+
+.preview-virtual-list,
+.preview-virtual-list > row,
+.preview-virtual-list > row:hover,
+.preview-virtual-list > row:active,
+.preview-virtual-list > row:selected,
+.preview-virtual-row {
+  background: @files_surface;
+  border: none;
+  box-shadow: none;
+  color: @files_text;
+  margin: 0;
+  outline: none;
+  padding: 0;
+}
+
+.preview-source-row {
+  background: @files_surface;
+  color: @files_text;
+  padding: 0 14px;
+}
+
+.preview-source-lines {
+  background: @files_surface;
+  color: @files_dim_text;
+  font-family: "JetBrains Mono", "JetBrainsMono Nerd Font", monospace;
+}
+
+.preview-virtual-source:focus-visible,
+.preview-virtual-list:focus-visible {
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+.preview-document text {
+  background: @files_surface;
+  color: @files_text;
+}
+
+.preview-document selection,
+.preview-document text selection {
+  background: transparent;
+  color: @files_bg;
+}
+
+.preview-code-overlay {
+  background: transparent;
+}
+
+.preview-code-copy {
+  background: alpha(@files_surface, 0.9);
+  border: 1px solid alpha(@files_border, 0.72);
+  border-radius: 5px;
+  box-shadow: 0 2px 8px alpha(@files_bg, 0.22);
+  color: @files_text;
+  margin: 10px 24px 0 0;
+  min-height: 27px;
+  min-width: 27px;
+  opacity: 0;
+  padding: 3px;
+  transition: opacity 120ms ease-out, background 120ms ease-out, border-color 120ms ease-out;
+}
+
+.preview-code-overlay:hover .preview-code-copy,
+.preview-code-copy:focus-visible {
+  opacity: 1;
+}
+
+.preview-code-copy:hover {
+  background: alpha(@files_highlight, 0.92);
+  border-color: @files_accent;
+  color: @files_accent;
+}
+
+.preview-code-copy:active {
+  background: alpha(@files_muted, 0.88);
+  border-color: @files_accent;
+  color: @files_accent;
+}
+
+.preview-code-copy:focus-visible {
+  outline: 2px solid alpha(@files_accent, 0.58);
+  outline-offset: 1px;
+}
+
+.preview-table-interactive > scrolledwindow,
+.preview-table-interactive > scrolledwindow > viewport,
+.preview-document-table,
+.preview-document-table > listview {
+  background: @files_surface;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.preview-document-table-cell {
+  background: @files_surface;
+  color: @files_text;
+  padding: 0;
+}
+
+.preview-document-table-cell selection {
+  background: @files_accent;
+  color: @files_bg;
+}
+
+.preview-document-table-cell.header {
+  background: alpha(@files_highlight, 0.64);
+  color: @files_accent;
+  font-weight: 700;
+}
+
+.preview-document-table-cell link {
+  color: @files_accent;
+}
+
+.preview-document-table-cell link:hover {
+  background: alpha(@files_highlight, 0.5);
+  color: @files_text;
+}
+
+.preview-document-table-cell link:active {
+  background: alpha(@files_muted, 0.72);
+  color: @files_accent;
+}
+
+.preview-document-table-cell link:focus-visible {
+  outline: 2px solid alpha(@files_accent, 0.5);
+  outline-offset: 1px;
+}
+
+.preview-table-interactive.selected .preview-document-table-cell,
+.preview-table-interactive.selected .preview-document-table-cell.header {
+  background: @files_accent;
+  color: @files_bg;
+}
+
+.preview-document:focus-visible {
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+.preview-image,
+.preview-media {
+  background: alpha(@files_bg, 0.55);
+  border-radius: 8px;
+  transition: transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.preview-image:hover,
+.preview-media:hover {
+  box-shadow: 0 4px 16px alpha(@files_bg, 0.45);
+}
+
+.preview-note {
+  border-top: 1px solid alpha(@files_border, 0.24);
+  color: @files_dim_text;
+  font-size: 0.8em;
+  padding: 6px 10px;
+}
+
+.preview-archive {
+  background: @files_surface;
+}
+
+.preview-archive-crumbs-scroll {
+  border-bottom: 1px solid alpha(@files_border, 0.24);
+}
+
+.preview-archive-crumbs {
+  padding: 6px 10px;
+}
+
+.preview-archive-crumb {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  box-shadow: none;
+  color: @files_accent;
+  font-size: 0.85em;
+  min-height: 20px;
+  padding: 0 7px;
+}
+
+.preview-archive-crumb:hover {
+  background: alpha(@files_muted, 0.55);
+  border-color: alpha(@files_border, 0.42);
+}
+
+.preview-archive-crumb:active {
+  background: alpha(@files_muted, 0.82);
+}
+
+.preview-archive-crumb:focus-visible {
+  outline: 2px solid alpha(@files_accent, 0.52);
+  outline-offset: 1px;
+}
+
+.preview-archive-crumb-current {
+  color: @files_dim_text;
+}
+
+.preview-archive-count {
+  color: @files_dim_text;
+  font-size: 0.85em;
+  padding: 6px 12px;
+}
+
+.preview-archive-list {
+  background: transparent;
+}
+
+.preview-archive-list > row {
+  padding: 0;
+}
+
+.preview-archive-row {
+  background: transparent;
+  border: none;
+  padding: 5px 12px;
+}
+
+.preview-archive-row:hover {
+  background: alpha(@files_muted, 0.35);
+}
+
+.preview-archive-list row:selected .preview-archive-row:hover {
+  background: transparent;
+}
+
+.preview-archive-name {
+  color: @files_text;
+}
+
+.preview-archive-size {
+  color: @files_dim_text;
+  font-size: 0.85em;
+}
+
+.preview-archive-empty {
+  color: @files_dim_text;
+}
+
+.preview-document-table > header,
+.preview-document-table > header button {
+  background: @files_muted;
+  color: @files_text;
+  border-color: @files_border;
+}
+
+.preview-document-table > header {
+  border: none;
+  box-shadow: none;
+}
+
+.preview-document-table > header button {
+  padding: 4px 6px;
+  min-height: 0;
+  background-image: none;
+  box-shadow: none;
+  border-width: 0 0 1px 1px;
+  border-style: solid;
+  border-radius: 0;
+}
+
+.preview-document-table > header button:first-child {
+  border-left-width: 0;
+}
+
+.preview-document-table > header button:hover {
+  background: @files_highlight;
+  color: @files_accent;
+}
+
+.preview-document-table > header button:active {
+  background: @files_accent;
+  color: @files_bg;
+}
+
+.preview-document-table > header button:focus-visible,
+.preview-document-table row:focus-visible {
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+.preview-document-table listview,
+.preview-document-table row,
+.preview-document-table cell {
+  background: @files_surface;
+  color: @files_text;
+  border-color: @files_border;
+}
+
+.preview-document-table row {
+  padding: 0;
+  min-height: 0;
+}
+
+.preview-document-table cell {
+  padding: 4px 6px;
+  min-height: 0;
+}
+
+.preview-document-table row:hover {
+  background: @files_highlight;
+}
+
+.preview-document-table > header separator,
+.preview-document-table > header sort-indicator {
+  color: @files_accent;
+}
+
+.preview-document-table > header sort-indicator.ascending,
+.preview-document-table > header sort-indicator.descending {
+  -gtk-icon-source: -gtk-recolor(url("resource:///io/github/lgse/Strata/icons/scalable/actions/files-caret.svg"));
+  -gtk-icon-size: 10px;
+  min-width: 12px;
+  min-height: 12px;
+}
+
+.preview-document-table > header sort-indicator.ascending {
+  -gtk-icon-transform: none;
+}
+
+.preview-document-table > header sort-indicator.descending {
+  -gtk-icon-transform: rotate(180deg);
+}
+
+.preview-volume-toggle {
+  background: alpha(@files_bg, 0.72);
+  border: 1px solid alpha(@files_border, 0.42);
+  border-radius: 6px;
+  box-shadow: none;
+  color: @files_accent;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 3px;
+  transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out;
+}
+
+.preview-volume-toggle:hover {
+  background: alpha(@files_muted, 0.82);
+  border-color: @files_accent;
+}
+
+.preview-volume-toggle:active {
+  background: alpha(@files_muted, 0.96);
+  border-color: @files_accent;
+  transform: scale(0.96);
+}
+
+.preview-volume-toggle:focus-visible {
+  outline: 2px solid alpha(@files_accent, 0.52);
+  outline-offset: 1px;
+}
+
+.preview-details-eyebrow {
+  color: @files_dim_text;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.preview-details-title.preview-audio-title {
+  color: @files_text;
+  font-size: 1.85em;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.preview-audio-artist {
+  color: @files_accent;
+  font-weight: 700;
+}
+
+.preview-audio-album {
+  color: @files_dim_text;
+}
+
+.preview-audio-time {
+  min-width: 3.4em;
+}
+
+.preview-media-time.preview-audio-time-target {
+  color: @files_accent;
+}
+
+.preview-media-center.preview-audio-play {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px;
+}
+
+.preview-waveform {
+  border-radius: 4px;
+}
+
+.preview-waveform:focus-visible {
+  outline: 2px solid alpha(@files_accent, 0.52);
+  outline-offset: 2px;
+}
+
+.preview-details-title {
+  color: @files_text;
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+.preview-video-time {
+  min-width: 3.4em;
+}
+
+.preview-media-time.preview-video-time-target {
+  color: @files_accent;
+}
+
+.preview-media-center.preview-video-play {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px;
+}
+
+.preview-details-badges {
+  margin-top: 4px;
+  min-height: 18px;
+}
+
+.preview-details-badge {
+  background: alpha(@files_muted, 0.55);
+  border: 1px solid alpha(@files_border, 0.4);
+  border-radius: 4px;
+  color: @files_text;
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+}
+
+.preview-video-badge-hdr {
+  background: alpha(@files_accent, 0.22);
+  border-color: alpha(@files_accent, 0.6);
+  color: @files_accent;
+}
+
+.preview-details-badge-skeleton {
+  background: alpha(@files_dim_text, 0.22);
+  border-color: transparent;
+  min-height: 16px;
+}
+
+.preview-video-bubble {
+  background: alpha(@files_bg, 0.92);
+  border: 1px solid alpha(@files_border, 0.5);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.preview-video-bubble-cell {
+  background: alpha(@files_dim_text, 0.14);
+  border-radius: 4px;
+}
+
+.preview-video-bubble-time {
+  color: @files_text;
+  font-size: 0.72em;
+  font-weight: 700;
+}
+
+.preview-media-bar {
+  background: alpha(@files_bg, 0.55);
+  border-top: 1px solid alpha(@files_border, 0.24);
+  padding: 6px 10px;
+}
+
+.preview-media-center {
+  background: alpha(@files_bg, 0.72);
+  border: 1px solid alpha(@files_border, 0.42);
+  border-radius: 50%;
+  box-shadow: none;
+  color: @files_accent;
+  min-height: 56px;
+  min-width: 56px;
+  padding: 8px;
+  transition: transform 160ms ease-out, background 160ms ease-out;
+}
+
+.preview-media-center:hover {
+  background: alpha(@files_muted, 0.82);
+  border-color: @files_accent;
+}
+
+.preview-media-center:active {
+  transform: scale(0.94);
+}
+
+.preview-media-button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  box-shadow: none;
+  color: @files_accent;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 2px;
+  transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out;
+}
+
+.preview-media-button:hover {
+  background: alpha(@files_muted, 0.62);
+  border-color: alpha(@files_border, 0.42);
+}
+
+.preview-media-button:active {
+  background: alpha(@files_muted, 0.82);
+  border-color: @files_accent;
+  transform: scale(0.97);
+}
+
+.preview-media-button:focus-visible {
+  outline: 2px solid alpha(@files_accent, 0.52);
+  outline-offset: 1px;
+}
+
+.preview-media-time {
+  color: @files_dim_text;
+  font-size: 0.78em;
+  font-variant-numeric: tabular-nums;
+}
+
+.preview-media-center.preview-model-camera {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.preview-header-spinner {
+  margin: 0 4px;
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.preview-media-seek,
+.preview-media-volume {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.preview-media-seek trough,
+.preview-media-volume trough {
+  background: alpha(@files_border, 0.42);
+  border: none;
+  border-radius: 3px;
+  min-height: 4px;
+  outline: none;
+  box-shadow: none;
+}
+
+.preview-media-seek highlight,
+.preview-media-volume highlight {
+  background: @files_accent;
+  border-radius: 3px;
+}
+
+.preview-media-seek slider,
+.preview-media-volume slider {
+  background: @files_accent;
+  border: none;
+  border-radius: 50%;
+  color: @files_accent;
+  min-height: 10px;
+  min-width: 10px;
+  margin: -4px;
+}
+
+.preview-media-seek:hover slider,
+.preview-media-volume:hover slider {
+  min-height: 12px;
+  min-width: 12px;
+  margin: -5px;
+}
+
+.preview-media-seek:focus-visible,
+.preview-media-volume:focus-visible,
+.preview-media-seek:focus,
+.preview-media-volume:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.preview-media-seek:focus-visible trough,
+.preview-media-volume:focus-visible trough,
+.preview-media-seek:focus trough,
+.preview-media-volume:focus trough {
+  outline: none;
+  box-shadow: none;
+}
+
+.preview-media-seek:focus-visible slider,
+.preview-media-volume:focus-visible slider,
+.preview-media-seek:focus slider,
+.preview-media-volume:focus slider {
+  outline: none;
+  box-shadow: none;
+  border: none;
+}
+
+.preview-pdf-list,
+.preview-pdf-list > row {
+  background: @files_surface;
+}
+
+.preview-pdf-list > row {
+  padding: 0 6px 6px;
+}
+
+.preview-feedback {
+  padding: 24px;
+}
+
+.preview-minimum-outline {
+  background: alpha(@files_accent, 0.08);
+  border: 2px dashed @files_accent;
+  border-radius: 6px;
+}
+
+.preview-minimum-outline,
+.resize-caption {
+  transition: opacity 150ms ease-out;
+}
+
+.preview-minimum-outline.fading,
+.resize-caption.fading {
+  opacity: 0;
+}
+
+.preview-minimum-outline > .resize-caption {
+  margin-top: 12px;
+}
+
+.preview-feedback-icon {
+  margin-bottom: 5px;
+}
+
+.preview-feedback-title {
+  color: @files_text;
+  font-weight: 700;
+}
+
+.preview-feedback-detail {
+  color: @files_dim_text;
+}
+
+.preview-archive-password {
+  padding: 24px;
+}
+
+.preview-archive-password-row {
+  margin-top: 6px;
+}
+
+.preview-archive-password-error {
+  color: @files_danger;
+  margin-top: 6px;
+}
+
+.preview-archive-password-row button.suggested-action {
+  background-color: @files_accent;
+  background-image: none;
+  color: @files_bg;
+}
+
+.preview-archive-password-row button.suggested-action:hover {
+  background-color: shade(@files_accent, 1.07);
+  background-image: none;
+}
+
+.preview-archive-password-row button.suggested-action:active,
+.preview-archive-password-row button.suggested-action:checked {
+  background-color: shade(@files_accent, 0.92);
+  background-image: none;
+}
+
+.preview-archive-password-row button.suggested-action:disabled {
+  background-color: alpha(@files_accent, 0.5);
+  background-image: none;
+  color: alpha(@files_bg, 0.7);
+}
+
+.preview-command {
+  margin-top: 8px;
+  min-width: 250px;
+}
+
+entry.preview-command-entry {
+  background: alpha(@files_bg, 0.72);
+  border-color: alpha(@files_border, 0.54);
+  color: @files_text;
+  font-family: monospace;
+  padding-right: 38px;
+}
+
+entry.preview-command-entry:hover {
+  border-color: alpha(@files_accent, 0.68);
+}
+
+entry.preview-command-entry:focus,
+entry.preview-command-entry:focus-visible,
+entry.preview-command-entry:focus-within {
+  border-color: @files_accent;
+  box-shadow: 0 0 0 1px alpha(@files_accent, 0.42);
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+entry.preview-command-entry selection {
+  background: @files_accent;
+  color: @files_bg;
+}
+
+.preview-command-copy {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  box-shadow: none;
+  margin-right: 4px;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px;
+}
+
+.preview-command-copy:hover {
+  background: alpha(@files_accent, 0.15);
+}
+
+.preview-command-copy:active {
+  background: alpha(@files_accent, 0.22);
+  transform: scale(0.96);
+}
+
+.preview-command-copy:focus-visible {
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+.preview-spinner {
+  color: @files_accent;
+}
+
+.customize-preview {
+  padding: 2px 0 8px;
+}
+
+.customize-preview-icon {
+  min-height: 56px;
+  min-width: 56px;
+}
+
+.customize-preview-name {
+  color: @files_text;
+  font-weight: 700;
+}
+
+.file-list row,
+.file-list-mode row,
+.preview-archive-list row {
+  background: transparent;
+  color: @files_text;
+  border-radius: 6px;
+  transition: color 160ms ease-out;
+}
+
+.file-row,
+.list-row,
+.preview-archive-row {
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition: color 180ms ease-out, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 200ms ease-out;
+}
+
+.file-row,
+.preview-archive-row {
+  border-radius: 6px;
+}
+
+.file-list row:selected,
+.file-list-mode row:selected,
+.preview-archive-list row:selected {
+  background: alpha(@files_accent, 0.22);
+  color: @files_text;
+  outline: none;
+}
+
+.file-list row:focus-visible,
+.file-list-mode row:focus-visible,
+.preview-archive-list row:focus-visible {
+  outline: none;
+}
+
+.keyboard-navigation .file-list:focus-within .file-row.keyboard-cursor:not(.filter-result),
+.file-list row:focus-within .file-row.filter-result,
+.preview-pane.preview-keyboard-owner .preview-archive-list row:selected .preview-archive-row {
+  outline: 1px solid @files_accent;
+  outline-offset: -1px;
+}
+
+.theme-card:hover .theme-preview {
+  border-color: @files_border;
+}
+
+.theme-icons > flowboxchild:focus-visible .theme-preview,
+.theme-card:focus-visible .theme-preview {
+  border-color: @files_accent;
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+.theme-card.selected .theme-preview {
+  border-color: @files_accent;
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+  box-shadow: 0 0 13px alpha(@files_glow, 0.32);
+}
+
+.theme-preview {
+  border: 1px solid alpha(@files_border, 0.7);
+  border-radius: 6px;
+}
+
+.install-command > entry.preview-command-entry {
+  padding-right: 72px;
+}
+
+.settings-dialog .theme-preview {
+  min-width: 80px;
+  min-height: 28px;
+  border-radius: 6px;
+  box-shadow: none;
+  outline: none;
+  border: 1px solid alpha(@files_border, 0.6);
+}
+
+.preview-header {
+  background: transparent;
+  box-shadow: none;
+  min-height: 46px;
+  padding: 0 6px 0 14px;
+  border-spacing: 2px;
+}
+
+.preview-pane.preview-keyboard-owner .preview-header {
+  box-shadow: inset 0 3px 0 @files_accent;
+}
+
+.preview-popup .preview-pane.preview-keyboard-owner .preview-header {
+  box-shadow: none;
+}
+
+.preview-header-handle > image {
+  color: @files_accent;
+}
+
+.preview-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.preview-metadata {
+  margin-top: 1px;
+}
+
+.preview-metadata label {
+  color: mix(@files_dim_text, @files_bg, 0.1);
+  font-size: 11.5px;
+}
+
+.preview-header-action {
+  border-radius: 7px;
+  color: @files_dim_text;
+  min-height: 30px;
+  min-width: 30px;
+}
+
+.preview-header-action:hover {
+  background: alpha(@files_text, 0.07);
+  color: @files_text;
+}
+
+.preview-header-action:checked,
+.preview-header-action:active {
+  background: alpha(@files_accent, 0.16);
+  color: @files_accent;
+}
+
+.preview-find {
+  border-bottom-color: transparent;
+}
+
+.preview-footer {
+  min-height: 32px;
+  padding: 0 14px;
+  color: mix(@files_dim_text, @files_bg, 0.2);
+  font-size: 11.5px;
+}

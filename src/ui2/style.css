@@ -208,3 +208,54 @@ window.files-window button.customize-icon {
   min-width: 34px;
   min-height: 34px;
 }
+
+/* Preview drawer: one blended surface with the views */
+
+window.files-window paned.preview-split > separator {
+  background: @theme_bg;
+  min-width: 1px;
+  box-shadow: inset 1px 0 alpha(@theme_text, 0.05);
+}
+
+window.files-window .preview-pane {
+  background: @theme_bg;
+}
+
+window.files-window .preview-header {
+  min-height: 40px;
+  padding: 0 6px 0 12px;
+  background: transparent;
+  border: none;
+}
+
+window.files-window .preview-title {
+  font-weight: 600;
+}
+
+window.files-window button.preview-header-action {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  margin: 0 1px;
+  border: none;
+  border-radius: var(--nyx-radius-small);
+  background: transparent;
+  box-shadow: none;
+  color: @theme_dim_text;
+}
+
+window.files-window button.preview-header-action:hover {
+  background: @row_hover;
+  color: @theme_text;
+}
+
+window.files-window button.preview-header-action:checked {
+  background: alpha(@theme_accent, 0.16);
+  color: @theme_accent;
+}
+
+window.files-window .preview-content,
+window.files-window .preview-content scrolledwindow,
+window.files-window .preview-content viewport {
+  background: transparent;
+}

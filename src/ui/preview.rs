@@ -225,6 +225,9 @@ struct PreviewState {
     floating: Cell<bool>,
     panel_split: RefCell<Option<gtk::Paned>>,
     popup: RefCell<Option<gtk::Window>>,
+    /// Moves the owning view's selection by a step and returns what it lands on,
+    /// for hosts without a `BrowserView`.
+    pub(super) stepper: RefCell<Option<Rc<dyn Fn(i32) -> Option<FileEntry>>>>,
     current: RefCell<Option<FileEntry>>,
     current_depth: Cell<Option<usize>>,
     pending_show: RefCell<Option<glib::SourceId>>,
@@ -452,6 +455,7 @@ impl PreviewDrawer {
             floating: Cell::new(false),
             panel_split: RefCell::new(None),
             popup: RefCell::new(None),
+            stepper: RefCell::new(None),
             revealer,
             slot,
             resize_grip,
@@ -817,7 +821,7 @@ impl PreviewDrawer {
         self.is_open() && !self.state.sizing.is_suspended() && self.state.has_media_view()
     }
 
-    pub(in crate::ui) fn handle_video_key(&self, press: &KeyPress) -> bool {
+    pub(crate) fn handle_video_key(&self, press: &KeyPress) -> bool {
         let command = [
             (MEDIA_PLAY_PAUSE, MediaCommand::PlayPause),
             (
@@ -855,6 +859,11 @@ impl PreviewDrawer {
 
     pub fn close(&self) {
         self.state.close();
+    }
+
+    /// How Up and Down in the popup move through the host's items.
+    pub(crate) fn set_stepper(&self, step: impl Fn(i32) -> Option<FileEntry> + 'static) {
+        self.state.stepper.replace(Some(Rc::new(step)));
     }
 
     pub(in crate::ui) fn password_has_focus(&self, focused: Option<&gtk::Widget>) -> bool {

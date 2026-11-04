@@ -460,6 +460,9 @@ impl ThemeManager {
     }
 
     fn install_provider(&self) {
+        if TOKENS_ONLY.with(Cell::get) {
+            return;
+        }
         self.reset_provider.load_from_string(RESET_CSS);
         if let Some(display) = gdk::Display::default() {
             gtk::style_context_add_provider_for_display(
@@ -1523,6 +1526,16 @@ fn pin_manual_font_rendering() {
 /// below the reset, so loading a real theme there only adds selector matching.
 /// Desktop selections arrive through the settings portal or `settings.ini`,
 /// which application values outrank for the whole process.
+thread_local! {
+    static TOKENS_ONLY: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Theme colours for code that asks for them, without Files' own stylesheets or
+/// GTK theme: the Nyx 2.0 interface styles the window itself.
+pub(crate) fn tokens_only() {
+    TOKENS_ONLY.with(|t| t.set(true));
+}
+
 const PINNED_GTK_THEME: &str = "StrataEmpty";
 
 /// GTK's built-in theme, restated above the reset.
@@ -1534,6 +1547,9 @@ const BASE_THEME: &str = "Default";
 /// portal updates. `GTK_THEME` is cleared before GTK starts because it bypasses
 /// the setting.
 fn pin_base_theme() {
+    if TOKENS_ONLY.with(Cell::get) {
+        return;
+    }
     let Some(settings) = gtk::Settings::default() else {
         return;
     };
@@ -1544,6 +1560,9 @@ fn pin_base_theme() {
 /// The built-in theme's light or dark variant follows the active Files theme
 /// rather than the desktop color scheme.
 fn apply_base_variant(dark: bool) {
+    if TOKENS_ONLY.with(Cell::get) {
+        return;
+    }
     let Some(settings) = gtk::Settings::default() else {
         return;
     };

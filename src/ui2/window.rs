@@ -468,6 +468,18 @@ impl Window {
             if let [entry] = selected.as_slice() {
                 actions::rename(&tab, entry.clone());
             }
+        } else if press.is(bindings::SPACE) {
+            match selected.as_slice() {
+                [entry] if entry.is_directory() => tab.open(entry),
+                [entry] => tab.preview.toggle(
+                    crate::ui::preview::preview_target(Some(entry.clone())),
+                    tab.browser.active_depth(),
+                ),
+                _ => return false,
+            }
+        } else if press.is(bindings::ESCAPE) && tab.preview.is_open() {
+            tab.preview.close();
+        } else if tab.preview.handle_video_key(press) {
         } else if press.is(bindings::UNDO) {
             actions::undo(&tab);
         } else if press.is_any(&[bindings::REDO, bindings::REDO_Y]) {
@@ -538,7 +550,7 @@ impl Window {
 
     fn add_tab(self: &Rc<Self>, location: Location) {
         let tab = tab::Tab::new(location);
-        self.pages.add_child(&tab.page);
+        self.pages.add_child(&tab.root);
         let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
         tab.connect_context(move |entry, widget, x, y| {
             if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
@@ -576,7 +588,7 @@ impl Window {
             return;
         };
         self.active.set(index);
-        self.pages.set_visible_child(&tab.page);
+        self.pages.set_visible_child(&tab.root);
         self.sync();
         tab.focus_view();
     }
@@ -597,7 +609,7 @@ impl Window {
             self.window.close();
             return;
         };
-        self.pages.remove(&tab.page);
+        self.pages.remove(&tab.root);
         let len = self.tabs.borrow().len();
         let active = self.active.get();
         let next = if active > index || active >= len {

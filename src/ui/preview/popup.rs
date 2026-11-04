@@ -116,6 +116,11 @@ impl PreviewState {
                         {
                             state.show(entry, browser.active_depth());
                         }
+                    } else if let Some(step) = state.stepper.borrow().clone()
+                        && let Some(entry) = step(if press.is(UP) { -1 } else { 1 })
+                            .and_then(|entry| preview_target(Some(entry)))
+                    {
+                        state.show(entry, None);
                     }
                     return glib::Propagation::Stop;
                 }
@@ -137,6 +142,15 @@ impl PreviewState {
             .and_downcast::<gtk::Window>()
         {
             window.set_transient_for(Some(&parent));
+            for class in parent.css_classes() {
+                if class.ends_with("-window") {
+                    window.add_css_class(&class);
+                }
+            }
+            // Nyx 2.0 windows have no title bar; the preview header closes it.
+            if parent.has_css_class("files-window") && window.titlebar().is_none() {
+                window.set_titlebar(Some(&gtk::Box::new(gtk::Orientation::Horizontal, 0)));
+            }
             // This cached window is hidden between previews. Registering it with
             // the application would keep Files alive after its last browser closes.
             window.set_application(None::<&gtk::Application>);
