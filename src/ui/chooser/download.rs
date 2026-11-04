@@ -10,8 +10,8 @@ use gtk::prelude::*;
 
 use crate::ui::browser::format_file_size;
 
-pub(super) struct DownloadProgress {
-    pub(super) root: gtk::Box,
+pub(crate) struct DownloadProgress {
+    pub(crate) root: gtk::Box,
     name: gtk::Label,
     status: gtk::Label,
     indicator: gtk::Stack,
@@ -22,7 +22,7 @@ pub(super) struct DownloadProgress {
 }
 
 impl DownloadProgress {
-    pub(super) fn new(url: &str, on_cancel: Rc<dyn Fn()>) -> Self {
+    pub(crate) fn new(url: &str, on_cancel: Rc<dyn Fn()>) -> Self {
         let root = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         root.add_css_class("chooser-download");
         root.append(&crate::assets::primary_icon(
@@ -112,7 +112,7 @@ impl DownloadProgress {
         }
     }
 
-    pub(super) fn set_activity(&self, text: &str) {
+    pub(crate) fn set_activity(&self, text: &str) {
         self.spinner.start();
         self.indicator.set_visible_child_name("unknown");
         self.status.set_text(text);
@@ -125,11 +125,11 @@ impl DownloadProgress {
         );
     }
 
-    pub(super) fn set_name(&self, name: &str) {
+    pub(crate) fn set_name(&self, name: &str) {
         self.name.set_text(name);
     }
 
-    pub(super) fn update(&self, downloaded: u64, total: Option<u64>) {
+    pub(crate) fn update(&self, downloaded: u64, total: Option<u64>) {
         match total.filter(|total| *total > 0) {
             Some(total) => {
                 let fraction = (downloaded as f64 / total as f64).clamp(0.0, 1.0);

@@ -4,6 +4,7 @@
 //! act, and g , c ; t start chords the footer shows. Prompts open in the
 //! footer.
 
+use gtk::prelude::*;
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
@@ -49,7 +50,7 @@ pub(super) fn wire(window: &Rc<Window>, tab: &Rc<Tab>) {
     let (w, t) = (Rc::downgrade(window), Rc::downgrade(tab));
     tab.footer.connect_prompt_activated(move || {
         if let (Some(w), Some(t)) = (w.upgrade(), t.upgrade()) {
-            submit_prompt(&w, &t);
+            submit_prompt(&w.tenxer, Some(&w), &t);
         }
     });
     let t = Rc::downgrade(tab);
@@ -83,55 +84,32 @@ fn feedback(tab: &Tab, text: &str) {
     tab.footer.show_feedback(&tr(text));
 }
 
-/// The 10xer keys; true when one was handled.
+/// The 10xer keys of a browser window; true when one was handled.
 pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, press: &KeyPress) -> bool {
-    if let Some(chord) = tab.footer.armed_chord() {
+    let pins = window.visible_pins();
+    if let Some(chord) = tab.footer.armed_chord()
+        && matches!(chord, Chord::Copy | Chord::Action | Chord::Tabs)
+    {
         tab.footer.cancel_chord();
         if press.is(SETTINGS) {
             return false;
         }
-        if !press.is(ESCAPE) && !chord_key(window, tab, chord, press) {
+        if !press.is(ESCAPE) && !window_chord(window, tab, chord, press) {
             feedback(tab, "Unknown chord");
         }
         return true;
     }
+    if tab.footer.armed_chord().is_none() && file_key(window, tab, press) {
+        return true;
+    }
+    browse(&window.tenxer, tab, press, &pins)
+}
+
+/// Keys that change files, open other windows or reach the sidebar.
+fn file_key(window: &Rc<Window>, tab: &Rc<Tab>, press: &KeyPress) -> bool {
     let state = &window.tenxer;
-    let anchor = state.anchor.get();
-    let cursor = tab.cursor().map(i64::from);
-    let at = cursor.unwrap_or(0);
     let selected = tab.selected();
-    let browser = &tab.browser;
-    let page = tab.page_rows();
-    if press.is_any(&[VIM_DOWN, DOWN]) {
-        tab.move_cursor(cursor.map_or(0, |c| c + 1), anchor);
-    } else if press.is_any(&[VIM_UP, UP]) {
-        tab.move_cursor(cursor.map_or(0, |c| c - 1), anchor);
-    } else if press.is_any(&[VIM_LEFT, LEFT]) {
-        tab.step_out();
-    } else if press.is_any(&[VIM_RIGHT, RIGHT, ENTER]) {
-        tab.step_in();
-    } else if press.is(TENXER_LAST_ITEM) {
-        tab.move_cursor(i64::MAX, anchor);
-    } else if press.is(HALF_PAGE_DOWN) {
-        tab.move_cursor(at + page / 2, anchor);
-    } else if press.is(HALF_PAGE_UP) {
-        tab.move_cursor(at - page / 2, anchor);
-    } else if press.is_any(&[TENXER_PAGE_DOWN, TENXER_PAGE_DOWN_PAGE_DOWN]) {
-        tab.move_cursor(at + page, anchor);
-    } else if press.is_any(&[TENXER_PAGE_UP, TENXER_PAGE_UP_PAGE_UP]) {
-        tab.move_cursor(at - page, anchor);
-    } else if press.is(OPEN) {
-        if selected.is_empty() {
-            feedback(tab, "Nothing to open");
-        }
-        selected.iter().for_each(|e| tab.open(e));
-    } else if press.is(PEEK) {
-        window.toggle_preview();
-    } else if press.is(TENXER_HISTORY_BACK) {
-        browser.back();
-    } else if press.is(TENXER_HISTORY_FORWARD) {
-        browser.forward();
-    } else if press.is_any(&[YANK, YANK_CUT]) {
+    if press.is_any(&[YANK, YANK_CUT]) {
         let cut = press.is(YANK_CUT);
         if selected.is_empty() {
             feedback(
@@ -175,7 +153,7 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, press: &KeyPress) -> bo
             feedback(tab, "Can’t create items here");
         }
     } else if press.is_any(&[TENXER_RENAME, RENAME]) {
-        open_rename(window, tab, selected);
+        open_rename(state, tab, selected);
     } else if press.is(OPEN_WITH) {
         if selected.is_empty() {
             feedback(tab, "Nothing to open");
@@ -188,13 +166,77 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, press: &KeyPress) -> bo
         } else {
             Prompt::CopyTo
         };
-        destination_prompt(window, tab, kind, selected);
+        destination_prompt(state, tab, kind, selected);
     } else if press.is(RESTORE) {
         if selected.is_empty() {
             feedback(tab, "Nothing to restore");
         } else {
             menus::restore(window, tab, selected);
         }
+    } else if press.is_any(&[JUMP_VISITED, JUMP_RECENT]) {
+        super::search::open(window, super::search::Mode::Folders);
+    } else if press.is(TENXER_SIDEBAR) {
+        window.focus_sidebar();
+    } else if press.is(COPY_AS) {
+        tab.footer.arm_chord(Chord::Copy);
+    } else if press.is(ACTIONS) {
+        arm_actions(tab);
+    } else if press.is(TAB_CHORD) {
+        tab.footer.arm_chord(Chord::Tabs);
+    } else {
+        return false;
+    }
+    true
+}
+
+/// Moving, finding, sorting and the g chord: the keys every 10xer listing
+/// has, the chooser's too. `pins` are the sidebar's pins in order.
+pub(super) fn browse(state: &State, tab: &Rc<Tab>, press: &KeyPress, pins: &[Location]) -> bool {
+    if let Some(chord) = tab.footer.armed_chord() {
+        tab.footer.cancel_chord();
+        if press.is(SETTINGS) {
+            return false;
+        }
+        if !press.is(ESCAPE) && !browse_chord(state, tab, chord, press, pins) {
+            feedback(tab, "Unknown chord");
+        }
+        return true;
+    }
+    let anchor = state.anchor.get();
+    let cursor = tab.cursor().map(i64::from);
+    let at = cursor.unwrap_or(0);
+    let selected = tab.selected();
+    let browser = &tab.browser;
+    let page = tab.page_rows();
+    if press.is_any(&[VIM_DOWN, DOWN]) {
+        tab.move_cursor(cursor.map_or(0, |c| c + 1), anchor);
+    } else if press.is_any(&[VIM_UP, UP]) {
+        tab.move_cursor(cursor.map_or(0, |c| c - 1), anchor);
+    } else if press.is_any(&[VIM_LEFT, LEFT]) {
+        tab.step_out();
+    } else if press.is_any(&[VIM_RIGHT, RIGHT, ENTER]) {
+        tab.step_in();
+    } else if press.is(TENXER_LAST_ITEM) {
+        tab.move_cursor(i64::MAX, anchor);
+    } else if press.is(HALF_PAGE_DOWN) {
+        tab.move_cursor(at + page / 2, anchor);
+    } else if press.is(HALF_PAGE_UP) {
+        tab.move_cursor(at - page / 2, anchor);
+    } else if press.is_any(&[TENXER_PAGE_DOWN, TENXER_PAGE_DOWN_PAGE_DOWN]) {
+        tab.move_cursor(at + page, anchor);
+    } else if press.is_any(&[TENXER_PAGE_UP, TENXER_PAGE_UP_PAGE_UP]) {
+        tab.move_cursor(at - page, anchor);
+    } else if press.is(OPEN) {
+        if selected.is_empty() {
+            feedback(tab, "Nothing to open");
+        }
+        selected.iter().for_each(|e| tab.open(e));
+    } else if press.is(PEEK) {
+        tab.toggle_preview();
+    } else if press.is(TENXER_HISTORY_BACK) {
+        browser.back();
+    } else if press.is(TENXER_HISTORY_FORWARD) {
+        browser.forward();
     } else if press.is_any(&[TENXER_HIDDEN_FILES, HIDDEN_FILES, HIDDEN_FILES_PERIOD]) {
         browser.toggle_hidden();
     } else if press.is_any(&[TENXER_THUMBNAILS_LARGER, TENXER_THUMBNAILS_LARGER_EQUAL]) {
@@ -247,22 +289,14 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, press: &KeyPress) -> bo
         } else {
             feedback(tab, "Nothing to search");
         }
-    } else if press.is_any(&[JUMP_VISITED, JUMP_RECENT]) {
-        super::search::open(window, super::search::Mode::Folders);
     } else if press.is(CLOSE_WINDOW) {
-        gtk::prelude::GtkWindowExt::close(&window.window);
-    } else if press.is(TENXER_SIDEBAR) {
-        window.focus_sidebar();
+        if let Some(window) = tab.page.root().and_downcast::<gtk::Window>() {
+            gtk::prelude::GtkWindowExt::close(&window);
+        }
     } else if press.is(GO) {
         tab.footer.arm_chord(Chord::Go);
     } else if press.is(SORT_BY) {
         tab.footer.arm_chord(Chord::Sort);
-    } else if press.is(COPY_AS) {
-        tab.footer.arm_chord(Chord::Copy);
-    } else if press.is(ACTIONS) {
-        arm_actions(tab);
-    } else if press.is(TAB_CHORD) {
-        tab.footer.arm_chord(Chord::Tabs);
     } else {
         return false;
     }
@@ -274,7 +308,7 @@ fn report_miss(tab: &Tab, query: &str) {
         .show_feedback(&rust_i18n::t!("No matches for “%{query}”", query = query));
 }
 
-fn open_rename(window: &Rc<Window>, tab: &Rc<Tab>, selected: Vec<FileEntry>) {
+fn open_rename(state: &State, tab: &Rc<Tab>, selected: Vec<FileEntry>) {
     let Some(entry) = selected.last().cloned() else {
         feedback(tab, "Nothing to rename");
         return;
@@ -291,16 +325,16 @@ fn open_rename(window: &Rc<Window>, tab: &Rc<Tab>, selected: Vec<FileEntry>) {
     if tab.footer.open_prompt_with(Prompt::Rename, &name) {
         tab.footer.select_prompt_region(0, end);
     }
-    window.tenxer.targets.replace(vec![entry]);
+    state.targets.replace(vec![entry]);
 }
 
-fn destination_prompt(window: &Rc<Window>, tab: &Rc<Tab>, kind: Prompt, targets: Vec<FileEntry>) {
+fn destination_prompt(state: &State, tab: &Rc<Tab>, kind: Prompt, targets: Vec<FileEntry>) {
     if targets.is_empty() {
         feedback(tab, "Nothing selected");
         return;
     }
     if tab.footer.open_prompt(kind) {
-        window.tenxer.targets.replace(targets);
+        state.targets.replace(targets);
     }
 }
 
@@ -354,17 +388,23 @@ fn archive(tab: &Tab) -> Option<FileEntry> {
     }
 }
 
-/// The second key of a chord; false when it completes none.
-fn chord_key(window: &Rc<Window>, tab: &Rc<Tab>, chord: Chord, press: &KeyPress) -> bool {
+/// The second key of g or the sort chord; false when it completes none.
+fn browse_chord(
+    state: &State,
+    tab: &Rc<Tab>,
+    chord: Chord,
+    press: &KeyPress,
+    pins: &[Location],
+) -> bool {
     let browser = &tab.browser;
     let selected = tab.selected();
     match chord {
         Chord::Go | Chord::PreviewTop => {
-            let Some(target) = go_target(press, &window.visible_pins()) else {
+            let Some(target) = go_target(press, pins) else {
                 return false;
             };
             match target {
-                GoTarget::FirstItem => tab.move_cursor(0, window.tenxer.anchor.get()),
+                GoTarget::FirstItem => tab.move_cursor(0, state.anchor.get()),
                 GoTarget::HitFolder => match selected.last() {
                     Some(entry) if tab.filtering() => {
                         if let Some(parent) = entry.location.parent() {
@@ -376,7 +416,7 @@ fn chord_key(window: &Rc<Window>, tab: &Rc<Tab>, chord: Chord, press: &KeyPress)
                 GoTarget::Prompt => {
                     tab.footer.open_prompt(Prompt::Go);
                 }
-                GoTarget::Pin(pin) => change_pin(window, tab, pin),
+                GoTarget::Pin(pin) => change_pin(tab, pin, pins),
                 GoTarget::Place { location, .. } => browser.navigate(location),
                 GoTarget::Folder { location, missing } => {
                     if location.native_path().is_some_and(std::path::Path::is_dir) {
@@ -396,6 +436,15 @@ fn chord_key(window: &Rc<Window>, tab: &Rc<Tab>, chord: Chord, press: &KeyPress)
                 browser.set_sort(depth, key, direction);
             }
         }
+        _ => return false,
+    }
+    true
+}
+
+/// The second key of the copy, actions and tabs chords.
+fn window_chord(window: &Rc<Window>, tab: &Rc<Tab>, chord: Chord, press: &KeyPress) -> bool {
+    let selected = tab.selected();
+    match chord {
         Chord::Copy => {
             let names = if press.is(COPY_AS_PATH) {
                 false
@@ -435,7 +484,7 @@ fn chord_key(window: &Rc<Window>, tab: &Rc<Tab>, chord: Chord, press: &KeyPress)
                 }
             } else if press.is(ACTIONS_EXTRACT_TO) {
                 if let Some(entry) = archive(tab) {
-                    destination_prompt(window, tab, Prompt::ExtractTo, vec![entry]);
+                    destination_prompt(&window.tenxer, tab, Prompt::ExtractTo, vec![entry]);
                 }
             } else if let Some((digit, slot)) = action_slot(press) {
                 if !menus::run_numbered_action(window, tab, slot) {
@@ -461,11 +510,12 @@ fn chord_key(window: &Rc<Window>, tab: &Rc<Tab>, chord: Chord, press: &KeyPress)
                 return false;
             }
         }
+        _ => return false,
     }
     true
 }
 
-fn change_pin(window: &Rc<Window>, tab: &Tab, pin: bool) {
+fn change_pin(tab: &Tab, pin: bool, pins: &[Location]) {
     let target = match tab.selected().as_slice() {
         [entry] if entry.is_directory() => Some(entry.location.clone()),
         _ => tab.location(),
@@ -482,7 +532,7 @@ fn change_pin(window: &Rc<Window>, tab: &Tab, pin: bool) {
         return;
     };
     let name = location.display_name();
-    let pinned = window.visible_pins().contains(&location);
+    let pinned = pins.contains(&location);
     let text = match (pin, pinned) {
         (true, true) => rust_i18n::t!("“%{name}” is already pinned", name = name),
         (false, false) => rust_i18n::t!("“%{name}” isn’t pinned", name = name),
@@ -515,21 +565,18 @@ fn typed_folder(tab: &Tab, text: &str) -> Option<PathBuf> {
     })
 }
 
-/// Enter in the footer prompt.
-fn submit_prompt(window: &Rc<Window>, tab: &Rc<Tab>) {
+/// Enter in the footer prompt. Prompts that change files need `window`.
+pub(super) fn submit_prompt(state: &State, window: Option<&Rc<Window>>, tab: &Rc<Tab>) {
     let footer = &tab.footer;
     let text = footer.prompt_text();
     let kind = footer.open_prompt_kind();
     footer.dismiss_prompt();
     tab.focus_view();
-    let targets = window.tenxer.targets.take();
+    let targets = state.targets.take();
     match kind {
         Some(kind @ (Prompt::Find | Prompt::FindBackward)) if !text.is_empty() => {
             let backward = kind == Prompt::FindBackward;
-            window
-                .tenxer
-                .last_find
-                .replace(Some((text.clone(), backward)));
+            state.last_find.replace(Some((text.clone(), backward)));
             if !tab.find(&text, backward) {
                 report_miss(tab, &text);
             }
@@ -564,13 +611,21 @@ fn submit_prompt(window: &Rc<Window>, tab: &Rc<Tab>) {
             match kind {
                 Prompt::Go => tab.browser.navigate(destination),
                 Prompt::ExtractTo => {
-                    if let Some(entry) = targets.into_iter().next() {
+                    if let (Some(entry), Some(window)) = (targets.into_iter().next(), window) {
                         super::operations::extract(window, tab, entry, Some(destination));
                     }
                 }
                 _ => {
-                    let sources = targets.into_iter().map(|e| e.location).collect();
-                    actions::transfer(window, tab, destination, sources, kind == Prompt::MoveTo);
+                    if let Some(window) = window {
+                        let sources = targets.into_iter().map(|e| e.location).collect();
+                        actions::transfer(
+                            window,
+                            tab,
+                            destination,
+                            sources,
+                            kind == Prompt::MoveTo,
+                        );
+                    }
                 }
             }
         }

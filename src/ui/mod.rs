@@ -5,7 +5,7 @@ pub(crate) mod actions;
 mod blur;
 pub(crate) mod browser;
 pub(crate) mod browser_modes;
-mod chooser;
+pub(crate) mod chooser;
 mod close_guard;
 mod collection_edit;
 mod collection_interaction;

@@ -209,7 +209,11 @@ fn main() -> gtk::glib::ExitCode {
             leave_launch_folder();
             util::ui_thread::mark();
             return portal::run(
-                &ui::CHOOSER_UI,
+                if ui2::enabled() {
+                    &ui2::CHOOSER_UI
+                } else {
+                    &ui::CHOOSER_UI
+                },
                 #[cfg(feature = "qa")]
                 None,
             );

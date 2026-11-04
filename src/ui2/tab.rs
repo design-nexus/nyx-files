@@ -29,6 +29,7 @@ type ContextFn = Box<dyn Fn(Option<FileEntry>, &gtk::Widget, f64, f64)>;
 type RejectedFn = Box<dyn Fn(crate::services::LocationValidationError)>;
 type EventFn = Box<dyn Fn(&BrowserEvent)>;
 type ResultFn = Box<dyn Fn(crate::services::SearchItem)>;
+type OpenFileFn = Box<dyn Fn(&FileEntry)>;
 type DropFn = Box<dyn Fn(Location, Vec<Location>, gtk::gdk::DragAction)>;
 
 pub(super) struct Tab {
@@ -62,6 +63,8 @@ pub(super) struct Tab {
     select_next: RefCell<Option<Location>>,
     /// Items whose metadata has been asked for, so a rebind doesn't ask again.
     requested: RefCell<std::collections::HashSet<Location>>,
+    /// Replaces launching a file, as the chooser does to pick it.
+    open_file: RefCell<Option<OpenFileFn>>,
 }
 
 pub(super) fn home() -> PathBuf {
@@ -70,10 +73,16 @@ pub(super) fn home() -> PathBuf {
 
 impl Tab {
     pub(super) fn new(location: Location) -> Rc<Tab> {
-        let browser = Browser::with_preferences(
-            Rc::new(LocalFileSource),
-            PreferenceManager::shared().sort_preferences(),
-        );
+        Self::with_source(location, Rc::new(LocalFileSource))
+    }
+
+    /// A tab whose listings come from `source`, as the chooser's filtered one.
+    pub(super) fn with_source(
+        location: Location,
+        source: Rc<dyn crate::services::FileSource>,
+    ) -> Rc<Tab> {
+        let browser =
+            Browser::with_preferences(source, PreferenceManager::shared().sort_preferences());
         browser.set_operation_provider(Rc::new(LocalOperationProvider));
         let model = Rc::new(EntryModel::new());
         let columns = ColumnsView::new();
@@ -157,6 +166,7 @@ impl Tab {
             rejected: RefCell::new(None),
             select_next: RefCell::new(None),
             requested: RefCell::default(),
+            open_file: RefCell::new(None),
         });
         let weak = Rc::downgrade(&tab);
         tab.browser.observe(move |event| {
@@ -253,6 +263,10 @@ impl Tab {
     }
 
     /// Every browser event, for operation progress and results.
+    pub(super) fn connect_open_file(&self, f: impl Fn(&FileEntry) + 'static) {
+        *self.open_file.borrow_mut() = Some(Box::new(f));
+    }
+
     pub(super) fn connect_events(&self, f: impl Fn(&BrowserEvent) + 'static) {
         *self.events.borrow_mut() = Some(Box::new(f));
     }
@@ -530,6 +544,14 @@ impl Tab {
         };
         prefs.set_folder_icons_size(location.as_ref(), size);
         self.icons.set_size(size);
+    }
+
+    pub(super) fn toggle_preview(&self) {
+        let entry = self.selected().into_iter().next();
+        self.preview.toggle(
+            crate::ui::preview::preview_target(entry),
+            self.browser.active_depth(),
+        );
     }
 
     pub(super) fn icons_size(&self) -> i32 {
@@ -915,6 +937,10 @@ impl Tab {
     pub(super) fn open(&self, entry: &FileEntry) {
         if entry.is_directory() {
             self.browser.navigate(entry.location.clone());
+            return;
+        }
+        if let Some(open) = self.open_file.borrow().as_ref() {
+            open(entry);
             return;
         }
         crate::ui::browser::desktop::open_location_at(

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-mod download;
+pub(crate) mod download;
 mod image_conversion;
 
 #[cfg(test)]
@@ -96,15 +96,15 @@ pub(crate) fn destination_chooser_for(parent: &gtk::Window) -> Option<(gtk::Wind
     })
 }
 
-struct ChooserFileSource {
+pub(crate) struct ChooserFileSource {
     source: Rc<dyn FileSource>,
     filter: Rc<RefCell<Option<gtk::FileFilter>>>,
-    directory_only: Rc<Cell<bool>>,
+    pub(crate) directory_only: Rc<Cell<bool>>,
     root_limit: Option<PathBuf>,
 }
 
 impl ChooserFileSource {
-    fn new() -> Rc<Self> {
+    pub(crate) fn new() -> Rc<Self> {
         Rc::new(Self {
             source: Rc::new(LocalFileSource),
             filter: Rc::new(RefCell::new(None)),
@@ -113,7 +113,7 @@ impl ChooserFileSource {
         })
     }
 
-    fn set_filter(&self, filter: Option<gtk::FileFilter>) {
+    pub(crate) fn set_filter(&self, filter: Option<gtk::FileFilter>) {
         self.filter.replace(filter);
     }
 
@@ -380,9 +380,9 @@ fn filter_directory_change(
 }
 
 #[derive(Clone)]
-struct PortalFilter {
-    portal: FileFilter,
-    native: gtk::FileFilter,
+pub(crate) struct PortalFilter {
+    pub(crate) portal: FileFilter,
+    pub(crate) native: gtk::FileFilter,
 }
 
 enum ChoiceControl {
@@ -1421,7 +1421,7 @@ impl ChooserState {
     }
 }
 
-fn eligible_open_entries(entries: Vec<FileEntry>, directory: bool) -> Vec<FileEntry> {
+pub(crate) fn eligible_open_entries(entries: Vec<FileEntry>, directory: bool) -> Vec<FileEntry> {
     entries
         .into_iter()
         .filter(|entry| entry.is_directory() == directory)
@@ -1449,14 +1449,14 @@ fn chooser_default_dimensions_for_monitor(monitor_width: i32, monitor_height: i3
     (target_width, target_height)
 }
 
-fn chooser_initial_dimensions(monitor: Option<(i32, i32)>) -> (i32, i32) {
+pub(crate) fn chooser_initial_dimensions(monitor: Option<(i32, i32)>) -> (i32, i32) {
     monitor.filter(|(width, height)| *width > 0 && *height > 0).map_or(
         (FALLBACK_CHOOSER_WIDTH, FALLBACK_CHOOSER_HEIGHT),
         |(width, height)| chooser_default_dimensions_for_monitor(width, height),
     )
 }
 
-fn detect_monitor_geometry(
+pub(crate) fn detect_monitor_geometry(
     display: Option<&gtk::gdk::Display>,
     window: Option<&gtk::Window>,
 ) -> Option<(i32, i32)> {
@@ -2181,7 +2181,7 @@ pub(crate) fn cancel_chooser(token: &str) {
     });
 }
 
-fn portal_filters(
+pub(crate) fn portal_filters(
     filters: &[FileFilter],
     current: Option<&FileFilter>,
 ) -> (Vec<PortalFilter>, Option<usize>) {
@@ -2295,7 +2295,7 @@ fn labeled_row(label: &str, child: Option<&gtk::Widget>) -> gtk::Box {
     row
 }
 
-fn apply_external_parent(window: &gtk::Window, parent: Option<&WindowIdentifierType>) {
+pub(crate) fn apply_external_parent(window: &gtk::Window, parent: Option<&WindowIdentifierType>) {
     let Some(WindowIdentifierType::Wayland(handle)) = parent else {
         return;
     };
@@ -2345,7 +2345,7 @@ fn save_hints(kind: &ChooserKind, preferences: &Rc<PreferenceManager>) -> Option
     Some(row)
 }
 
-fn chooser_reference(kind: &ChooserKind) -> crate::ui::shortcut_reference::ChooserScope {
+pub(crate) fn chooser_reference(kind: &ChooserKind) -> crate::ui::shortcut_reference::ChooserScope {
     use crate::ui::shortcut_reference::{ChooserRequest, ChooserScope};
     let (request, multiple) = match kind {
         ChooserKind::Open {

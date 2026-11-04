@@ -5,6 +5,7 @@
 
 mod actions;
 mod appearance;
+mod chooser;
 mod columns;
 mod customize;
 mod devices;
@@ -33,8 +34,20 @@ pub(crate) fn enabled() -> bool {
 
 pub(crate) fn present(application: &gtk::Application) {
     theme::install();
+    if let Ok(kind) = std::env::var("NYX_FILES_CHOOSER") {
+        chooser::present_for_development(&kind);
+        return;
+    }
     window::Window::open(application, None);
 }
+
+/// The portal's chooser on the 2.0 interface.
+pub(crate) static CHOOSER_UI: crate::portal::ChooserUi = crate::portal::ChooserUi {
+    prepare: chooser::prepare,
+    present: |request, cancelled, completion| chooser::present(request, cancelled, completion),
+    cancel: chooser::cancel,
+    flush: crate::ui::preferences::flush_pending_folder_views,
+};
 
 pub(crate) fn present_open(application: &gtk::Application, file: &gio::File) {
     use gio::prelude::FileExt;

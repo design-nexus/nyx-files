@@ -659,42 +659,6 @@ impl Window {
         true
     }
 
-    pub(super) fn preview_open(&self) -> bool {
-        self.current().is_some_and(|t| t.preview.is_open())
-    }
-
-    pub(super) fn toggle_preview(&self) {
-        let Some(tab) = self.current() else { return };
-        let entry = tab.selected().into_iter().next();
-        tab.preview.toggle(
-            crate::ui::preview::preview_target(entry),
-            tab.browser.active_depth(),
-        );
-    }
-
-    pub(super) fn shows_hidden(&self) -> bool {
-        self.current().is_some_and(|t| t.shows_hidden())
-    }
-
-    pub(super) fn toggle_hidden(&self) {
-        if let Some(tab) = self.current() {
-            tab.browser.toggle_hidden();
-        }
-    }
-
-    pub(super) fn icons_size(&self) -> i32 {
-        self.current().map_or(
-            crate::ui::browser_modes::DEFAULT_ICONS_THUMBNAIL_SIZE,
-            |t| t.icons_size(),
-        )
-    }
-
-    pub(super) fn set_icons_size(&self, size: i32) {
-        if let Some(tab) = self.current() {
-            tab.set_icons_size(size);
-        }
-    }
-
     pub(super) fn navigate_to(&self, location: Location) {
         self.navigate(location);
     }

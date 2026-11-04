@@ -23,7 +23,7 @@ use crate::{
 
 use super::{SidebarState, SidebarView, TypeToSearch, topmost_modal_layer, visible_modal_layer};
 
-mod chooser;
+pub(crate) mod chooser;
 pub(crate) mod chords;
 mod commands;
 mod escape;

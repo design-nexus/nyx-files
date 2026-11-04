@@ -9,11 +9,11 @@ use crate::{
     ui::keys::{KeyPress, bindings::*},
 };
 
-pub(super) const UNAVAILABLE: &str = "Not available in the file chooser";
+pub(crate) const UNAVAILABLE: &str = "Not available in the file chooser";
 const SINGLE: &str = "Only one item can be chosen";
 const LOCAL_ONLY: &str = "Only local folders can be opened here";
 
-pub(in crate::ui::window) fn refusal(
+pub(crate) fn refusal(
     press: &KeyPress,
     multiple: bool,
     listing_focused: bool,

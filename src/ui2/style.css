@@ -359,3 +359,18 @@ window.files-window menubutton.shortcut-footer-button > button:hover {
   background: @row_hover;
   color: @theme_text;
 }
+
+/* The file chooser's name, options and buttons under the listing. */
+window.files-chooser .chooser-panel {
+  padding: 10px 16px 14px;
+  background-color: @theme_card;
+}
+window.files-chooser .chooser-option > label.dim {
+  min-width: 56px;
+}
+window.files-chooser .chooser-options checkbutton {
+  color: @theme_text;
+}
+window.files-chooser .chooser-actions label.error {
+  color: @theme_danger;
+}

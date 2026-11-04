@@ -13,7 +13,7 @@ use crate::ui::{
     preferences::{ListColumnId, PreferenceManager, TextSize},
 };
 
-use super::window::Window;
+use super::{tab::Tab, window::Window};
 
 thread_local! {
     static PROVIDER: gtk::CssProvider = gtk::CssProvider::new();
@@ -157,7 +157,10 @@ fn labelled(title: &str, control: &impl IsA<gtk::Widget>) -> gtk::Box {
     row
 }
 
-fn content(window: &Rc<Window>) -> gtk::Box {
+/// The tab the menu acts on: the window's current one, or the chooser's.
+type CurrentTab = Rc<dyn Fn() -> Option<Rc<Tab>>>;
+
+fn content(current: &CurrentTab) -> gtk::Box {
     let prefs = PreferenceManager::shared();
     let mode = prefs.browser_mode();
     let body = gtk::Box::new(gtk::Orientation::Vertical, 1);
@@ -185,25 +188,25 @@ fn content(window: &Rc<Window>) -> gtk::Box {
         ));
     }
     {
-        let (w1, w2) = (Rc::downgrade(window), Rc::downgrade(window));
+        let (c1, c2) = (current.clone(), current.clone());
         body.append(&check(
             "Preview panel",
-            move || w1.upgrade().is_some_and(|w| w.preview_open()),
+            move || c1().is_some_and(|t| t.preview.is_open()),
             move || {
-                if let Some(w) = w2.upgrade() {
-                    w.toggle_preview();
+                if let Some(t) = c2() {
+                    t.toggle_preview();
                 }
             },
         ));
     }
     {
-        let (w1, w2) = (Rc::downgrade(window), Rc::downgrade(window));
+        let (c1, c2) = (current.clone(), current.clone());
         body.append(&check(
             "Hidden files",
-            move || w1.upgrade().is_some_and(|w| w.shows_hidden()),
+            move || c1().is_some_and(|t| t.shows_hidden()),
             move || {
-                if let Some(w) = w2.upgrade() {
-                    w.toggle_hidden();
+                if let Some(t) = c2() {
+                    t.browser.toggle_hidden();
                 }
             },
         ));
@@ -244,15 +247,15 @@ fn content(window: &Rc<Window>) -> gtk::Box {
     if mode == BrowserMode::Icons {
         body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
         body.append(&heading("Icon size"));
-        let size = window.icons_size();
+        let size = current().map_or(96, |t| t.icons_size());
         let scale = gtk::Scale::with_range(gtk::Orientation::Horizontal, 32.0, 256.0, 8.0);
         scale.set_value(f64::from(size));
         scale.set_draw_value(false);
         scale.set_hexpand(true);
-        let w = Rc::downgrade(window);
+        let c = current.clone();
         scale.connect_value_changed(move |s| {
-            if let Some(w) = w.upgrade() {
-                w.set_icons_size(s.value().round() as i32);
+            if let Some(t) = c() {
+                t.set_icons_size(s.value().round() as i32);
             }
         });
         body.append(&labelled("Size", &scale));
@@ -318,6 +321,12 @@ fn content(window: &Rc<Window>) -> gtk::Box {
 
 /// The header button; the popover is built fresh each time it opens.
 pub(super) fn button(window: &Rc<Window>) -> gtk::MenuButton {
+    let weak = Rc::downgrade(window);
+    button_for(Rc::new(move || weak.upgrade().and_then(|w| w.current())))
+}
+
+/// The header button acting on whichever tab `current` gives.
+pub(super) fn button_for(current: CurrentTab) -> gtk::MenuButton {
     let button = gtk::MenuButton::new();
     button.set_icon_name("view-more-horizontal-symbolic");
     button.add_css_class("bar-button");
@@ -327,12 +336,7 @@ pub(super) fn button(window: &Rc<Window>) -> gtk::MenuButton {
     popover.set_has_arrow(false);
     popover.add_css_class("menu-popover");
     button.set_popover(Some(&popover));
-    let weak = Rc::downgrade(window);
-    popover.connect_show(move |p| {
-        if let Some(w) = weak.upgrade() {
-            p.set_child(Some(&content(&w)));
-        }
-    });
+    popover.connect_show(move |p| p.set_child(Some(&content(&current))));
     let _ = glib::Propagation::Proceed;
     button
 }
