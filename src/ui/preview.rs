@@ -227,7 +227,7 @@ struct PreviewState {
     popup: RefCell<Option<gtk::Window>>,
     /// Moves the owning view's selection by a step and returns what it lands on,
     /// for hosts without a `BrowserView`.
-    pub(super) stepper: RefCell<Option<Rc<dyn Fn(i32) -> Option<FileEntry>>>>,
+    pub(super) stepper: RefCell<Option<Stepper>>,
     current: RefCell<Option<FileEntry>>,
     current_depth: Cell<Option<usize>>,
     pending_show: RefCell<Option<glib::SourceId>>,
@@ -265,6 +265,8 @@ pub(crate) const PREVIEW_LABEL: &str = "Preview";
 const NEXT_FILE: &[keys::Binding] = &[UP, DOWN];
 
 #[derive(Clone)]
+type Stepper = Rc<dyn Fn(i32) -> Option<FileEntry>>;
+
 pub struct PreviewDrawer {
     state: Rc<PreviewState>,
 }

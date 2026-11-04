@@ -1522,10 +1522,6 @@ fn pin_manual_font_rendering() {
     }
 }
 
-/// An empty theme bundled in Strata's resources. GTK's own theme provider sits
-/// below the reset, so loading a real theme there only adds selector matching.
-/// Desktop selections arrive through the settings portal or `settings.ini`,
-/// which application values outrank for the whole process.
 thread_local! {
     static TOKENS_ONLY: Cell<bool> = const { Cell::new(false) };
 }
@@ -1536,6 +1532,10 @@ pub(crate) fn tokens_only() {
     TOKENS_ONLY.with(|t| t.set(true));
 }
 
+/// An empty theme bundled in Strata's resources. GTK's own theme provider sits
+/// below the reset, so loading a real theme there only adds selector matching.
+/// Desktop selections arrive through the settings portal or `settings.ini`,
+/// which application values outrank for the whole process.
 const PINNED_GTK_THEME: &str = "StrataEmpty";
 
 /// GTK's built-in theme, restated above the reset.
