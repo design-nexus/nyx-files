@@ -1,15 +1,22 @@
 // SPDX-License-Identifier: MIT
 
-//! The List view: Name, Size, Modified and Kind.
+//! The List view: Name, Mode, Size, Kind and Modified, in the order and with
+//! the widths and hidden columns saved in preferences; grouped by file type
+//! when that is on.
 
 use std::rc::Rc;
 
 use gtk::{gio, glib, prelude::*};
 
-use crate::model::{FileEntry, MetadataValue};
+use crate::{
+    model::{FileEntry, MetadataValue},
+    ui::{
+        preferences::{ListColumnId, ListColumns, PreferenceManager},
+        thumbnail::ThumbnailSlot,
+    },
+};
 
 use super::model::{self, EntryModel, Hooks};
-use crate::ui::thumbnail::ThumbnailSlot;
 
 const ICON: i32 = 18;
 
@@ -24,8 +31,8 @@ fn context_on(child: &impl IsA<gtk::Widget>, item: &gtk::ListItem, hooks: &Rc<Ho
     model::on_context(child, hooks, move || item.upgrade().map(|i| i.position()));
 }
 
-fn column(
-    title: &str,
+fn text_column(
+    id: ListColumnId,
     hooks: &Rc<Hooks>,
     bind: fn(&gtk::Label, &FileEntry),
 ) -> gtk::ColumnViewColumn {
@@ -54,9 +61,17 @@ fn column(
             bind(&label, &row.entry);
         }
     });
-    let column = gtk::ColumnViewColumn::new(Some(title), Some(factory));
+    let column = gtk::ColumnViewColumn::new(Some(&crate::i18n::tr(title(id))), Some(factory));
     column.set_resizable(true);
+    column.set_id(Some(id.css_class()));
     column
+}
+
+fn title(id: ListColumnId) -> &'static str {
+    match id {
+        ListColumnId::Type => "Kind",
+        other => other.title(),
+    }
 }
 
 fn name_column(hooks: &Rc<Hooks>) -> gtk::ColumnViewColumn {
@@ -102,6 +117,7 @@ fn name_column(hooks: &Rc<Hooks>) -> gtk::ColumnViewColumn {
     let column = gtk::ColumnViewColumn::new(Some(&crate::i18n::tr("Name")), Some(factory));
     column.set_expand(true);
     column.set_resizable(true);
+    column.set_id(Some(ListColumnId::Name.css_class()));
     column
 }
 
@@ -115,11 +131,7 @@ pub(super) fn entry_icon(entry: &FileEntry) -> gio::Icon {
 }
 
 pub(super) fn kind(entry: &FileEntry) -> String {
-    if entry.is_directory() {
-        return crate::i18n::tr("Folder");
-    }
-    let (content_type, _) = gio::content_type_guess(Some(&entry.native_name), None::<&[u8]>);
-    gio::content_type_get_description(&content_type).to_string()
+    model::type_group(entry)
 }
 
 pub(super) fn size_text(entry: &FileEntry) -> String {
@@ -131,31 +143,84 @@ pub(super) fn size_text(entry: &FileEntry) -> String {
     }
 }
 
+fn mode_text(entry: &FileEntry) -> String {
+    match entry.mode {
+        MetadataValue::Known(mode) => crate::ui::browser::properties::format_permissions(mode),
+        _ => String::new(),
+    }
+}
+
+fn width_of(saved: &ListColumns, id: ListColumnId) -> Option<i32> {
+    match id {
+        ListColumnId::Name => saved.name,
+        ListColumnId::Mode => Some(saved.mode),
+        ListColumnId::Size => Some(saved.size),
+        ListColumnId::Type => Some(saved.kind),
+        ListColumnId::Modified => Some(saved.modified),
+    }
+}
+
+fn id_of(column: &gtk::ColumnViewColumn) -> Option<ListColumnId> {
+    let id = column.id()?;
+    ListColumnId::ALL
+        .into_iter()
+        .find(|c| c.css_class() == id.as_str())
+}
+
 impl ListView {
     pub(super) fn new(model: &EntryModel) -> Self {
         let view = gtk::ColumnView::new(Some(model.selection.clone()));
         view.add_css_class("file-list");
         view.set_show_column_separators(false);
         view.set_show_row_separators(false);
-        view.set_reorderable(false);
-        view.append_column(&name_column(&model.hooks));
-        view.append_column(&column(
-            &crate::i18n::tr("Size"),
-            &model.hooks,
-            |label, entry| label.set_text(&size_text(entry)),
-        ));
-        view.append_column(&column(
-            &crate::i18n::tr("Modified"),
-            &model.hooks,
-            |label, entry| {
-                crate::util::set_modified_date(label, Some(entry), "");
-            },
-        ));
-        view.append_column(&column(
-            &crate::i18n::tr("Kind"),
-            &model.hooks,
-            |label, entry| label.set_text(&kind(entry)),
-        ));
+        view.set_reorderable(true);
+        let header = gtk::SignalListItemFactory::new();
+        header.connect_setup(|_, item| {
+            if let Some(header) = item.downcast_ref::<gtk::ListHeader>() {
+                let label = gtk::Label::new(None);
+                label.set_xalign(0.0);
+                label.add_css_class("list-group");
+                header.set_child(Some(&label));
+            }
+        });
+        header.connect_bind(|_, item| {
+            let Some(header) = item.downcast_ref::<gtk::ListHeader>() else {
+                return;
+            };
+            let (Some(label), Some(object)) =
+                (header.child().and_downcast::<gtk::Label>(), header.item())
+            else {
+                return;
+            };
+            if let Some(row) = model::row_of(&object) {
+                label.set_text(&model::type_group(&row.entry).to_uppercase());
+            }
+        });
+        view.set_header_factory(Some(&header));
+        let h = &model.hooks;
+        let columns: Vec<gtk::ColumnViewColumn> = vec![
+            name_column(h),
+            text_column(ListColumnId::Mode, h, |l, e| l.set_text(&mode_text(e))),
+            text_column(ListColumnId::Size, h, |l, e| l.set_text(&size_text(e))),
+            text_column(ListColumnId::Type, h, |l, e| l.set_text(&kind(e))),
+            text_column(ListColumnId::Modified, h, |l, e| {
+                crate::util::set_modified_date(l, Some(e), "")
+            }),
+        ];
+        let prefs = PreferenceManager::shared();
+        let saved = prefs.browser_list_columns();
+        for id in prefs.list_column_order() {
+            if let Some(column) = columns.iter().find(|c| id_of(c) == Some(id)) {
+                if let Some(width) = saved
+                    .as_ref()
+                    .and_then(|s| width_of(s, id))
+                    .filter(|w| *w > 0)
+                {
+                    column.set_fixed_width(width);
+                }
+                view.append_column(column);
+            }
+        }
         model::on_context(&view, &model.hooks, || None);
         model::drop_on_view(&view, &model.hooks);
         let root = gtk::ScrolledWindow::builder()
@@ -164,23 +229,113 @@ impl ListView {
             .hexpand(true)
             .child(&view)
             .build();
-        // Narrow lists drop Kind, then Modified, so names keep their room.
-        let columns = view.columns();
-        let last = std::cell::Cell::new(-1);
-        root.add_tick_callback(move |root, _| {
-            let width = root.width();
-            if width != last.get() {
-                last.set(width);
-                for (index, min) in [(3u32, 560), (2u32, 440)] {
-                    if let Some(column) =
-                        columns.item(index).and_downcast::<gtk::ColumnViewColumn>()
-                    {
-                        column.set_visible(width >= min);
-                    }
+        let list = Self { root, view };
+        list.follow_preferences();
+        list
+    }
+
+    /// Hidden columns follow the preference; narrow lists also drop Mode, Kind,
+    /// then Modified, so names keep their room; order and widths are saved.
+    fn follow_preferences(&self) {
+        let prefs = PreferenceManager::shared();
+        let apply = {
+            let view = self.view.downgrade();
+            let root = self.root.downgrade();
+            move || {
+                let (Some(view), Some(root)) = (view.upgrade(), root.upgrade()) else {
+                    return;
+                };
+                let hidden = PreferenceManager::shared().list_hidden_columns();
+                let width = root.width();
+                let columns = view.columns();
+                for i in 0..columns.n_items() {
+                    let Some(column) = columns.item(i).and_downcast::<gtk::ColumnViewColumn>()
+                    else {
+                        continue;
+                    };
+                    let Some(id) = id_of(&column) else { continue };
+                    let narrow = width > 0
+                        && ((id == ListColumnId::Mode && width < 680)
+                            || (id == ListColumnId::Type && width < 560)
+                            || (id == ListColumnId::Modified && width < 440));
+                    column.set_visible(
+                        id == ListColumnId::Name || (!hidden.contains(&id) && !narrow),
+                    );
                 }
+            }
+        };
+        let a = apply.clone();
+        prefs.bind_preference(
+            &self.view,
+            PreferenceManager::list_hidden_columns,
+            move |_, _| a(),
+        );
+        let last = std::cell::Cell::new(-1);
+        self.root.add_tick_callback(move |root, _| {
+            if root.width() != last.get() {
+                last.set(root.width());
+                apply();
             }
             glib::ControlFlow::Continue
         });
-        Self { root, view }
+        let view = self.view.downgrade();
+        self.view
+            .columns()
+            .connect_items_changed(move |_, _, _, _| {
+                let Some(view) = view.upgrade() else { return };
+                let columns = view.columns();
+                let order: Vec<ListColumnId> = (0..columns.n_items())
+                    .filter_map(|i| columns.item(i).and_downcast::<gtk::ColumnViewColumn>())
+                    .filter_map(|c| id_of(&c))
+                    .collect();
+                if order.len() == ListColumnId::ALL.len()
+                    && order != PreferenceManager::shared().list_column_order()
+                {
+                    PreferenceManager::shared().set_list_column_order(order);
+                }
+            });
+        let columns = self.view.columns();
+        for i in 0..columns.n_items() {
+            let Some(column) = columns.item(i).and_downcast::<gtk::ColumnViewColumn>() else {
+                continue;
+            };
+            let view = self.view.downgrade();
+            column.connect_fixed_width_notify(move |_| {
+                if let Some(view) = view.upgrade() {
+                    save_widths(&view);
+                }
+            });
+        }
     }
+}
+
+fn save_widths(view: &gtk::ColumnView) {
+    let columns = view.columns();
+    let mut saved = PreferenceManager::shared()
+        .browser_list_columns()
+        .unwrap_or(ListColumns {
+            name: None,
+            mode: 110,
+            size: 90,
+            kind: 140,
+            modified: 140,
+        });
+    for i in 0..columns.n_items() {
+        let Some(column) = columns.item(i).and_downcast::<gtk::ColumnViewColumn>() else {
+            continue;
+        };
+        let width = column.fixed_width();
+        if width <= 0 {
+            continue;
+        }
+        match id_of(&column) {
+            Some(ListColumnId::Name) => saved.name = Some(width),
+            Some(ListColumnId::Mode) => saved.mode = width,
+            Some(ListColumnId::Size) => saved.size = width,
+            Some(ListColumnId::Type) => saved.kind = width,
+            Some(ListColumnId::Modified) => saved.modified = width,
+            None => {}
+        }
+    }
+    PreferenceManager::shared().set_browser_list_columns(Some(saved));
 }

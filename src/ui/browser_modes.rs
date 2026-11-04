@@ -34,14 +34,14 @@ mod list_factory;
 mod navigation;
 #[cfg(test)]
 mod tests;
-mod thumbnail_size;
+pub(crate) mod thumbnail_size;
 
 use list_factory::{ListFactory, ListRow, refresh_list_section};
-pub(super) use thumbnail_size::ThumbnailResize;
+pub(crate) use thumbnail_size::ThumbnailResize;
 
 const LIST_COLUMN_WIDTHS: [i32; 5] = [160, 160, 90, 120, 150];
 const LIST_COLUMN_MIN_WIDTHS: [i32; 5] = [160, 80, 70, 80, 110];
-const DEFAULT_ICONS_THUMBNAIL_SIZE: i32 = 64;
+pub(crate) const DEFAULT_ICONS_THUMBNAIL_SIZE: i32 = 64;
 const FALLBACK_ICONS_COLUMN_WIDTH: i32 = 120;
 
 #[derive(Clone)]
@@ -125,7 +125,7 @@ impl BrowserMode {
 
 /// One position on a density slider: a px value, where `COMPACT_PX` and `AIRY_PX`
 /// are the snap points and every other value in `0..=MAX_PX` is Custom.
-pub(super) trait DensityScale: Copy + PartialEq + 'static {
+pub(crate) trait DensityScale: Copy + PartialEq + 'static {
     const COMPACT_PX: u8;
     const AIRY_PX: u8;
     const MAX_PX: u8;

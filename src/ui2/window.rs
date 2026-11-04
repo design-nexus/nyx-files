@@ -175,6 +175,8 @@ impl Window {
             }
         });
         header.end.append(&this.build_view_switch());
+        header.end.append(&super::appearance::button(&this));
+        super::appearance::install(&this.window);
         header.end.append(&settings_button);
 
         this.wire();
@@ -345,6 +347,20 @@ impl Window {
             self.set_mode(BrowserMode::List);
         } else if press.is_any(&[bindings::HIDDEN_FILES, bindings::HIDDEN_FILES_PERIOD]) {
             tab.iter().for_each(|t| t.browser.toggle_hidden());
+        } else if press.is_any(&[bindings::TEXT_LARGER, bindings::TEXT_LARGER_EQUAL]) {
+            super::appearance::step_text(1);
+        } else if press.is(bindings::TEXT_SMALLER) {
+            super::appearance::step_text(-1);
+        } else if press.is(bindings::TEXT_RESET) {
+            super::appearance::step_text(0);
+        } else if let Some(resize) = crate::ui::browser_modes::ThumbnailResize::for_shortcut(press)
+        {
+            if let Some(tab) = &tab {
+                tab.resize_icons(match resize {
+                    crate::ui::browser_modes::ThumbnailResize::Step(steps) => steps,
+                    crate::ui::browser_modes::ThumbnailResize::Reset => 0,
+                });
+            }
         } else if press.is(bindings::REFRESH) {
             tab.iter().for_each(|t| t.browser.reload_active());
         } else if press.is(bindings::NEW_FOLDER) {
@@ -498,6 +514,42 @@ impl Window {
             return false;
         }
         true
+    }
+
+    pub(super) fn preview_open(&self) -> bool {
+        self.current().is_some_and(|t| t.preview.is_open())
+    }
+
+    pub(super) fn toggle_preview(&self) {
+        let Some(tab) = self.current() else { return };
+        let entry = tab.selected().into_iter().next();
+        tab.preview.toggle(
+            crate::ui::preview::preview_target(entry),
+            tab.browser.active_depth(),
+        );
+    }
+
+    pub(super) fn shows_hidden(&self) -> bool {
+        self.current().is_some_and(|t| t.shows_hidden())
+    }
+
+    pub(super) fn toggle_hidden(&self) {
+        if let Some(tab) = self.current() {
+            tab.browser.toggle_hidden();
+        }
+    }
+
+    pub(super) fn icons_size(&self) -> i32 {
+        self.current().map_or(
+            crate::ui::browser_modes::DEFAULT_ICONS_THUMBNAIL_SIZE,
+            |t| t.icons_size(),
+        )
+    }
+
+    pub(super) fn set_icons_size(&self, size: i32) {
+        if let Some(tab) = self.current() {
+            tab.set_icons_size(size);
+        }
     }
 
     pub(super) fn navigate_to(&self, location: Location) {

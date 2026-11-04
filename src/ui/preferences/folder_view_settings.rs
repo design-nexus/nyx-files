@@ -169,7 +169,7 @@ impl PreferenceManager {
         key_for_location(location)
     }
 
-    pub(in crate::ui) fn remembers(&self, location: &Location) -> bool {
+    pub(crate) fn remembers(&self, location: &Location) -> bool {
         self.remembered_key(location).is_some()
     }
 
@@ -243,7 +243,7 @@ impl PreferenceManager {
         }
     }
 
-    pub(in crate::ui) fn icons_size_for(&self, location: Option<&Location>) -> i32 {
+    pub(crate) fn icons_size_for(&self, location: Option<&Location>) -> i32 {
         location
             .and_then(|location| self.remembered_key(location))
             .and_then(|key| {
@@ -257,7 +257,7 @@ impl PreferenceManager {
     }
 
     /// A folder that is not remembered keeps a changed size only while it is shown.
-    pub(in crate::ui) fn set_folder_icons_size(&self, location: Option<&Location>, size: i32) {
+    pub(crate) fn set_folder_icons_size(&self, location: Option<&Location>, size: i32) {
         let size = size.clamp(MIN_ICONS_THUMBNAIL_SIZE, MAX_ICONS_THUMBNAIL_SIZE);
         if !self.remember_folder_views() {
             self.set_icons_thumbnail_size(size);
@@ -272,7 +272,7 @@ impl PreferenceManager {
         });
     }
 
-    pub(in crate::ui) fn reset_folder_icons_size(&self, location: &Location) {
+    pub(crate) fn reset_folder_icons_size(&self, location: &Location) {
         let Some(key) = self.remembered_key(location) else {
             return;
         };

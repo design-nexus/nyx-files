@@ -259,3 +259,26 @@ window.files-window .preview-content scrolledwindow,
 window.files-window .preview-content viewport {
   background: transparent;
 }
+
+/* List groups and the Appearance popover */
+
+window.files-window columnview.file-list .list-group {
+  margin: 12px 10px 4px;
+  font-size: 0.846em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: @theme_text_tertiary;
+}
+
+.appearance-menu {
+  min-width: 260px;
+}
+
+.appearance-menu .appearance-row {
+  padding: 2px 10px;
+}
+
+.appearance-menu scale marks {
+  color: @theme_text_tertiary;
+  font-size: 0.846em;
+}

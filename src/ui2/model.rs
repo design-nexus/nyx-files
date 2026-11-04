@@ -55,18 +55,83 @@ impl Hooks {
 
 pub(super) struct EntryModel {
     pub(super) store: gio::ListStore,
+    /// The store, in groups by file type when grouping is on.
+    sorted: gtk::SortListModel,
     pub(super) selection: gtk::MultiSelection,
     pub(super) hooks: Rc<Hooks>,
+}
+
+/// Folders first, then the other types alphabetically, "Other" last.
+fn type_rank(entry: &FileEntry) -> (u8, String) {
+    use crate::services::EntryType;
+    match crate::services::entry_type(entry) {
+        EntryType::Folder => (0, String::new()),
+        EntryType::Other => (2, String::new()),
+        other => (1, other.description().to_lowercase()),
+    }
+}
+
+/// The heading for an entry's group.
+pub(super) fn type_group(entry: &FileEntry) -> String {
+    crate::i18n::tr(crate::services::entry_type(entry).description())
 }
 
 impl EntryModel {
     pub(super) fn new() -> Self {
         let store = gio::ListStore::new::<glib::BoxedAnyObject>();
-        let selection = gtk::MultiSelection::new(Some(store.clone()));
+        let sorted = gtk::SortListModel::new(Some(store.clone()), None::<gtk::Sorter>);
+        let selection = gtk::MultiSelection::new(Some(sorted.clone()));
         Self {
             store,
+            sorted,
             selection,
             hooks: Rc::default(),
+        }
+    }
+
+    /// Groups rows by file type (as sections), keeping the order within each.
+    pub(super) fn set_grouped(&self, grouped: bool) {
+        if grouped == self.sorted.section_sorter().is_some() {
+            return;
+        }
+        let selected = self.selected_locations();
+        self.sorted.set_section_sorter(
+            grouped
+                .then(|| {
+                    gtk::CustomSorter::new(|a, b| {
+                        let (Some(a), Some(b)) = (row_of(a), row_of(b)) else {
+                            return gtk::Ordering::Equal;
+                        };
+                        type_rank(&a.entry).cmp(&type_rank(&b.entry)).into()
+                    })
+                })
+                .as_ref(),
+        );
+        self.reselect(&selected);
+    }
+
+    fn selected_locations(&self) -> Vec<crate::model::Location> {
+        self.selected().into_iter().map(|e| e.location).collect()
+    }
+
+    fn reselect(&self, locations: &[crate::model::Location]) {
+        let bits = gtk::Bitset::new_empty();
+        if !locations.is_empty() {
+            for i in 0..self.len() {
+                if self
+                    .entry(i)
+                    .is_some_and(|e| locations.contains(&e.location))
+                {
+                    bits.add(i);
+                }
+            }
+        }
+        let current = self.selection.selection();
+        let same = bits.size() == current.size()
+            && (0..bits.size()).all(|i| bits.nth(i as u32) == current.nth(i as u32));
+        if !same {
+            self.selection
+                .set_selection(&bits, &gtk::Bitset::new_range(0, self.len()));
         }
     }
 
@@ -78,6 +143,7 @@ impl EntryModel {
             .enumerate()
             .filter(|(_, e)| show_hidden || !e.is_hidden)
             .collect();
+        let selected = self.selected_locations();
         let same_items = shown.len() as u32 == self.store.n_items()
             && shown.iter().enumerate().all(|(i, (_, entry))| {
                 self.store.item(i as u32).is_some_and(|item| {
@@ -85,7 +151,6 @@ impl EntryModel {
                 })
             });
         if same_items {
-            let selected = self.selection.selection();
             for (i, (position, entry)) in shown.iter().enumerate() {
                 let Some(item) = self
                     .store
@@ -106,40 +171,27 @@ impl EntryModel {
                     self.store.splice(i as u32, 1, &[fresh]);
                 }
             }
-            if self.selection.selection() != selected {
-                self.selection
-                    .set_selection(&selected, &gtk::Bitset::new_range(0, self.store.n_items()));
-            }
-            return;
-        }
-        let selected: Vec<_> = self.selected().into_iter().map(|e| e.location).collect();
-        let items: Vec<glib::BoxedAnyObject> = shown
-            .iter()
-            .map(|(position, entry)| {
-                glib::BoxedAnyObject::new(Row {
-                    position: *position,
-                    entry: (*entry).clone(),
+        } else {
+            let items: Vec<glib::BoxedAnyObject> = shown
+                .iter()
+                .map(|(position, entry)| {
+                    glib::BoxedAnyObject::new(Row {
+                        position: *position,
+                        entry: (*entry).clone(),
+                    })
                 })
-            })
-            .collect();
-        self.store.splice(0, self.store.n_items(), &items);
-        if !selected.is_empty() {
-            let bits = gtk::Bitset::new_empty();
-            for (i, item) in items.iter().enumerate() {
-                if selected.contains(&item.borrow::<Row>().entry.location) {
-                    bits.add(i as u32);
-                }
-            }
-            self.selection.set_selection(&bits, &bits);
+                .collect();
+            self.store.splice(0, self.store.n_items(), &items);
         }
+        self.reselect(&selected);
     }
 
     pub(super) fn len(&self) -> u32 {
-        self.store.n_items()
+        self.sorted.n_items()
     }
 
     pub(super) fn entry(&self, index: u32) -> Option<FileEntry> {
-        let item = self.store.item(index)?;
+        let item = self.sorted.item(index)?;
         row_of(&item).map(|r| r.entry.clone())
     }
 
@@ -149,7 +201,7 @@ impl EntryModel {
         (0..bits.size())
             .filter_map(|i| {
                 let index = bits.nth(i as u32);
-                let item = self.store.item(index)?;
+                let item = self.sorted.item(index)?;
                 row_of(&item).map(|r| (index, r.position))
             })
             .collect()

@@ -29,14 +29,14 @@ const STEPS: [i32; 17] = [
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::ui) enum ThumbnailResize {
+pub(crate) enum ThumbnailResize {
     /// Positive steps enlarge.
     Step(i32),
     Reset,
 }
 
 impl ThumbnailResize {
-    pub(in crate::ui) fn for_shortcut(press: &KeyPress) -> Option<Self> {
+    pub(crate) fn for_shortcut(press: &KeyPress) -> Option<Self> {
         if press.is_any(&[THUMBNAILS_LARGER, THUMBNAILS_LARGER_EQUAL]) {
             Some(Self::Step(1))
         } else if press.is(THUMBNAILS_SMALLER) {
@@ -85,7 +85,7 @@ impl ThumbnailResize {
 
 /// `size` moved `steps` along [`STEPS`]. From a size between two steps, the
 /// first step lands on the nearer one in the direction moved.
-pub(super) fn stepped(size: i32, steps: i32) -> i32 {
+pub(crate) fn stepped(size: i32, steps: i32) -> i32 {
     let index = match steps.signum() {
         0 => return size,
         1 => STEPS.partition_point(|&step| step <= size) as i32 - 1 + steps,

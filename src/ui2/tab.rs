@@ -171,6 +171,17 @@ impl Tab {
             }
         }));
         tab.wire_dnd(&tab.model.clone());
+        tab.apply_grouping();
+        let weak = Rc::downgrade(&tab);
+        PreferenceManager::shared().bind_preference(
+            &tab.page,
+            PreferenceManager::group_by_type,
+            move |_, _| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.apply_grouping();
+                }
+            },
+        );
         tab.preview.observe_browser(&tab.browser);
         let weak = Rc::downgrade(&tab);
         tab.preview.set_stepper(move |delta| {
@@ -240,8 +251,44 @@ impl Tab {
 
     pub(super) fn set_mode(self: &Rc<Self>, mode: BrowserMode) {
         self.mode.set(mode);
+        self.apply_grouping();
         self.refresh();
         self.show_page();
+    }
+
+    /// Steps the Icons size (positive is larger), or resets it with 0, and saves
+    /// it for this folder or as the default, as the preferences say.
+    pub(super) fn resize_icons(&self, steps: i32) {
+        let prefs = PreferenceManager::shared();
+        let location = self.location();
+        let size = if steps == 0 {
+            match location.as_ref().filter(|l| prefs.remembers(l)) {
+                Some(l) => {
+                    prefs.reset_folder_icons_size(l);
+                    prefs.icons_size_for(Some(l))
+                }
+                None => crate::ui::browser_modes::DEFAULT_ICONS_THUMBNAIL_SIZE,
+            }
+        } else {
+            crate::ui::browser_modes::thumbnail_size::stepped(self.icons.size(), steps)
+        };
+        prefs.set_folder_icons_size(location.as_ref(), size);
+        self.icons.set_size(size);
+    }
+
+    pub(super) fn icons_size(&self) -> i32 {
+        self.icons.size()
+    }
+
+    pub(super) fn set_icons_size(&self, size: i32) {
+        PreferenceManager::shared().set_folder_icons_size(self.location().as_ref(), size);
+        self.icons.set_size(size);
+    }
+
+    fn apply_grouping(&self) {
+        self.model.set_grouped(
+            self.mode.get() == BrowserMode::List && PreferenceManager::shared().group_by_type(),
+        );
     }
 
     /// The model the selection and menus act on: the active column's in Columns.
@@ -571,6 +618,8 @@ impl Tab {
         *self.shown.borrow_mut() = Some(key);
         if moved {
             self.requested.borrow_mut().clear();
+            self.icons
+                .set_size(PreferenceManager::shared().icons_size_for(self.location().as_ref()));
             if self.model.len() > 0 {
                 self.list
                     .view
