@@ -517,10 +517,15 @@ pub(super) fn undo(tab: &Rc<Tab>) -> bool {
         };
     }
     if let Some((generation, records)) = b.pending_undo_group() {
+        let total = records.len();
         let items = move_items(records);
+        // With items gone from the new folder, the folder stays: it may hold
+        // things the user put there since.
         return if items.is_empty() {
-            b.discard_pending_replay(false, generation);
+            b.discard_group_keep_folder(false, generation);
             false
+        } else if items.len() < total {
+            b.undo_group_retaining_folder(generation, items)
         } else {
             b.undo_group(generation, items)
         };

@@ -1153,6 +1153,15 @@ impl Tab {
             open(entry);
             return;
         }
+        // Archives extract where they are, as Files has always opened them.
+        if crate::services::ArchiveFormat::for_entry(entry).is_some()
+            && let Some(f) = self.events.borrow().as_ref()
+        {
+            f(&BrowserEvent::ExtractRequested {
+                entry: entry.clone(),
+            });
+            return;
+        }
         crate::ui::browser::desktop::open_location_at(
             &entry.location,
             None,
