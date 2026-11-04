@@ -43,6 +43,8 @@ pub(super) struct SidebarContent {
     cloud_watch: Cell<bool>,
     monitor: gio::VolumeMonitor,
     keep: RefCell<Vec<Box<dyn std::any::Any>>>,
+    /// The section rows being added belong to, for their icon color.
+    section: Cell<&'static str>,
 }
 
 fn standard(id: &str) -> Option<(&'static str, &'static str, glib::UserDirectory)> {
@@ -132,6 +134,17 @@ fn place(
     })
 }
 
+/// A place's icon and name, whether or not it exists on this computer.
+pub(super) fn place_identity(id: &str) -> Option<(&'static str, &'static str)> {
+    Some(match id {
+        "home" => ("user-home-symbolic", "Home"),
+        "recent" => ("document-open-recent-symbolic", "Recent"),
+        "trash" => ("user-trash-symbolic", "Trash"),
+        "network" => ("network-workgroup-symbolic", "Network"),
+        _ => standard(id).map(|(icon, name, _)| (icon, name))?,
+    })
+}
+
 /// Home and the standard folders are Places, so they are never listed as pins.
 fn is_place(location: &Location) -> bool {
     let home = super::tab::home();
@@ -182,6 +195,7 @@ impl SidebarContent {
             cloud_watch: Cell::new(false),
             monitor: gio::VolumeMonitor::get(),
             keep: RefCell::default(),
+            section: Cell::new("places"),
         });
         let weak = Rc::downgrade(&content);
         let pins = bookmarks::watch_changes(move |result| {
@@ -233,6 +247,27 @@ impl SidebarContent {
                 }
             });
         }
+        prefs.bind_preference(
+            &content.sidebar.root,
+            PreferenceManager::colored_sidebar_icons,
+            |root, colored| {
+                if colored {
+                    root.add_css_class("colored-icons");
+                } else {
+                    root.remove_css_class("colored-icons");
+                }
+            },
+        );
+        let weak = Rc::downgrade(&content);
+        prefs.bind_preference(
+            &content.sidebar.root,
+            PreferenceManager::places_order,
+            move |_, _| {
+                if let Some(c) = weak.upgrade() {
+                    c.queue_rebuild();
+                }
+            },
+        );
         let weak = Rc::downgrade(&content);
         prefs.bind_preference(
             &content.sidebar.root,
@@ -325,6 +360,8 @@ impl SidebarContent {
         target: Target,
     ) -> NavItem {
         let item = sidebar::nav_item(icon, title, tooltip);
+        item.button
+            .add_css_class(&format!("section-icon-{}", self.section.get()));
         if let Some(location) = location
             .clone()
             .filter(|l| !l.is_recent_location() && l.uri_value() != Some("network:///"))
@@ -361,11 +398,15 @@ impl SidebarContent {
     fn places(&self) {
         let prefs = PreferenceManager::shared();
         let home = super::tab::home();
-        self.sidebar.append(&sectioned(
+        self.begin_section(
             sidebar::group_label(&crate::i18n::tr("Places"), true),
             "places",
-        ));
-        for (id, visible) in PLACES {
+        );
+        for id in prefs.places_order() {
+            let Some((id, visible)) = PLACES.iter().find(|(place, _)| *place == id) else {
+                continue;
+            };
+            let id = *id;
             if !visible(&prefs) {
                 continue;
             }
@@ -421,10 +462,10 @@ impl SidebarContent {
         if pins.is_empty() {
             return;
         }
-        self.sidebar.append(&sectioned(
+        self.begin_section(
             sidebar::group_label(&crate::i18n::tr("Pinned"), false),
             "pinned",
-        ));
+        );
         for (location, name) in pins {
             let icon = if location.native_path().is_some() {
                 "folder-symbolic"
@@ -490,10 +531,10 @@ impl SidebarContent {
         if volumes.is_empty() && mounts.is_empty() && drives.is_empty() {
             return;
         }
-        self.sidebar.append(&sectioned(
+        self.begin_section(
             sidebar::group_label(&crate::i18n::tr("Devices"), false),
             "devices",
-        ));
+        );
         self.password_drives(&volumes);
         for volume in volumes {
             let mount = volume.get_mount();
@@ -646,6 +687,13 @@ pub(super) fn is_pinned(location: &Location) -> bool {
     is_place(location) || bookmarks::current().iter().any(|(l, _)| l == location)
 }
 
+impl SidebarContent {
+    fn begin_section(&self, heading: gtk::Box, section: &'static str) {
+        self.section.set(section);
+        self.sidebar.append(&sectioned(heading, section));
+    }
+}
+
 /// A group heading in its section's colour, as Settings colours its groups.
 fn sectioned(heading: gtk::Box, section: &str) -> gtk::Box {
     if let Some(label) = heading.first_child() {
@@ -691,6 +739,7 @@ impl SidebarContent {
             for remote in remotes {
                 let item =
                     sidebar::nav_item("weather-overcast-symbolic", &remote.name, &remote.name);
+                item.button.add_css_class("section-icon-cloud");
                 let (w, r) = (Rc::downgrade(&content), remote.clone());
                 item.button.connect_clicked(move |b| {
                     if let Some(c) = w.upgrade() {

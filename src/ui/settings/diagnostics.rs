@@ -10,9 +10,7 @@ use std::{
 
 use gtk::{gio, glib, prelude::*};
 
-use super::{
-    install_command::install_command, page_content, scrollable_page, search, settings_group,
-};
+use super::install_command::install_command;
 use crate::{
     assets::{self, icons},
     services::{
@@ -30,58 +28,60 @@ const COPY_FEEDBACK: Duration = Duration::from_millis(1500);
 
 type Spawner = Rc<dyn Fn(Sender<Check>)>;
 
-pub(crate) fn diagnostics_page() -> gtk::Widget {
+pub(crate) fn diagnostics_page() -> gtk::Box {
     diagnostics_page_with(Rc::new(diagnostics::spawn))
 }
 
-fn diagnostics_page_with(spawn: Spawner) -> gtk::Widget {
-    let content = page_content();
-    content.add_css_class("settings-diagnostics-page");
-    let row = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    row.add_css_class("settings-option");
-    search::tag(&row, RUN_TITLE);
-    let copy_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    copy_box.set_hexpand(true);
-    let title = gtk::Label::new(Some(&crate::i18n::tr(RUN_TITLE)));
-    title.set_xalign(0.0);
-    title.add_css_class("settings-option-title");
-    let description = gtk::Label::new(Some(&crate::i18n::tr(
-        "Checks the tools and services that previews, locations, devices and desktop integration rely on. Sample files are rendered in the preview sandbox. Nothing is changed or installed.",
-    )));
-    description.set_xalign(0.0);
-    description.set_wrap(true);
-    description.add_css_class("settings-option-description");
-    let actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    actions.add_css_class("settings-integration-actions");
-    actions.add_css_class("diagnostics-actions");
-    actions.set_halign(gtk::Align::End);
+fn escaped(text: &str) -> String {
+    glib::markup_escape_text(text).to_string()
+}
+
+fn card(container: &gtk::Box, heading: Option<&str>) -> gtk::Box {
+    if let Some(heading) = heading {
+        let label = gtk::Label::new(Some(&crate::i18n::tr(heading).to_uppercase()));
+        label.add_css_class("menu-heading");
+        label.add_css_class("files-section");
+        label.set_xalign(0.0);
+        container.append(&label);
+    }
+    let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    card.add_css_class("group-list");
+    container.append(&card);
+    card
+}
+
+/// The run row, then a card per group of checks once a run starts.
+fn diagnostics_page_with(spawn: Spawner) -> gtk::Box {
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
     let copy = gtk::Button::with_label(&crate::i18n::tr("Copy report"));
-    copy.add_css_class("action-dialog-cancel");
     copy.set_widget_name("diagnostics-copy");
     copy.set_sensitive(false);
     let run = gtk::Button::with_label(&crate::i18n::tr("Run"));
-    run.add_css_class("action-dialog-confirm");
+    run.add_css_class("suggested-action");
     run.set_widget_name("diagnostics-run");
+    let actions = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     actions.append(&copy);
     actions.append(&run);
-    copy_box.append(&title);
-    copy_box.append(&description);
-    copy_box.append(&actions);
-    row.append(&copy_box);
-    settings_group(&content, "").append(&row);
-
-    // Search shows or hides this container, so it stays visible and starts empty.
-    let output = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    search::tag(&output, RUN_TITLE);
+    let row = nyx_ui::widgets::row(
+        &crate::i18n::tr(RUN_TITLE),
+        &escaped(&crate::i18n::tr(
+            "Checks the tools and services that previews, locations, devices and desktop integration rely on. Sample files are rendered in the preview sandbox. Nothing is changed or installed.",
+        )),
+        Some(actions.upcast_ref()),
+    );
     let summary = gtk::Label::new(None);
     summary.set_xalign(0.0);
     summary.set_wrap(true);
+    summary.add_css_class("settings-option-description");
     summary.add_css_class("diagnostics-summary");
     summary.set_visible(false);
-    output.append(&summary);
+    if let Some(text) = row.first_child().and_downcast::<gtk::Box>() {
+        text.append(&summary);
+    }
+    card(&content, None).append(&row);
+
     let groups = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    output.append(&groups);
-    content.append(&output);
+    content.append(&groups);
 
     let page = Rc::new(Page {
         run: run.downgrade(),
@@ -108,7 +108,7 @@ fn diagnostics_page_with(spawn: Spawner) -> gtk::Widget {
         }
     });
     run.connect_clicked(move |_| page.start());
-    scrollable_page(&content, None)
+    content
 }
 
 struct Row {
@@ -193,16 +193,20 @@ impl Page {
             self.groups.remove(&child);
         }
         let environment = environment(&self.groups);
-        let system = settings_group(&self.groups, "SYSTEM");
-        system.add_css_class("diagnostics-system");
+        let system = card(&self.groups, Some("SYSTEM"));
         for (label, value) in &environment {
-            super::about::append_detail(&system, label, value);
+            let value_label = gtk::Label::new(Some(value));
+            value_label.add_css_class("dim");
+            value_label.set_selectable(true);
+            let row = nyx_ui::widgets::row(label, "", Some(value_label.upcast_ref()));
+            row.add_css_class("about-detail-row");
+            system.append(&row);
         }
         self.environment.replace(environment);
         let mut rows = self.rows.borrow_mut();
         rows.clear();
         for (group, ids) in GROUPS {
-            let list = settings_group(&self.groups, heading(group));
+            let list = card(&self.groups, Some(heading(group)));
             for id in ids {
                 let (widget, row) = pending_row(*id);
                 list.append(&widget);
@@ -276,6 +280,7 @@ async fn main_thread_checks() -> [Check; 4] {
 
 fn pending_row(id: CheckId) -> (gtk::Box, Row) {
     let widget = gtk::Box::new(gtk::Orientation::Horizontal, 14);
+    widget.add_css_class("settings-option");
     widget.add_css_class("diagnostics-row");
     let icon = gtk::Stack::new();
     icon.set_valign(gtk::Align::Start);
@@ -567,6 +572,15 @@ fn copy_report(
     });
 }
 
+fn toolkit_version() -> String {
+    format!(
+        "GTK {}.{}.{}",
+        gtk::major_version(),
+        gtk::minor_version(),
+        gtk::micro_version()
+    )
+}
+
 fn environment(anchor: &impl IsA<gtk::Widget>) -> Vec<(String, String)> {
     let tr = crate::i18n::tr;
     let kernel = ["ostype", "osrelease"]
@@ -598,7 +612,7 @@ fn environment(anchor: &impl IsA<gtk::Widget>) -> Vec<(String, String)> {
     vec![
         (tr("Version"), crate::build_info::displayed_version()),
         (tr("Commit"), crate::build_info::COMMIT.to_owned()),
-        (tr("Toolkit"), super::about::toolkit_version()),
+        (tr("Toolkit"), toolkit_version()),
         (
             "GStreamer".to_owned(),
             gstreamer::version_string().to_string(),

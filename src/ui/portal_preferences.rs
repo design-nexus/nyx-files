@@ -11,24 +11,26 @@ use super::desktop_integration::SETUP_RUNNING;
 #[cfg(test)]
 mod tests;
 
+/// A standard Settings row whose status, message and buttons sit under its description.
+pub(crate) fn integration_row(title: &str, description: &str) -> (gtk::Box, gtk::Box) {
+    let row = nyx_ui::widgets::row(
+        &crate::i18n::tr(title),
+        &glib::markup_escape_text(&crate::i18n::tr(description)),
+        None,
+    );
+    let content = row
+        .first_child()
+        .and_downcast::<gtk::Box>()
+        .expect("a row starts with its text");
+    (row, content)
+}
+
 pub(crate) fn settings_row() -> gtk::Box {
-    let row = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    row.add_css_class("settings-option");
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    content.set_hexpand(true);
-    let title = gtk::Label::new(Some(&crate::i18n::tr("System file manager")));
-    title.set_xalign(0.0);
-    title.add_css_class("settings-option-title");
-    let description = gtk::Label::new(Some(&crate::i18n::tr(
+    let (row, content) = integration_row(
+        "System file manager",
         "Use Files for Open and Save dialogs, opening folders, and Reveal in File Manager. On Omarchy, this also sets file-manager keyboard shortcuts. Close open file dialogs before changing setup.",
-    )));
-    description.set_xalign(0.0);
-    description.set_wrap(true);
-    description.add_css_class("settings-option-description");
-    content.append(&title);
-    content.append(&description);
+    );
     let summary = SettingsIntegrationStatus::new(&content);
-    row.append(&content);
     let mapped_summary = summary.clone();
     row.connect_map(move |_| mapped_summary.reload(None));
     let weak_row = row.downgrade();
@@ -59,8 +61,8 @@ pub(crate) struct SettingsIntegrationStatus {
 impl SettingsIntegrationStatus {
     pub(crate) fn new(parent: &gtk::Box) -> Rc<Self> {
         let list = gtk::Box::new(gtk::Orientation::Vertical, 4);
-        list.set_margin_top(8);
-        list.set_margin_bottom(8);
+        list.set_margin_top(6);
+        list.set_margin_bottom(4);
         let indicators = [
             "Open and Save dialogs",
             "Opening folders",
@@ -73,16 +75,12 @@ impl SettingsIntegrationStatus {
         message.set_xalign(0.0);
         message.set_wrap(true);
         message.add_css_class("settings-option-description");
-        let actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        actions.add_css_class("settings-integration-actions");
-        actions.set_halign(gtk::Align::End);
-        actions.set_valign(gtk::Align::Start);
+        let actions = integration_actions();
         let restore = gtk::Button::with_label(&crate::i18n::tr("Restore default"));
-        restore.add_css_class("action-dialog-cancel");
         restore.set_sensitive(false);
         restore.set_visible(false);
         let complete = gtk::Button::with_label(&crate::i18n::tr("Checking status…"));
-        complete.add_css_class("action-dialog-confirm");
+        complete.add_css_class("suggested-action");
         complete.set_sensitive(false);
         actions.append(&restore);
         actions.append(&complete);
@@ -279,6 +277,14 @@ impl SettingsIntegrationStatus {
     }
 }
 
+/// The buttons under an integration row's status.
+pub(crate) fn integration_actions() -> gtk::Box {
+    let actions = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    actions.set_halign(gtk::Align::Start);
+    actions.set_margin_top(6);
+    actions
+}
+
 pub(crate) struct IntegrationIndicator {
     pub(crate) row: glib::WeakRef<gtk::Box>,
     icon: glib::WeakRef<gtk::Image>,
@@ -286,7 +292,7 @@ pub(crate) struct IntegrationIndicator {
 }
 
 impl IntegrationIndicator {
-    fn new(parent: &gtk::Box, name: &'static str) -> Self {
+    pub(crate) fn new(parent: &gtk::Box, name: &'static str) -> Self {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         let icon = crate::assets::primary_icon(icons::X, 16);
         let label = gtk::Label::new(Some(&crate::i18n::tr(name)));
@@ -303,7 +309,7 @@ impl IntegrationIndicator {
         }
     }
 
-    fn update(&self, configured: Option<bool>) {
+    pub(crate) fn update(&self, configured: Option<bool>) {
         if let Some(row) = self.row.upgrade() {
             row.set_visible(configured.is_some());
             if let Some(configured) = configured {

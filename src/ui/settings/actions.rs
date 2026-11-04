@@ -23,7 +23,6 @@ use crate::ui::{
     modal::{ModalHost, close_on_escape, dismiss_modal_layer, modal_layer, show_error_dialog},
 };
 
-use super::{append_heading, page_content, scrollable_page, search};
 use crate::model::action::examples::{ACTION_EXAMPLES, ActionExample};
 
 mod examples;
@@ -39,44 +38,55 @@ const GENERAL_TAB: u32 = 0;
 const SCRIPT_TAB: u32 = 1;
 const BEHAVIOR_TAB: u32 = 2;
 
-pub(crate) fn actions_page() -> gtk::Widget {
-    let content = page_content();
-    content.add_css_class("settings-actions-page");
-    append_heading(&content, "CUSTOM ACTIONS");
-    let description = gtk::Label::new(Some(&crate::i18n::tr(
-        "Add your own scripts to the file and folder context menus. \
-         Actions run with your permissions, so only enable scripts you trust.",
-    )));
-    description.set_xalign(0.0);
-    description.set_wrap(true);
-    description.add_css_class("settings-section-description");
-    content.append(&description);
+fn escaped(text: &str) -> String {
+    glib::markup_escape_text(text).to_string()
+}
 
-    let toolbar = super::wrap::WrapRow::new(8);
-    toolbar.set_end_align(true);
-    toolbar.set_hexpand(true);
-    toolbar.set_margin_top(8);
-    toolbar.set_margin_bottom(8);
+/// A section heading as the other Settings groups show them.
+fn section_heading(title: &str) -> gtk::Label {
+    let label = gtk::Label::new(Some(&crate::i18n::tr(title).to_uppercase()));
+    label.add_css_class("menu-heading");
+    label.add_css_class("files-section");
+    label.set_xalign(0.0);
+    label
+}
+
+/// A row of only a description, for notes and empty states.
+fn note_row(text: &str) -> gtk::Box {
+    let row = nyx_ui::widgets::row("", &escaped(&crate::i18n::tr(text)), None);
+    if let Some(title) = row.first_child().and_then(|text| text.first_child()) {
+        title.set_visible(false);
+    }
+    row
+}
+
+fn card() -> gtk::Box {
+    let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    card.add_css_class("group-list");
+    card
+}
+
+/// The custom actions card, then any files that failed to load, added to `group`.
+pub(crate) fn append_actions(group: &gtk::Box) {
     let new_action = gtk::Button::with_label(&crate::i18n::tr("New action…"));
-    new_action.add_css_class("settings-action-button");
-    new_action.add_css_class("settings-actions-create-button");
-    search::tag(&new_action, "New custom action");
     let import = gtk::Button::with_label(&crate::i18n::tr("Import…"));
-    import.add_css_class("settings-action-button");
-    import.add_css_class("settings-actions-create-button");
-    search::tag(&import, "Import custom action");
-    toolbar.append(&new_action);
-    toolbar.append(&import);
-    content.append(&toolbar);
-
+    let controls = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    controls.append(&new_action);
+    controls.append(&import);
+    let actions = card();
+    actions.append(&nyx_ui::widgets::row(
+        &crate::i18n::tr("Custom actions"),
+        &escaped(&crate::i18n::tr(
+            "Add your own scripts to the file and folder context menus. \
+             Actions run with your permissions, so only enable scripts you trust.",
+        )),
+        Some(controls.upcast_ref()),
+    ));
     let list = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    list.add_css_class("settings-group");
-    list.set_overflow(gtk::Overflow::Hidden);
-    search::tag(&list, "Custom actions");
-    content.append(&list);
+    actions.append(&list);
+    group.append(&actions);
     let problems = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    search::tag(&problems, "Custom actions");
-    content.append(&problems);
+    group.append(&problems);
 
     let registry = crate::ui::actions::shared();
     let state = Rc::new(PageState {
@@ -98,8 +108,6 @@ pub(crate) fn actions_page() -> gtk::Widget {
     list.connect_destroy(move |_| {
         observer.borrow_mut().take();
     });
-
-    scrollable_page(&content, Some("settings-actions-scroll"))
 }
 
 struct PageState {
@@ -118,66 +126,42 @@ impl PageState {
         }
         let catalog = self.registry.catalog();
         if catalog.actions().is_empty() && catalog.failures().is_empty() {
-            let empty = gtk::Label::new(Some(&crate::i18n::tr(
+            self.list.append(&note_row(
                 "No custom actions yet. Create one to add it to the context menu.",
-            )));
-            empty.set_xalign(0.0);
-            empty.set_wrap(true);
-            empty.add_css_class("settings-option-description");
-            empty.add_css_class("settings-actions-empty");
-            self.list.append(&empty);
+            ));
         }
         for action in catalog.actions() {
             self.list.append(&self.row(action));
         }
         if !catalog.failures().is_empty() {
-            append_heading(&self.problems, "PROBLEMS");
-            let note = gtk::Label::new(Some(&crate::i18n::tr(
+            self.problems.append(&section_heading("Problems"));
+            let group = card();
+            group.append(&note_row(
                 "These files could not be loaded. Fix them in the actions folder, or remove them.",
-            )));
-            note.set_xalign(0.0);
-            note.set_wrap(true);
-            note.add_css_class("settings-option-description");
-            self.problems.append(&note);
-            let group = super::settings_group(&self.problems, "");
+            ));
             for failure in catalog.failures() {
                 group.append(&problem_row(failure));
             }
+            self.problems.append(&group);
         }
     }
 
     fn row(self: &Rc<Self>, action: &Rc<ActionHandle>) -> gtk::Box {
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        row.add_css_class("settings-option");
-        row.add_css_class("settings-action-row");
-        let heading = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        heading.set_hexpand(true);
-        heading.set_valign(gtk::Align::Center);
+        let controls = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+        let row = nyx_ui::widgets::row(
+            action.name(),
+            &escaped(&summary(action)),
+            Some(controls.upcast_ref()),
+        );
         let icon = crate::assets::text_icon(action_icon(action.definition.icon.as_deref()), 20);
-        icon.set_valign(gtk::Align::Start);
-        heading.append(&icon);
-
-        let copy = gtk::Box::new(gtk::Orientation::Vertical, 2);
-        copy.set_hexpand(true);
-        copy.set_valign(gtk::Align::Center);
-        let title = gtk::Label::new(Some(action.name()));
-        title.set_xalign(0.0);
-        title.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        title.add_css_class("settings-option-title");
-        let detail = gtk::Label::new(Some(&summary(action)));
-        detail.set_xalign(0.0);
-        detail.set_wrap(true);
-        detail.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-        detail.add_css_class("settings-option-description");
-        copy.append(&title);
-        copy.append(&detail);
-        heading.append(&copy);
+        icon.set_valign(gtk::Align::Center);
+        row.prepend(&icon);
 
         let toggle = gtk::Switch::builder()
             .active(action.definition.enabled)
-            .halign(gtk::Align::End)
             .valign(gtk::Align::Center)
             .build();
+        toggle.set_margin_end(8);
         crate::ui::accessibility::set_own_label(&toggle, &crate::i18n::tr("Enabled"));
         let state = self.clone();
         let action_id = action.id().to_owned();
@@ -186,12 +170,9 @@ impl PageState {
             state.set_enabled(&action_id, enabled, &anchor);
             glib::Propagation::Proceed
         });
-        heading.append(&toggle);
-        row.append(&heading);
+        controls.append(&toggle);
 
-        let buttons = super::wrap::WrapRow::new(6);
-        buttons.set_end_align(true);
-        buttons.set_valign(gtk::Align::Center);
+        let buttons = &controls;
         for (label, icon, handler) in [
             ("Edit", icons::PENCIL, ActionRowAction::Edit),
             ("Duplicate", icons::COPY, ActionRowAction::Duplicate),
@@ -211,11 +192,9 @@ impl PageState {
                 .tooltip_text(&label)
                 .build();
             crate::ui::accessibility::set_label(&button, &label);
-            button.add_css_class("settings-action-button");
-            button.add_css_class("settings-action-icon-button");
-            if handler == ActionRowAction::Delete {
-                button.add_css_class("danger");
-            }
+            button.add_css_class("flat");
+            button.add_css_class("icon-button");
+            button.set_valign(gtk::Align::Center);
             let state = self.clone();
             let action = action.clone();
             button.connect_clicked(move |button| match handler {
@@ -226,7 +205,6 @@ impl PageState {
             });
             buttons.append(&button);
         }
-        row.append(&buttons);
         row
     }
 
@@ -589,20 +567,11 @@ enum ActionRowAction {
 }
 
 fn problem_row(failure: &ActionLoadFailure) -> gtk::Box {
-    let row = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    row.add_css_class("settings-option");
-    let title = gtk::Label::new(Some(&rust_i18n::t!(
-        "%{name}: %{error}",
-        name = failure.directory,
-        error = failure.error.user_message()
-    )));
-    title.set_xalign(0.0);
-    title.set_wrap(true);
-    title.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-    title.add_css_class("settings-option-title");
-    title.add_css_class("settings-action-problem");
-    row.append(&title);
-    row
+    nyx_ui::widgets::row(
+        &failure.directory,
+        &escaped(&failure.error.user_message()),
+        None,
+    )
 }
 
 fn show_notice(anchor: &impl IsA<gtk::Widget>, title: &str, detail: &str) {

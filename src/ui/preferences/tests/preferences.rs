@@ -809,6 +809,34 @@ fn settings_files_are_watched_from_the_monitors_worker_without_missing_a_save() 
 
 
 #[test]
+fn places_order_keeps_every_place_once_and_appends_missing_ones() {
+    let saved: Vec<String> = ["trash", "bogus", "home", "trash", "recent"]
+        .map(str::to_owned)
+        .to_vec();
+    assert_eq!(
+        sanitize_places_order(&saved),
+        [
+            "trash",
+            "home",
+            "recent",
+            "desktop",
+            "documents",
+            "downloads",
+            "music",
+            "pictures",
+            "videos",
+            "network",
+        ]
+    );
+    assert_eq!(sanitize_places_order(&[]), PLACE_IDS);
+    assert_eq!(
+        sanitize_places_order(&Preferences::default().places_order),
+        PLACE_IDS,
+        "a new install shows the sidebar's own order"
+    );
+}
+
+#[test]
 fn folders_remember_their_own_view_and_follow_the_default_otherwise() {
     gtk_test(
         "ui::preferences::tests::preferences::folders_remember_their_own_view_and_follow_the_default_otherwise",

@@ -23,6 +23,8 @@ use crate::{
 
 use super::window::Window;
 
+mod cloud;
+
 const GROUPS: &[(&str, &str, &str)] = &[
     (
         "General",
@@ -126,7 +128,7 @@ impl Group {
         let wrapper = gtk::Box::new(gtk::Orientation::Vertical, 0);
         wrapper.add_css_class("settings-group");
         wrapper.set_widget_name(name);
-        let title = gtk::Label::new(Some(&name.to_uppercase()));
+        let title = gtk::Label::new(Some(&crate::i18n::tr(name).to_uppercase()));
         title.add_css_class("group-title");
         title.set_xalign(0.0);
         wrapper.append(&title);
@@ -135,17 +137,44 @@ impl Group {
     }
 
     fn section(&self, title: &str) -> gtk::Box {
-        if !title.is_empty() {
-            self.wrapper.append(&section_title(title));
-        }
-        let list = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        list.add_css_class("group-list");
-        self.wrapper.append(&list);
-        list
+        card(&self.wrapper, (!title.is_empty()).then(|| section_title(title)))
     }
 }
 
-/// A small uppercase heading inside a group, as the embedded pages use.
+/// A card of rows appended to `container`, under `heading` when there is one.
+fn card(container: &gtk::Box, heading: Option<gtk::Label>) -> gtk::Box {
+    if let Some(heading) = heading {
+        container.append(&heading);
+    }
+    let list = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    list.add_css_class("group-list");
+    container.append(&list);
+    list
+}
+
+/// A section heading for user content, such as an account name, which is not translated.
+fn untranslated_title(title: &str) -> gtk::Label {
+    let label = gtk::Label::new(Some(&title.to_uppercase()));
+    label.add_css_class("menu-heading");
+    label.add_css_class("files-section");
+    label.set_xalign(0.0);
+    label
+}
+
+/// A row of only a description, for notes and empty states.
+fn note_row(text: &str) -> gtk::Box {
+    let r = row("", text, None);
+    if let Some(title) = r.first_child().and_then(|text| text.first_child()) {
+        title.set_visible(false);
+    }
+    r
+}
+
+/// A row whose title and description are shown as given, such as machine text.
+fn plain_row(title: &str, description: &str, control: Option<&gtk::Widget>) -> gtk::Box {
+    widgets::row(title, &glib_escape(description), control)
+}
+
 fn toolkit_version() -> String {
     format!(
         "GTK {}.{}.{}",
@@ -167,6 +196,7 @@ fn version_info() -> String {
     .into_owned()
 }
 
+/// A small uppercase heading above a card inside a group.
 fn section_title(title: &str) -> gtk::Label {
     let label = gtk::Label::new(Some(&crate::i18n::tr(title).to_uppercase()));
     label.add_css_class("menu-heading");
@@ -268,9 +298,7 @@ fn build(body: &gtk::Box) {
     previews(&Group::new(body, "Previews"));
     transfers(&Group::new(body, "Transfers"));
     let actions = Group::new(body, "Actions");
-    actions
-        .wrapper
-        .append(&crate::ui::settings::actions::actions_page());
+    crate::ui::settings::actions::append_actions(&actions.wrapper);
     let integrations = Group::new(body, "Integrations").section("");
     integrations.append(&crate::ui::portal_preferences::settings_row());
     integrations.append(&crate::ui::udiskie_preferences::settings_row());
@@ -387,6 +415,9 @@ fn date_format(list: &gtk::Box) {
         .collect();
     let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
     let dropdown = gtk::DropDown::from_strings(&labels);
+    dropdown.update_property(&[gtk::accessible::Property::Label(&crate::i18n::tr(
+        "Modified date format",
+    ))]);
     let current = PreferenceManager::shared().date_format();
     dropdown.set_selected(choices.iter().position(|f| *f == current).unwrap_or(0) as u32);
     dropdown.connect_selected_notify(move |d| {
@@ -532,94 +563,259 @@ fn browsing(group: &Group) {
     ));
 }
 
-fn sidebar(group: &Group) {
-    let list = group.section("Places");
-    let places: [(&str, Read, Write); 10] = [
-        (
-            "Recent",
-            PreferenceManager::sidebar_show_recent,
-            PreferenceManager::set_sidebar_show_recent,
-        ),
-        (
-            "Home",
+fn place_visibility(id: &str) -> Option<(Read, Write)> {
+    Some(match id {
+        "home" => (
             PreferenceManager::sidebar_show_home,
             PreferenceManager::set_sidebar_show_home,
         ),
-        (
-            "Desktop",
+        "desktop" => (
             PreferenceManager::sidebar_show_desktop,
             PreferenceManager::set_sidebar_show_desktop,
         ),
-        (
-            "Documents",
+        "documents" => (
             PreferenceManager::sidebar_show_documents,
             PreferenceManager::set_sidebar_show_documents,
         ),
-        (
-            "Downloads",
+        "downloads" => (
             PreferenceManager::sidebar_show_downloads,
             PreferenceManager::set_sidebar_show_downloads,
         ),
-        (
-            "Music",
+        "music" => (
             PreferenceManager::sidebar_show_music,
             PreferenceManager::set_sidebar_show_music,
         ),
-        (
-            "Pictures",
+        "pictures" => (
             PreferenceManager::sidebar_show_pictures,
             PreferenceManager::set_sidebar_show_pictures,
         ),
-        (
-            "Videos",
+        "videos" => (
             PreferenceManager::sidebar_show_videos,
             PreferenceManager::set_sidebar_show_videos,
         ),
-        (
-            "Network",
+        "recent" => (
+            PreferenceManager::sidebar_show_recent,
+            PreferenceManager::set_sidebar_show_recent,
+        ),
+        "network" => (
             PreferenceManager::sidebar_show_network,
             PreferenceManager::set_sidebar_show_network,
         ),
-        (
-            "Trash",
+        "trash" => (
             PreferenceManager::sidebar_show_trash,
             PreferenceManager::set_sidebar_show_trash,
         ),
-    ];
-    let chips = gtk::FlowBox::new();
-    chips.set_selection_mode(gtk::SelectionMode::None);
-    chips.set_row_spacing(6);
-    chips.set_column_spacing(6);
-    chips.set_max_children_per_line(10);
-    chips.add_css_class("place-chips");
-    for (name, read, write) in places {
-        let chip = gtk::ToggleButton::with_label(&crate::i18n::tr(name));
-        chip.add_css_class("chip");
-        chip.set_active(read(&PreferenceManager::shared()));
-        chip.connect_toggled(move |c| write(&PreferenceManager::shared(), c.is_active()));
-        chips.append(&chip);
+        _ => return None,
+    })
+}
+
+/// `order` with `moved` placed where `target` is.
+fn reordered(order: &[&'static str], moved: &str, target: &str) -> Vec<&'static str> {
+    let mut order = order.to_vec();
+    let Some(from) = order.iter().position(|id| *id == moved).filter(|_| moved != target)
+    else {
+        return order;
+    };
+    let item = order.remove(from);
+    let to = order
+        .iter()
+        .position(|id| *id == target)
+        .map_or(order.len(), |to| if to >= from { to + 1 } else { to });
+    order.insert(to, item);
+    order
+}
+
+const PLACE_DRAG_PREFIX: &str = "nyx-files-place:";
+
+/// One row per sidebar place, in sidebar order; drag a row onto another to move it.
+fn place_rows(list: &gtk::Box) {
+    while let Some(child) = list.first_child() {
+        list.remove(&child);
     }
-    let r = row(
-        "Items shown in sidebar",
-        "Toggle which locations appear in the sidebar.",
-        None,
+    let prefs = PreferenceManager::shared();
+    for id in prefs.places_order() {
+        let (Some((icon, name)), Some((read, write))) =
+            (super::sidebar::place_identity(id), place_visibility(id))
+        else {
+            continue;
+        };
+        let toggle = gtk::Switch::new();
+        toggle.set_active(read(&prefs));
+        toggle.update_property(&[gtk::accessible::Property::Label(&crate::i18n::tr(name))]);
+        toggle.connect_active_notify(move |t| write(&PreferenceManager::shared(), t.is_active()));
+        let r = row(name, "", Some(toggle.upcast_ref()));
+        r.add_css_class("place-row");
+        let image = gtk::Image::from_icon_name(icon);
+        image.set_valign(gtk::Align::Center);
+        r.prepend(&image);
+        let handle = gtk::Image::from_icon_name("list-drag-handle-symbolic");
+        handle.add_css_class("drag-handle");
+        handle.set_valign(gtk::Align::Center);
+        handle.set_tooltip_text(Some(&crate::i18n::tr("Drag to reorder")));
+        r.prepend(&handle);
+        let source = gtk::DragSource::new();
+        source.set_actions(gtk::gdk::DragAction::MOVE);
+        let key = format!("{PLACE_DRAG_PREFIX}{id}");
+        source.connect_prepare(move |_, _, _| {
+            Some(gtk::gdk::ContentProvider::for_value(&key.to_value()))
+        });
+        let dragged = r.downgrade();
+        source.connect_drag_begin(move |source, _| {
+            if let Some(r) = dragged.upgrade() {
+                source.set_icon(Some(&gtk::WidgetPaintable::new(Some(&r))), 0, 0);
+            }
+        });
+        r.add_controller(source);
+        let target = gtk::DropTarget::new(String::static_type(), gtk::gdk::DragAction::MOVE);
+        target.connect_enter(|t, _, _| {
+            if let Some(w) = t.widget() {
+                w.add_css_class("drop-target");
+            }
+            gtk::gdk::DragAction::MOVE
+        });
+        target.connect_leave(|t| {
+            if let Some(w) = t.widget() {
+                w.remove_css_class("drop-target");
+            }
+        });
+        target.connect_drop(move |t, value, _, _| {
+            if let Some(w) = t.widget() {
+                w.remove_css_class("drop-target");
+            }
+            let Some(moved) = value
+                .get::<String>()
+                .ok()
+                .and_then(|v| v.strip_prefix(PLACE_DRAG_PREFIX).map(str::to_owned))
+            else {
+                return false;
+            };
+            gtk::glib::idle_add_local_once(move || {
+                let prefs = PreferenceManager::shared();
+                prefs.set_places_order(&reordered(&prefs.places_order(), &moved, id));
+            });
+            true
+        });
+        r.add_controller(target);
+        prefs.bind_preference(&toggle, read, |widget, on| {
+            if let Some(t) = widget.downcast_ref::<gtk::Switch>()
+                && t.is_active() != on
+            {
+                t.set_active(on);
+            }
+        });
+        list.append(&r);
+    }
+}
+
+/// "Theme default" and the theme's swatches for a sidebar section's color,
+/// stored by swatch name so a pick follows theme switches.
+fn section_swatches(section: &'static str, title: &str) -> gtk::Box {
+    let strip = widgets::hbox(6);
+    strip.set_valign(gtk::Align::Center);
+    let mut names: Vec<Option<String>> = vec![None];
+    names.extend(nyx_theme::swatches().into_iter().map(|(name, _)| Some(name)));
+    let title = crate::i18n::tr(title);
+    let buttons: Vec<(gtk::Button, gtk::CssProvider, Option<String>)> = names
+        .into_iter()
+        .map(|name| {
+            let button = gtk::Button::new();
+            button.add_css_class("accent-swatch");
+            let tip = match &name {
+                None => {
+                    button.add_css_class("theme-default");
+                    crate::i18n::tr("Theme default")
+                }
+                Some(name) => {
+                    let mut chars = name.chars();
+                    chars
+                        .next()
+                        .map(|first| first.to_uppercase().collect::<String>() + chars.as_str())
+                        .unwrap_or_default()
+                }
+            };
+            button.set_tooltip_text(Some(&tip));
+            button.update_property(&[gtk::accessible::Property::Label(&format!(
+                "{title}: {tip}"
+            ))]);
+            let provider = gtk::CssProvider::new();
+            #[allow(deprecated)]
+            button
+                .style_context()
+                .add_provider(&provider, gtk::STYLE_PROVIDER_PRIORITY_USER);
+            let picked = name.clone();
+            button.connect_clicked(move |_| {
+                PreferenceManager::shared().set_sidebar_section_color(section, picked.as_deref());
+                super::theme::refresh_sections();
+            });
+            strip.append(&button);
+            (button, provider, name)
+        })
+        .collect();
+    let refresh = move || {
+        let swatches = nyx_theme::swatches();
+        let current = PreferenceManager::shared().sidebar_section_color(section);
+        for (button, provider, name) in &buttons {
+            let colour = match name {
+                None => Some(super::theme::theme_section_colour(section)),
+                Some(name) => swatches
+                    .iter()
+                    .find(|(swatch, _)| swatch == name)
+                    .map(|(_, colour)| colour.clone()),
+            };
+            if let Some(colour) = colour {
+                provider.load_from_string(&format!("* {{ background: {colour}; }}"));
+            }
+            if *name == current {
+                button.add_css_class("selected");
+            } else {
+                button.remove_css_class("selected");
+            }
+        }
+    };
+    refresh();
+    nyx_theme::subscribe(&strip, refresh.clone());
+    PreferenceManager::shared().bind_preference(
+        &strip,
+        PreferenceManager::sidebar_section_colors,
+        move |_, _| refresh(),
     );
-    r.set_orientation(gtk::Orientation::Vertical);
-    r.set_spacing(10);
-    r.append(&chips);
-    list.append(&r);
+    strip
+}
+
+fn sidebar(group: &Group) {
+    let places = group.section("Places");
+    PreferenceManager::shared().bind_preference(
+        &places,
+        PreferenceManager::places_order,
+        |widget, _| {
+            if let Some(list) = widget.downcast_ref::<gtk::Box>() {
+                place_rows(list);
+            }
+        },
+    );
+    let colors = group.section("Section colors");
+    for (section, title) in [
+        ("places", "Places"),
+        ("pinned", "Pinned"),
+        ("devices", "Devices"),
+        ("cloud", "Cloud Storage"),
+    ] {
+        let strip = section_swatches(section, title);
+        strip.set_halign(gtk::Align::Start);
+        let r = row(title, "", None);
+        r.set_orientation(gtk::Orientation::Vertical);
+        r.set_spacing(10);
+        r.append(&strip);
+        colors.append(&r);
+    }
     switch(
-        &list,
+        &colors,
         "Colored sidebar icons",
-        "Show every sidebar place's icon in its color. Off, only the current place's icon is colored.",
+        "Show each sidebar icon in its section's color. Off, only the current place's icon is colored.",
         PreferenceManager::colored_sidebar_icons,
         PreferenceManager::set_colored_sidebar_icons,
     );
-    group
-        .wrapper
-        .append(&crate::ui::settings::cloud::cloud_page(
-            PreferenceManager::shared(),
-        ));
+    cloud::append(group);
 }
 
 fn search(group: &Group) {
@@ -661,15 +857,11 @@ fn search(group: &Group) {
         PreferenceManager::search_entry_limit,
         PreferenceManager::set_search_entry_limit,
     );
-    let exclusions = group.section("Global search exclusions");
-    let editor =
-        crate::ui::settings::exclusions::search_exclusions_control(&PreferenceManager::shared());
-    exclusions.append(&row(
-        "Global search exclusions",
-        "Exclude folder names or directory paths from global search.",
-        None,
-    ));
-    exclusions.append(&editor);
+    group
+        .section("Global search exclusions")
+        .append(&crate::ui::settings::exclusions::search_exclusions_control(
+            &PreferenceManager::shared(),
+        ));
 }
 
 fn previews(group: &Group) {
@@ -719,6 +911,9 @@ fn previews(group: &Group) {
     let workers =
         gtk::SpinButton::with_range(1.0, crate::sandbox::browser::MAX_WORKERS as f64, 1.0);
     workers.set_value(PreferenceManager::shared().thumbnail_workers() as f64);
+    workers.update_property(&[gtk::accessible::Property::Label(&crate::i18n::tr(
+        "Thumbnail workers",
+    ))]);
     workers.connect_value_changed(|s| {
         PreferenceManager::shared().set_thumbnail_workers(s.value() as usize)
     });
@@ -741,6 +936,9 @@ fn previews(group: &Group) {
         MediaPreviewBackend::VaApi,
         MediaPreviewBackend::Vulkan,
     ];
+    backend.update_property(&[gtk::accessible::Property::Label(&crate::i18n::tr(
+        "Decoding backend",
+    ))]);
     let current = PreferenceManager::shared().video_preview_backend();
     backend.set_selected(values.iter().position(|v| *v == current).unwrap_or(0) as u32);
     backend.connect_selected_notify(move |d| {
@@ -786,22 +984,23 @@ fn transfers(group: &Group) {
     );
 }
 
-/// The list inside one of the card's standard groups.
-fn standard_list(body: &gtk::Box, name: &str) -> Option<gtk::Box> {
+/// The group box and the list inside one of the card's standard groups.
+fn standard_list(body: &gtk::Box, name: &str) -> Option<(gtk::Box, gtk::Box)> {
     let mut child = body.first_child();
     while let Some(w) = child {
         child = w.next_sibling();
         if w.has_css_class("settings-group") && w.widget_name() == name {
-            let mut inner = w.first_child();
+            let wrapper = w.downcast::<gtk::Box>().ok()?;
+            let mut inner = wrapper.first_child();
             while let Some(c) = inner {
                 inner = c.next_sibling();
                 if let Ok(list) = c.clone().downcast::<gtk::Box>()
                     && list.has_css_class("group-list")
                 {
-                    return Some(list);
+                    return Some((wrapper, list));
                 }
             }
-            return w.downcast::<gtk::Box>().ok();
+            return Some((wrapper.clone(), wrapper));
         }
     }
     None
@@ -809,23 +1008,20 @@ fn standard_list(body: &gtk::Box, name: &str) -> Option<gtk::Box> {
 
 /// Files' rows for Appearance, Keyboard and About.
 fn extend_standard(body: &gtk::Box) {
-    if let Some(list) = standard_list(body, "Appearance") {
+    if let Some((_, list)) = standard_list(body, "Appearance") {
         let edit = widgets::icon_button(
             "document-edit-symbolic",
             &crate::i18n::tr("Edit theme file"),
         );
-        edit.set_valign(gtk::Align::Center);
         edit.connect_clicked(|_| {
             let id = nyx_theme::read_suite().unwrap_or_default().theme;
             if let Some(path) = nyx_theme::edit_copy(&id) {
                 nyx_core::cmd::open_in_editor(&path);
             }
         });
-        list.append(&widgets::row(
-            &crate::i18n::tr("Theme file"),
-            &crate::i18n::tr(
-                "Open the current theme in an editor; saving it restyles every Nyx app.",
-            ),
+        list.append(&row(
+            "Theme file",
+            "Open the current theme in an editor; saving it restyles every Nyx app.",
             Some(edit.upcast_ref()),
         ));
         choice(
@@ -845,7 +1041,7 @@ fn extend_standard(body: &gtk::Box) {
             PreferenceManager::interface_renderer_restart_required,
         );
     }
-    if let Some(list) = standard_list(body, "Keyboard") {
+    if let Some((wrapper, list)) = standard_list(body, "Keyboard") {
         switch(
             &list,
             "10xer mode",
@@ -864,10 +1060,10 @@ fn extend_standard(body: &gtk::Box) {
             PreferenceManager::shared().browser_mode(),
         );
         for section in crate::ui::shortcut_reference::reference_sections(scope) {
-            list.append(&section_title(section.title));
+            let shortcuts = card(&wrapper, Some(section_title(section.title)));
             for shortcut in &section.rows {
                 let keys = widgets::label(&shortcut.key_text(), "key-cap");
-                list.append(&widgets::row(
+                shortcuts.append(&plain_row(
                     &shortcut.action_text(),
                     "",
                     Some(keys.upcast_ref()),
@@ -875,28 +1071,12 @@ fn extend_standard(body: &gtk::Box) {
             }
         }
     }
-    if let Some(list) = standard_list(body, "About") {
-        list.append(&section_title("Build"));
+    if let Some((wrapper, _)) = standard_list(body, "About") {
+        let build = card(&wrapper, Some(section_title("Build")));
         let kind = crate::build_info::build_kind();
-        let version = crate::build_info::displayed_version();
-        let version_value = widgets::label(&version, "dim");
-        version_value.set_selectable(true);
         if kind != crate::services::BuildKind::Stable {
             let badge = widgets::tag(&kind.localized_label(), "accent");
-            let holder = widgets::hbox(8);
-            holder.append(&version_value);
-            holder.append(&badge);
-            list.append(&widgets::row(
-                &crate::i18n::tr("Version"),
-                "",
-                Some(holder.upcast_ref()),
-            ));
-        } else {
-            list.append(&widgets::row(
-                &crate::i18n::tr("Version"),
-                "",
-                Some(version_value.upcast_ref()),
-            ));
+            build.append(&row("Release channel", "", Some(badge.upcast_ref())));
         }
         for (title, value) in [
             ("Commit", crate::build_info::COMMIT.to_owned()),
@@ -904,22 +1084,36 @@ fn extend_standard(body: &gtk::Box) {
         ] {
             let value = widgets::label(&value, "dim");
             value.set_selectable(true);
-            list.append(&widgets::row(
-                &crate::i18n::tr(title),
-                "",
-                Some(value.upcast_ref()),
-            ));
+            build.append(&row(title, "", Some(value.upcast_ref())));
         }
         let copy = gtk::Button::with_label(&crate::i18n::tr("Copy version info"));
-        copy.set_valign(gtk::Align::Center);
         copy.connect_clicked(|button| button.clipboard().set_text(&version_info()));
-        list.append(&widgets::row(
-            &crate::i18n::tr("Version info"),
-            &crate::i18n::tr("For bug reports"),
+        build.append(&row(
+            "Version info",
+            "For bug reports",
             Some(copy.upcast_ref()),
         ));
-        let diagnostics = crate::ui::settings::diagnostics::diagnostics_page();
-        list.append(&section_title("Diagnostics"));
-        list.append(&diagnostics);
+        wrapper.append(&section_title("Diagnostics"));
+        wrapper.append(&crate::ui::settings::diagnostics::diagnostics_page());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reordered;
+
+    #[test]
+    fn dropping_a_place_on_another_takes_its_position() {
+        let order = ["home", "desktop", "recent", "trash"];
+        assert_eq!(
+            reordered(&order, "home", "recent"),
+            ["desktop", "recent", "home", "trash"]
+        );
+        assert_eq!(
+            reordered(&order, "trash", "desktop"),
+            ["home", "trash", "desktop", "recent"]
+        );
+        assert_eq!(reordered(&order, "recent", "recent"), order);
+        assert_eq!(reordered(&order, "missing", "home"), order);
     }
 }

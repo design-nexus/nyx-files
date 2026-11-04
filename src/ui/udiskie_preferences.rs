@@ -4,7 +4,7 @@ use std::{cell::Cell, rc::Rc, time::Duration};
 
 use gtk::{gio, glib, prelude::*};
 
-use crate::{assets::icons, portal_setup};
+use crate::{portal_setup, ui::portal_preferences::IntegrationIndicator};
 
 use super::desktop_integration::{SETUP_RUNNING, set_search_available};
 
@@ -12,23 +12,11 @@ use super::desktop_integration::{SETUP_RUNNING, set_search_available};
 mod tests;
 
 pub(crate) fn settings_row() -> gtk::Box {
-    let row = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    row.add_css_class("settings-option");
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    content.set_hexpand(true);
-    let title = gtk::Label::new(Some(&crate::i18n::tr("Unlock encrypted volumes")));
-    title.set_xalign(0.0);
-    title.add_css_class("settings-option-title");
-    let description = gtk::Label::new(Some(&crate::i18n::tr(
-        "When you plug in an encrypted drive, open Files with the password prompt instead of udiskie's dialog. On Omarchy this edits `~/.config/udiskie/config.yml` and restarts udiskie.",
-    )));
-    description.set_xalign(0.0);
-    description.set_wrap(true);
-    description.add_css_class("settings-option-description");
-    content.append(&title);
-    content.append(&description);
+    let (row, content) = crate::ui::portal_preferences::integration_row(
+        "Unlock encrypted volumes",
+        "When you plug in an encrypted drive, open Files with the password prompt instead of udiskie's dialog. On Omarchy this edits ~/.config/udiskie/config.yml and restarts udiskie.",
+    );
     let summary = UdiskieIntegrationStatus::new(&content, &row);
-    row.append(&content);
     set_search_available(&row, false);
     // Hidden rows are never mapped, so availability cannot wait on map.
     summary.reload(None);
@@ -60,24 +48,20 @@ pub(crate) struct UdiskieIntegrationStatus {
 impl UdiskieIntegrationStatus {
     pub(crate) fn new(parent: &gtk::Box, row: &gtk::Box) -> Rc<Self> {
         let list = gtk::Box::new(gtk::Orientation::Vertical, 4);
-        list.set_margin_top(8);
-        list.set_margin_bottom(8);
-        let indicator = IntegrationIndicator::new(&list, "Unlock encrypted volumes");
+        list.set_margin_top(6);
+        list.set_margin_bottom(4);
+        let indicator = IntegrationIndicator::new(&list, "Files asks for drive passwords");
         let message = gtk::Label::new(None);
         message.set_visible(false);
         message.set_xalign(0.0);
         message.set_wrap(true);
         message.add_css_class("settings-option-description");
-        let actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        actions.add_css_class("settings-integration-actions");
-        actions.set_halign(gtk::Align::End);
-        actions.set_valign(gtk::Align::Start);
+        let actions = crate::ui::portal_preferences::integration_actions();
         let restore = gtk::Button::with_label(&crate::i18n::tr("Restore default"));
-        restore.add_css_class("action-dialog-cancel");
         restore.set_sensitive(false);
         restore.set_visible(false);
         let use_strata = gtk::Button::with_label(&crate::i18n::tr("Checking status…"));
-        use_strata.add_css_class("action-dialog-confirm");
+        use_strata.add_css_class("suggested-action");
         use_strata.set_sensitive(false);
         actions.append(&restore);
         actions.append(&use_strata);
@@ -246,47 +230,5 @@ impl UdiskieIntegrationStatus {
             };
             summary.reload(failure);
         });
-    }
-}
-
-pub(crate) struct IntegrationIndicator {
-    pub(crate) row: glib::WeakRef<gtk::Box>,
-    icon: glib::WeakRef<gtk::Image>,
-    name: &'static str,
-}
-
-impl IntegrationIndicator {
-    fn new(parent: &gtk::Box, name: &'static str) -> Self {
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let icon = crate::assets::primary_icon(icons::X, 16);
-        let label = gtk::Label::new(Some(&crate::i18n::tr(name)));
-        label.set_xalign(0.0);
-        label.set_wrap(true);
-        row.append(&icon);
-        row.append(&label);
-        row.set_visible(false);
-        parent.append(&row);
-        Self {
-            row: row.downgrade(),
-            icon: icon.downgrade(),
-            name,
-        }
-    }
-
-    fn update(&self, configured: Option<bool>) {
-        if let Some(row) = self.row.upgrade() {
-            row.set_visible(configured.is_some());
-            if let Some(configured) = configured {
-                let description =
-                    crate::ui::portal_preferences::indicator_description(self.name, configured);
-                row.update_property(&[gtk::accessible::Property::Label(&description)]);
-                if let Some(icon) = self.icon.upgrade() {
-                    crate::assets::set_primary_icon(
-                        &icon,
-                        if configured { icons::CHECK } else { icons::X },
-                    );
-                }
-            }
-        }
     }
 }

@@ -125,7 +125,9 @@ fn inline_editors_synchronize_add_remove_preserve_drafts_and_release() {
             );
             let row = label(second, "private-build")
                 .expect("added exclusion")
-                .parent()
+                .ancestor(gtk::Box::static_type())
+                .and_then(|text| text.parent())
+                .filter(|row| row.has_css_class("settings-option"))
                 .expect("exclusion row");
             let remove = descendants(&row)
                 .into_iter()

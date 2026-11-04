@@ -158,8 +158,10 @@ pub(in crate::ui) struct Preferences {
     list_file_clicks: u8,
     #[serde(default = "default_double_clicks", rename = "explorer_folder_clicks")]
     list_folder_clicks: u8,
-    #[serde(default = "default_sidebar_order")]
-    sidebar_order: Vec<String>,
+    #[serde(default = "default_places_order")]
+    places_order: Vec<String>,
+    #[serde(default)]
+    sidebar_section_colors: std::collections::BTreeMap<String, String>,
     #[serde(default = "default_enabled")]
     sidebar_show_home: bool,
     #[serde(default = "default_enabled")]
@@ -397,7 +399,8 @@ impl Default for Preferences {
             icons_folder_clicks: default_double_clicks(),
             list_file_clicks: default_file_clicks(),
             list_folder_clicks: default_double_clicks(),
-            sidebar_order: default_sidebar_order(),
+            places_order: default_places_order(),
+            sidebar_section_colors: Default::default(),
             sidebar_show_home: true,
             sidebar_show_trash: true,
             sidebar_show_network: true,
@@ -522,19 +525,41 @@ fn default_double_clicks() -> u8 {
     2
 }
 
-fn default_sidebar_order() -> Vec<String> {
-    vec![
-        "home".to_owned(),
-        "trash".to_owned(),
-        "network".to_owned(),
-        "recent".to_owned(),
-        "desktop".to_owned(),
-        "documents".to_owned(),
-        "downloads".to_owned(),
-        "music".to_owned(),
-        "pictures".to_owned(),
-        "videos".to_owned(),
-    ]
+/// The sidebar's places, in the order a new install shows them.
+pub(crate) const PLACE_IDS: [&str; 10] = [
+    "home",
+    "desktop",
+    "documents",
+    "downloads",
+    "music",
+    "pictures",
+    "videos",
+    "recent",
+    "network",
+    "trash",
+];
+
+fn default_places_order() -> Vec<String> {
+    PLACE_IDS.iter().map(|id| (*id).to_owned()).collect()
+}
+
+/// Every known place once, in `saved` order; unknown names are dropped and
+/// missing places follow in their default order.
+fn sanitize_places_order(saved: &[String]) -> Vec<&'static str> {
+    let mut order: Vec<&'static str> = Vec::with_capacity(PLACE_IDS.len());
+    for name in saved {
+        if let Some(id) = PLACE_IDS.iter().find(|id| **id == name.as_str())
+            && !order.contains(id)
+        {
+            order.push(id);
+        }
+    }
+    for id in PLACE_IDS {
+        if !order.contains(&id) {
+            order.push(id);
+        }
+    }
+    order
 }
 
 fn default_search_time_limit() -> u32 {
@@ -1535,6 +1560,47 @@ impl PreferenceManager {
     }
 
 
+
+    pub(crate) fn places_order(&self) -> Vec<&'static str> {
+        sanitize_places_order(&self.preferences.borrow().places_order)
+    }
+
+    pub(crate) fn set_places_order(&self, order: &[&str]) {
+        let order = sanitize_places_order(&order.iter().map(|id| (*id).to_owned()).collect::<Vec<_>>());
+        self.preferences.borrow_mut().places_order = order.iter().map(|id| (*id).to_owned()).collect();
+        self.save_preferences();
+    }
+
+    /// The theme swatch picked for a sidebar section's color; `None` follows the theme.
+    pub(crate) fn sidebar_section_color(&self, section: &str) -> Option<String> {
+        self.preferences
+            .borrow()
+            .sidebar_section_colors
+            .get(section)
+            .cloned()
+    }
+
+    pub(crate) fn set_sidebar_section_color(&self, section: &str, swatch: Option<&str>) {
+        {
+            let mut preferences = self.preferences.borrow_mut();
+            match swatch {
+                Some(swatch) => {
+                    preferences
+                        .sidebar_section_colors
+                        .insert(section.to_owned(), swatch.to_owned());
+                }
+                None => {
+                    preferences.sidebar_section_colors.remove(section);
+                }
+            }
+        }
+        self.save_preferences();
+    }
+
+    /// Every picked section color, for bindings that restyle when any changes.
+    pub(crate) fn sidebar_section_colors(&self) -> std::collections::BTreeMap<String, String> {
+        self.preferences.borrow().sidebar_section_colors.clone()
+    }
 
     pub fn sidebar_show_home(&self) -> bool {
         self.preferences.borrow().sidebar_show_home

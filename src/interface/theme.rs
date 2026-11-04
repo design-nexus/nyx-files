@@ -41,42 +41,74 @@ pub(super) fn install() {
 
 /// Each sidebar group's colour, as Settings colours its groups: a theme swatch
 /// per section, following the theme as it changes.
-const SECTIONS: &[(&str, &str)] = &[
+pub(super) const SECTIONS: &[(&str, &str)] = &[
     ("places", "blue"),
     ("pinned", "amber"),
     ("devices", "green"),
     ("cloud", "teal"),
 ];
 
+thread_local! {
+    static SECTIONS_PROVIDER: gtk::CssProvider = gtk::CssProvider::new();
+}
+
+fn swatch_colour(name: &str) -> Option<String> {
+    nyx_theme::swatches()
+        .into_iter()
+        .find(|(swatch, _)| swatch == name)
+        .map(|(_, colour)| colour)
+}
+
+/// A section's colour without a pick in Settings: the theme's section accent,
+/// else the section's default swatch.
+pub(super) fn theme_section_colour(section: &str) -> String {
+    let colour = nyx_theme::section_accent("files", section);
+    SECTIONS
+        .iter()
+        .find(|(id, _)| *id == section)
+        .and_then(|(_, name)| swatch_colour(name))
+        .filter(|_| colour == nyx_theme::app_accent("files"))
+        .unwrap_or(colour)
+}
+
+/// The colour a section's heading shows: the swatch picked in Settings, else
+/// the theme's.
+fn section_colour(section: &str) -> String {
+    PreferenceManager::shared()
+        .sidebar_section_color(section)
+        .and_then(|name| swatch_colour(&name))
+        .unwrap_or_else(|| theme_section_colour(section))
+}
+
 fn sections_css() -> String {
-    let swatches = nyx_theme::swatches();
     let mut css = String::new();
-    for (section, swatch) in SECTIONS {
-        let colour = nyx_theme::section_accent("files", section);
-        let colour = swatches
-            .iter()
-            .find(|(name, _)| name == swatch)
-            .map(|(_, c)| c.clone())
-            .filter(|_| colour == nyx_theme::app_accent("files"))
-            .unwrap_or(colour);
+    for (section, _) in SECTIONS {
+        let colour = section_colour(section);
         css.push_str(&format!(
             "window.files-window .section-{section} {{ color: {colour}; }}\n\
-             window.files-window .nav-group.section-{section} {{ border-bottom-color: alpha({colour}, 0.35); }}\n"
+             window.files-window .nav-group.section-{section} {{ border-bottom-color: alpha({colour}, 0.35); }}\n\
+             window.files-window .sidebar.colored-icons button.nav-item.section-icon-{section} image {{ color: {colour}; }}\n"
         ));
     }
     css
+}
+
+/// Restyles the sidebar sections after a section colour changed.
+pub(super) fn refresh_sections() {
+    SECTIONS_PROVIDER.with(|provider| provider.load_from_string(&sections_css()));
 }
 
 fn install_sections() {
     let Some(display) = gtk::gdk::Display::default() else {
         return;
     };
-    let provider = gtk::CssProvider::new();
-    provider.load_from_string(&sections_css());
-    gtk::style_context_add_provider_for_display(
-        &display,
-        &provider,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 2,
-    );
-    nyx_theme::on_change(move || provider.load_from_string(&sections_css()));
+    SECTIONS_PROVIDER.with(|provider| {
+        gtk::style_context_add_provider_for_display(
+            &display,
+            provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 2,
+        );
+    });
+    refresh_sections();
+    nyx_theme::on_change(refresh_sections);
 }

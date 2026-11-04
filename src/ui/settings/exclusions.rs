@@ -16,52 +16,44 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
+fn escaped(text: &str) -> String {
+    gtk::glib::markup_escape_text(text).to_string()
+}
+
+/// The add row, then a row per exclusion, for the Search exclusions card.
 pub(crate) fn search_exclusions_control(manager: &Rc<PreferenceManager>) -> gtk::Box {
-    let control = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    let control = gtk::Box::new(gtk::Orientation::Vertical, 0);
     control.set_hexpand(true);
     let field = form_entry();
-    field.set_hexpand(true);
-    field.set_width_chars(1);
+    field.set_width_chars(22);
     field.set_placeholder_text(Some(&crate::i18n::tr(
         "Folder name (e.g. .venv) or ~/path…",
     )));
     super::super::accessibility::set_label(&field, &crate::i18n::tr("Search exclusion"));
 
     let browse_btn = gtk::Button::with_label(&crate::i18n::tr("Browse…"));
-    browse_btn.add_css_class("settings-action-button");
-    browse_btn.set_valign(gtk::Align::Fill);
-
     let add_btn = gtk::Button::with_label(&crate::i18n::tr("Add"));
-    add_btn.add_css_class("settings-action-button");
-    add_btn.set_valign(gtk::Align::Fill);
 
-    let buttons_box = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    buttons_box.set_homogeneous(true);
-    buttons_box.append(&browse_btn);
-    buttons_box.append(&add_btn);
+    let input = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    input.append(&field);
+    input.append(&browse_btn);
+    input.append(&add_btn);
 
-    let input_row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    input_row.add_css_class("settings-exclusions-input");
-    input_row.append(&field);
-    input_row.append(&buttons_box);
-
+    let input_row = nyx_ui::widgets::row(
+        &crate::i18n::tr("Add exclusion"),
+        &escaped(&crate::i18n::tr(
+            "Exclude folder names or directory paths from global search.",
+        )),
+        Some(input.upcast_ref()),
+    );
     let error_label = form_error_label();
-
+    if let Some(text) = input_row.first_child().and_downcast::<gtk::Box>() {
+        text.append(&error_label);
+    }
     control.append(&input_row);
-    control.append(&error_label);
 
     let exclusions_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-
-    let list_scroll = gtk::ScrolledWindow::builder()
-        .child(&exclusions_box)
-        .hscrollbar_policy(gtk::PolicyType::Never)
-        .vscrollbar_policy(gtk::PolicyType::Automatic)
-        .min_content_height(180)
-        .max_content_height(180)
-        .propagate_natural_height(true)
-        .build();
-    list_scroll.add_css_class("settings-exclusions-list");
-    control.append(&list_scroll);
+    control.append(&exclusions_box);
 
     let weak_manager = Rc::downgrade(manager);
     manager.bind_preference(
@@ -159,51 +151,41 @@ fn render_exclusion_rows(
         container.remove(&child);
     }
     if exclusions.is_empty() {
-        let empty = gtk::Label::new(Some(&crate::i18n::tr(
-            "No custom exclusions added. Common tool caches (.venv, node_modules, target, etc.) are excluded automatically.",
-        )));
-        empty.add_css_class("settings-option-description");
-        empty.add_css_class("settings-exclusion-row");
-        empty.set_xalign(0.0);
-        empty.set_wrap(true);
-        container.append(&empty);
+        let row = nyx_ui::widgets::row(
+            "",
+            &escaped(&crate::i18n::tr(
+                "No custom exclusions added. Common tool caches (.venv, node_modules, target, etc.) are excluded automatically.",
+            )),
+            None,
+        );
+        if let Some(title) = row.first_child().and_then(|text| text.first_child()) {
+            title.set_visible(false);
+        }
+        container.append(&row);
         return;
     }
     for item in exclusions {
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 9);
-        row.add_css_class("settings-exclusion-row");
-        row.append(&crate::assets::primary_icon(icons::FOLDER, 16));
-
-        let name_label = gtk::Label::new(Some(&item));
-        name_label.set_xalign(0.0);
-        name_label.set_hexpand(true);
-        name_label.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
-        row.append(&name_label);
-
         let is_path = SearchExclusions::is_directory_path(&item);
-        let type_label = gtk::Label::new(Some(&crate::i18n::tr(if is_path {
-            "Directory"
-        } else {
-            "Folder name"
-        })));
-        type_label.add_css_class("settings-option-description");
-        type_label.set_xalign(1.0);
-        row.append(&type_label);
-
-        let remove = gtk::Button::new();
-        remove.add_css_class("settings-action-button");
-        remove.add_css_class("settings-action-icon-button");
-        remove.add_css_class("danger");
-        remove.set_valign(gtk::Align::Center);
-        remove.set_tooltip_text(Some(&crate::i18n::tr("Remove exclusion")));
-        let remove_icon = crate::assets::danger_icon(icons::TRASH, crate::assets::CHROME_ICON_PX);
-        remove_icon.set_halign(gtk::Align::Center);
-        remove_icon.set_valign(gtk::Align::Center);
-        remove.set_child(Some(&remove_icon));
+        let remove = nyx_ui::widgets::icon_button(
+            "user-trash-symbolic",
+            &crate::i18n::tr("Remove exclusion"),
+        );
         super::super::accessibility::set_label(
             &remove,
             &rust_i18n::t!("Remove exclusion %{item}", item = item),
         );
+        let row = nyx_ui::widgets::row(
+            &item,
+            &escaped(&crate::i18n::tr(if is_path {
+                "Directory"
+            } else {
+                "Folder name"
+            })),
+            Some(remove.upcast_ref()),
+        );
+        let icon = crate::assets::primary_icon(icons::FOLDER, 16);
+        icon.set_valign(gtk::Align::Center);
+        row.prepend(&icon);
         let weak_manager = Rc::downgrade(manager);
         remove.connect_clicked(move |_| {
             if let Some(manager) = weak_manager.upgrade() {
@@ -212,8 +194,6 @@ fn render_exclusion_rows(
                 manager.set_search_exclusions(exclusions);
             }
         });
-        row.append(&remove);
-
         container.append(&row);
     }
 }

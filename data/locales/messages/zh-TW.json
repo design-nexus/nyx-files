@@ -709,7 +709,7 @@
   "Stable release installed — restart to apply": "已安裝穩定版本 — 重新啟動以套用",
   "Starting download…": "開始下載…",
   "Stopping…": "正在停止…",
-  "Strata %{value1}\n%{value2}\nCommit: %{value3}\nToolkit: %{value4}\nAuthor: %{value5}\nLicense: MIT": "Strata %{value1}\n%{value2}\n提交：%{value3}\n工具箱：%{value4}\n作者：%{value5}\n授權：MIT",
+  "Files %{value1}\n%{value2}\nCommit: %{value3}\nToolkit: %{value4}\nAuthor: %{value5}\nLicense: GPL-3.0-or-later": "Files %{value1}\n%{value2}\n提交：%{value3}\n工具箱：%{value4}\n作者：%{value5}\n授權：GPL-3.0-or-later",
   "Strata cannot display the password manager's deletion confirmation. Remove this volume's saved password in your password manager, then try Lock again.": "Strata 無法顯示密碼管理員的刪除確認。請在密碼管理員中移除此磁碟區的已儲存密碼，然後再次嘗試鎖定。",
   "Strata could not determine whether the destination is on the same device.": "Strata 無法判斷目的地是否在同一裝置。",
   "Strata couldn't read “%{path}” when it started: %{reason}. To keep the file as it is, Strata won't save over it. Fix or remove the file, then restart Strata.": "Strata 啟動時無法讀取“%{path}”：%{reason}。為保留檔案原樣，Strata 不會覆寫它。請修復或移除該檔案，然後重新啟動 Strata。",

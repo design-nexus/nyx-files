@@ -69,5 +69,4 @@ you have read, and run actions that modify files on copies first.
 Files connects to a remote location only when you open it. Remote image and
 video previews are copied to a private, size-limited temporary file and parsed by
 the same sandbox as local files. To keep network browsing out of the way, turn
-off **Show Network in sidebar** under **Items shown in sidebar** in
-Settings → General. Direct URIs remain available through **Ctrl+L**.
+off **Network** under **Places** in Settings → Sidebar. Direct URIs remain available through **Ctrl+L**.

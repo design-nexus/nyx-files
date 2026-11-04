@@ -115,7 +115,8 @@ fn a_run_fills_every_row_and_marks_checks_that_never_reported() {
                         sender.send(check).expect("page is polling");
                     }
                 });
-            }));
+            }))
+            .upcast::<gtk::Widget>();
             let copy = button(&page, "diagnostics-copy");
             assert!(!copy.is_sensitive(), "nothing to copy before a run");
             assert!(rows(&page).is_empty());

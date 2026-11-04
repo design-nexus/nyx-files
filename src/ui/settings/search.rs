@@ -188,14 +188,14 @@ const TARGETS: &[Target] = &[
     Target {
         id: "search-exclusions",
         page: "general",
-        title: "Global search exclusions",
+        title: "Add exclusion",
         aliases: "search filter exclusions exclude folders directories ignore venv prune",
     },
     Target {
-        id: "sidebar-places",
+        id: "sidebar-section-colors",
         page: "general",
-        title: "Items shown in sidebar",
-        aliases: "sidebar places hide show home trash network recent shares desktop documents downloads music pictures videos folder",
+        title: "Section colors",
+        aliases: "sidebar places pinned devices cloud header colour color swatch",
     },
     Target {
         id: "opening",

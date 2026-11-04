@@ -730,7 +730,7 @@
   "Stable release installed — restart to apply": "Versión estable instalada — reinicia para aplicarla",
   "Starting download…": "Iniciando la descarga…",
   "Stopping…": "Deteniendo…",
-  "Strata %{value1}\n%{value2}\nCommit: %{value3}\nToolkit: %{value4}\nAuthor: %{value5}\nLicense: MIT": "Strata %{value1}\n%{value2}\nCommit: %{value3}\nKit de herramientas: %{value4}\nAutor: %{value5}\nLicencia: MIT",
+  "Files %{value1}\n%{value2}\nCommit: %{value3}\nToolkit: %{value4}\nAuthor: %{value5}\nLicense: GPL-3.0-or-later": "Files %{value1}\n%{value2}\nCommit: %{value3}\nKit de herramientas: %{value4}\nAutor: %{value5}\nLicencia: GPL-3.0-or-later",
   "Strata cannot display the password manager's deletion confirmation. Remove this volume's saved password in your password manager, then try Lock again.": "Strata no puede mostrar la confirmación de eliminación del gestor de contraseñas. Elimina la contraseña guardada de este volumen en tu gestor de contraseñas y vuelve a intentar bloquearlo.",
   "Strata could not determine whether the destination is on the same device.": "Strata no pudo determinar si el destino está en el mismo dispositivo.",
   "Strata couldn't read “%{path}” when it started: %{reason}. To keep the file as it is, Strata won't save over it. Fix or remove the file, then restart Strata.": "Strata no pudo leer «%{path}» al iniciarse: %{reason}. Para conservar el archivo tal como está, Strata no lo sobrescribirá. Corrige o elimina el archivo y luego reinicia Strata.",

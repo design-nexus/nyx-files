@@ -46,7 +46,7 @@ pub(in crate::ui) fn non_default_preferences() -> Preferences {
         icons_folder_clicks: 1,
         list_file_clicks: 1,
         list_folder_clicks: 1,
-        sidebar_order: vec![
+        places_order: vec![
             "recent".into(),
             "network".into(),
             "trash".into(),
@@ -58,6 +58,7 @@ pub(in crate::ui) fn non_default_preferences() -> Preferences {
             "documents".into(),
             "desktop".into(),
         ],
+        sidebar_section_colors: [("places".to_owned(), "red".to_owned())].into(),
         sidebar_show_home: false,
         sidebar_show_trash: false,
         sidebar_show_network: false,
