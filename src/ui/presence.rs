@@ -10,8 +10,6 @@ use crate::app::Presence;
 
 
 
-#[cfg(test)]
-fn follow_power_saver(_: &gtk::Window, _: Rc<Cell<bool>>, _: Update) {}
 
 
 #[cfg(test)]

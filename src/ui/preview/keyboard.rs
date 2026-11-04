@@ -134,12 +134,6 @@ impl PreviewDrawer {
 
 
 
-    #[cfg(test)]
-    pub(in crate::ui) fn document_scroll_value(&self) -> Option<f64> {
-        self.state
-            .primary_scroll()
-            .map(|scroll| scroll.vadjustment().value())
-    }
 }
 
 impl PreviewState {

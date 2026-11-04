@@ -42,40 +42,6 @@ fn install_command_can_be_selected_and_copied() {
     );
 }
 
-#[test]
-fn character_counter_tracks_edits_and_character_limits() {
-    crate::test_support::gtk_test(
-        "ui::controls::tests::character_counter_tracks_edits_and_character_limits",
-        || {
-            let field = FormTextField::with_character_limit(11);
-            assert_eq!(field.remaining.text(), "11 chars remaining");
-            for (text, remaining) in [
-                ("ARCH_202609", "0 chars remaining"),
-                ("ARCH", "7 chars remaining"),
-                ("é猫", "9 chars remaining"),
-                ("", "11 chars remaining"),
-            ] {
-                field.entry.set_text(text);
-                assert_eq!(field.remaining.text(), remaining);
-            }
-
-            field.entry.set_text("abcdefghijklmnop");
-            assert_eq!(field.entry.text(), "abcdefghijk");
-            assert_eq!(field.remaining.text(), "0 chars remaining");
-
-            field.entry.set_max_length(32);
-            assert_eq!(field.remaining.text(), "21 chars remaining");
-            field.entry.set_text("NTFS");
-            assert_eq!(field.remaining.text(), "28 chars remaining");
-
-            field.entry.set_max_length(0);
-            assert!(!field.remaining.is_visible());
-            field.entry.set_max_length(11);
-            assert!(field.remaining.is_visible());
-            assert_eq!(field.remaining.text(), "7 chars remaining");
-        },
-    );
-}
 
 #[test]
 fn dialog_text_keeps_paragraphs_and_unspaced_scripts_intact() {

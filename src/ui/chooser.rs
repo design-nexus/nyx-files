@@ -68,24 +68,7 @@ thread_local! {
     static DESTINATION_PARENTS: RefCell<Vec<glib::WeakRef<gtk::Window>>> = const { RefCell::new(Vec::new()) };
 }
 
-#[cfg(test)]
-thread_local! {
-    static DESTINATION_STATES: RefCell<Vec<std::rc::Weak<ChooserState>>> = const { RefCell::new(Vec::new()) };
-}
 
-#[cfg(test)]
-pub(crate) fn destination_chooser_for(parent: &gtk::Window) -> Option<(gtk::Window, BrowserView)> {
-    DESTINATION_STATES.with(|states| {
-        states
-            .borrow()
-            .iter()
-            .filter_map(std::rc::Weak::upgrade)
-            .find(|state| {
-                state.window.is_visible() && state.window.transient_for().as_ref() == Some(parent)
-            })
-            .map(|state| (state.window.clone(), state.view.clone()))
-    })
-}
 
 pub(crate) struct ChooserFileSource {
     source: Rc<dyn FileSource>,

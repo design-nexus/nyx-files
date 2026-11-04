@@ -37,14 +37,6 @@ mod sidebar;
 
 
 
-#[cfg(test)]
-pub(super) fn install(
-    window: &impl IsA<gtk::Window>,
-    sidebar: &SidebarView,
-    parts: DispatcherParts,
-) {
-    let _ = install_on(window, window.upcast_ref::<gtk::Window>(), sidebar, parts);
-}
 
 
 

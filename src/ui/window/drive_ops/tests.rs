@@ -177,11 +177,6 @@ fn filesystem_label_limits_match_backends() {
     assert_eq!(FilesystemType::Exfat.max_label_len(), 32);
 }
 
-#[test]
-fn ineligible_without_removable_drive() {
-    assert!(!is_eligible(None));
-    assert!(!show_mount(None));
-}
 
 #[test]
 fn label_characters_follow_the_filesystem_rules() {

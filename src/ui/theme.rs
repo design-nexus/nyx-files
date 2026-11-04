@@ -364,65 +364,6 @@ impl ThemeManager {
         self.current_tokens().unwrap_or_else(azure_tokens)
     }
 
-    #[cfg(test)]
-    pub fn save_custom_theme(
-        self: &Rc<Self>,
-        tokens: ThemeTokens,
-        done: impl FnOnce(io::Result<String>) + 'static,
-    ) {
-        let value = validate_tokens(&tokens)
-            .map_err(|message| io::Error::new(io::ErrorKind::InvalidInput, message))
-            .and_then(|()| Ok(suite_theme_file(&tokens)));
-        let value = match value {
-            Ok(value) => value,
-            Err(error) => return done(Err(error)),
-        };
-        let taken: Vec<String> = self
-            .themes
-            .borrow()
-            .iter()
-            .map(|theme| theme.id.clone())
-            .collect();
-        let name = tokens.name.clone();
-        let saved = crate::storage::writer::run(move || {
-            let directory = themes_directory();
-            fs::create_dir_all(&directory)?;
-            // Never replace a file already there, even one that did not load: it may be
-            // a broken or newly linked dotfile the user still wants.
-            let stem = custom_theme_id(&name, |candidate| {
-                taken.iter().any(|id| id == candidate || *id == format!("custom:{candidate}"))
-                    || fs::symlink_metadata(directory.join(format!("{candidate}.toml"))).is_ok()
-            });
-            crate::storage::atomic_write_config(
-                &directory.join(format!("{stem}.toml")),
-                value.as_bytes(),
-            )?;
-            Ok(format!("custom:{stem}"))
-        });
-        let weak = Rc::downgrade(self);
-        glib::MainContext::default().spawn_local(async move {
-            let saved = saved
-                .await
-                .unwrap_or_else(|_| Err(io::Error::from_raw_os_error(libc::ECANCELED)));
-            let Some(manager) = weak.upgrade() else {
-                return;
-            };
-            match saved {
-                Ok(id) => {
-                    // The directory may not have existed when the watch was last armed.
-                    manager.monitor_custom_themes(true);
-                    manager.themes.borrow_mut().push(Theme {
-                        id: id.clone(),
-                        tokens,
-                        custom: true,
-                    });
-                    manager.select_theme(&id);
-                    done(Ok(id));
-                }
-                Err(error) => done(Err(error)),
-            }
-        });
-    }
 
 
 

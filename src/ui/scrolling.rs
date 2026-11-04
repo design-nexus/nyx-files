@@ -18,33 +18,6 @@ pub(super) mod popover;
 
 
 
-/// Starts autoscroll on `scroll` through the same `AutoScroll::start` path a
-/// middle-click uses, so Escape can be tested without synthesizing a button event.
-#[cfg(test)]
-pub(super) fn begin_autoscroll_for_test(scroll: &gtk::ScrolledWindow) -> bool {
-    let overlay = scroll
-        .ancestor(gtk::Overlay::static_type())
-        .and_downcast::<gtk::Overlay>()
-        .unwrap_or_else(gtk::Overlay::new);
-    let marker = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    marker.add_css_class("autoscroll-anchor");
-    marker.set_can_target(false);
-    marker.set_visible(false);
-    overlay.add_overlay(&marker);
-    let vertical = scroll.vadjustment();
-    if !scrollable(&vertical) && !scrollable(&scroll.hadjustment()) {
-        vertical.set_upper(vertical.lower() + vertical.page_size() + 200.0);
-    }
-    let state = Rc::new(AutoScroll {
-        scroll: scroll.downgrade(),
-        overlay: overlay.downgrade(),
-        marker,
-        anchor: Cell::new((0.0, 0.0)),
-        pointer: Cell::new((0.0, 0.0)),
-        frames: RefCell::new(None),
-    });
-    state.start((10.0, 10.0))
-}
 
 
 

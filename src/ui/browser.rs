@@ -66,8 +66,6 @@ mod transfer;
 pub(crate) mod transfer_report;
 mod trash;
 
-#[cfg(test)]
-pub(super) use crate::ui::browser::clipboard::clipboard_mark;
 pub(in crate::ui) use crate::ui::browser::clipboard::drag_preview_icon;
 pub(super) use crate::ui::browser::clipboard::{
     ClipboardMark, ClipboardMarks, file_drag_content, };
@@ -147,13 +145,6 @@ impl Drop for GlobalActivity {
     }
 }
 
-#[cfg(test)]
-#[derive(Clone)]
-pub(super) struct SendToMenuTestOverride {
-    pub(super) destinations: Vec<crate::ui::RemovableDestination>,
-    pub(super) recent_destinations: std::collections::HashMap<String, Vec<std::path::PathBuf>>,
-    pub(super) handlers: SendToMenuHandlers,
-}
 
 
 pub(super) struct ViewState {
@@ -267,8 +258,6 @@ pub(super) struct ViewState {
     listing_filter: listing_filter::FilterState,
     listing_search: listing_search::SearchState,
     result_selection: result_selection::ResultSelection,
-    #[cfg(test)]
-    send_to_menu_test_override: RefCell<Option<SendToMenuTestOverride>>,
     browser: Rc<Browser>,
 }
 
@@ -297,16 +286,6 @@ impl BrowserView {
 
 
 
-    #[cfg(test)]
-    pub(crate) fn connect_navigation_cleanup(&self, window: &gtk::Window) {
-        let weak = self.downgrade();
-        window.connect_close_request(move |_| {
-            if let Some(browser) = weak.upgrade() {
-                browser.browser().bump_navigation_generation();
-            }
-            glib::Propagation::Proceed
-        });
-    }
 
 
 
@@ -422,10 +401,6 @@ impl BrowserView {
 
 
 
-    #[cfg(test)]
-    pub fn focus_search_result(&self, path: &std::path::Path) -> bool {
-        self.state.mode_views.borrow().focus_search_result(path)
-    }
 
     pub fn keyboard_navigation(&self) {
         self.state

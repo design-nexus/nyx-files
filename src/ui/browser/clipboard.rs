@@ -338,10 +338,6 @@ thread_local! {
 
 
 
-#[cfg(test)]
-fn set_shared_cut(locations: &[Location]) {
-    set_shared_marks(&[], locations);
-}
 
 
 
