@@ -122,6 +122,9 @@ impl Tab {
         let initial_mode = PreferenceManager::shared().mode_for(Some(&location));
         let browser =
             Browser::with_preferences(source, PreferenceManager::shared().sort_preferences());
+        browser.observe_preferences(|preferences| {
+            PreferenceManager::shared().set_sort_preferences(preferences);
+        });
         browser.set_operation_provider(Rc::new(LocalOperationProvider));
         let model = Rc::new(EntryModel::new());
         let columns = ColumnsView::new();

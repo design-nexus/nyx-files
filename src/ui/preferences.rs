@@ -1708,6 +1708,18 @@ impl PreferenceManager {
         sort_preferences(&self.preferences.borrow())
     }
 
+    /// Saves a browser's defaults: hidden files, folders first, and the
+    /// default sort, which a browser changes only with per-folder sorts off.
+    pub(crate) fn set_sort_preferences(&self, preferences: ViewPreferences) {
+        {
+            let mut stored = self.preferences.borrow_mut();
+            stored.show_hidden = preferences.show_hidden;
+            stored.folders_first = preferences.folders_first;
+            store_sort(&mut stored, preferences.sort());
+        }
+        self.save_preferences();
+    }
+
 
     fn save_preferences(&self) {
         let changed = self.changes.record(&self.preferences.borrow());

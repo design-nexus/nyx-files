@@ -809,6 +809,34 @@ fn settings_files_are_watched_from_the_monitors_worker_without_missing_a_save() 
 
 
 #[test]
+fn a_browser_toggling_hidden_files_is_saved_for_the_next_launch() {
+    gtk_test(
+        "ui::preferences::tests::preferences::a_browser_toggling_hidden_files_is_saved_for_the_next_launch",
+        || {
+            let manager = PreferenceManager::shared();
+            let browser = crate::app::Browser::with_preferences(
+                Rc::new(crate::adapters::LocalFileSource),
+                manager.sort_preferences(),
+            );
+            browser.observe_preferences(|preferences| {
+                PreferenceManager::shared().set_sort_preferences(preferences);
+            });
+            let shown = manager.sort_preferences().show_hidden;
+            browser.toggle_hidden();
+            assert_eq!(manager.sort_preferences().show_hidden, !shown);
+            crate::storage::writer::settle();
+            assert_eq!(
+                read_preferences().expect("saved preferences").show_hidden,
+                !shown
+            );
+            browser.toggle_hidden();
+            crate::storage::writer::settle();
+            assert_eq!(read_preferences().expect("saved preferences").show_hidden, shown);
+        },
+    );
+}
+
+#[test]
 fn places_order_keeps_every_place_once_and_appends_missing_ones() {
     let saved: Vec<String> = ["trash", "bogus", "home", "trash", "recent"]
         .map(str::to_owned)

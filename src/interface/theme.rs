@@ -37,6 +37,65 @@ pub(super) fn install() {
         }),
     });
     install_sections();
+    watch_icon_theme();
+}
+
+/// Waits for a burst of icon theme writes to end before redrawing.
+const ICON_THEME_SETTLE: std::time::Duration = std::time::Duration::from_millis(800);
+
+/// Redraws file and folder icons when the icon theme changes: a different
+/// theme name, or the same theme regenerated in place for a new color theme.
+fn watch_icon_theme() {
+    use gtk::{gio, glib, prelude::*};
+    use std::{cell::RefCell, rc::Rc};
+
+    let Some(settings) = gtk::Settings::default() else {
+        return;
+    };
+    let timer: Rc<RefCell<Option<glib::SourceId>>> = Rc::default();
+    let redraw = Rc::new(move || {
+        if let Some(previous) = timer.borrow_mut().take() {
+            previous.remove();
+        }
+        let done = Rc::downgrade(&timer);
+        *timer.borrow_mut() = Some(glib::timeout_add_local_once(ICON_THEME_SETTLE, move || {
+            if let Some(timer) = done.upgrade() {
+                timer.borrow_mut().take();
+            }
+            crate::ui::thumbnail::refresh_all_customized_icons();
+        }));
+    });
+    let monitors: Rc<RefCell<Vec<gio::FileMonitor>>> = Rc::default();
+    let watch = {
+        let (monitors, redraw) = (monitors.clone(), redraw.clone());
+        move |settings: &gtk::Settings| {
+            let Some(name) = settings.gtk_icon_theme_name() else {
+                monitors.borrow_mut().clear();
+                return;
+            };
+            let roots = std::iter::once(glib::user_data_dir())
+                .chain(glib::system_data_dirs())
+                .chain(std::iter::once(glib::home_dir().join(".icons")));
+            let watched = roots
+                .map(|root| root.join("icons").join(name.as_str()))
+                .filter(|dir| dir.is_dir())
+                .filter_map(|dir| {
+                    let monitor = gio::File::for_path(dir)
+                        .monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
+                        .ok()?;
+                    let redraw = redraw.clone();
+                    monitor.connect_changed(move |_, _, _, _| redraw());
+                    Some(monitor)
+                })
+                .collect();
+            *monitors.borrow_mut() = watched;
+        }
+    };
+    watch(&settings);
+    settings.connect_gtk_icon_theme_name_notify(move |settings| {
+        watch(settings);
+        redraw();
+    });
 }
 
 /// Each sidebar group's colour, as Settings colours its groups: a theme swatch

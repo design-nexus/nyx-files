@@ -1565,7 +1565,10 @@ pub(super) fn sidebar_icon_muted(image: &gtk::Image) -> bool {
 
 
 
-pub(super) fn refresh_all_customized_icons() {
+/// Redraws every tracked icon from the icon theme's current files, which a
+/// theme switch can rewrite under the same theme name.
+pub(crate) fn refresh_all_customized_icons() {
+    THEME_TEXTURES.with_borrow_mut(HashMap::clear);
     refresh_tracked_icons(|_| true);
     refresh_tracked_images(|_| true);
 }
