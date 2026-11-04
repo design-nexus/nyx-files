@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-//! The Nyx 2.0 interface, built on nyx-ui. `NYX_FILES_UI=1` runs the previous
-//! interface instead while it remains.
+//! Files' interface, built on nyx-ui.
 
 mod actions;
 mod appearance;
@@ -27,12 +26,6 @@ mod tab;
 mod tenxer;
 mod theme;
 mod window;
-
-pub(crate) const ENV: &str = "NYX_FILES_UI";
-
-pub(crate) fn enabled() -> bool {
-    std::env::var(ENV).map_or(true, |value| value != "1")
-}
 
 pub(crate) fn present(application: &gtk::Application) {
     theme::install();

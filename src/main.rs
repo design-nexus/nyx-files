@@ -209,11 +209,7 @@ fn main() -> gtk::glib::ExitCode {
             leave_launch_folder();
             util::ui_thread::mark();
             return portal::run(
-                if ui2::enabled() {
-                    &ui2::CHOOSER_UI
-                } else {
-                    &ui::CHOOSER_UI
-                },
+                &ui2::CHOOSER_UI,
                 #[cfg(feature = "qa")]
                 None,
             );
@@ -263,7 +259,7 @@ fn main() -> gtk::glib::ExitCode {
         ui::read_install_facts();
         leave_launch_folder();
         util::ui_thread::mark();
-        return portal::run(&ui::CHOOSER_UI, qa_session);
+        return portal::run(&ui2::CHOOSER_UI, qa_session);
     }
     #[cfg(feature = "qa")]
     let application_arguments = qa_session.as_ref().map_or_else(
@@ -355,31 +351,18 @@ fn main() -> gtk::glib::ExitCode {
     });
     application.connect_activate(|application| {
         if let Err(error) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            if ui2::enabled() {
-                ui2::present(application);
-            } else {
-                ui::present(application);
-            }
+            ui2::present(application);
         })) {
             tracing::error!("panic during application activation: {error:?}");
         }
     });
     application.connect_open(|application, files, _| {
         if let Err(error) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            if ui2::enabled() {
-                if files.is_empty() {
-                    ui2::present(application);
-                }
-                for file in files {
-                    ui2::present_open(application, file);
-                }
-                return;
-            }
             if files.is_empty() {
-                ui::present(application);
+                ui2::present(application);
             }
             for file in files {
-                ui::present_open(application, file.clone());
+                ui2::present_open(application, file);
             }
         })) {
             tracing::error!("panic during application open: {error:?}");
@@ -468,11 +451,7 @@ fn handle_command_line(
         cmdline.is_remote(),
     ) {
         CommandLineAction::Unlock(target) => {
-            if ui2::enabled() {
-                ui2::present_unlock(application, target);
-            } else {
-                ui::present_unlock(application, target);
-            }
+            ui2::present_unlock(application, target);
             glib::ExitCode::SUCCESS
         }
         CommandLineAction::Open(files) => {
@@ -547,11 +526,7 @@ fn export_file_manager_interface(application: &gtk::Application) {
     };
     let target = application.clone();
     if let Err(error) = adapters::export_file_manager(&connection, move |request| {
-        if ui2::enabled() {
-            ui2::present_reveal(&target, request);
-        } else {
-            ui::present_reveal(&target, request);
-        }
+        ui2::present_reveal(&target, request);
     }) {
         tracing::warn!(%error, "unable to export the file manager interface");
     }
