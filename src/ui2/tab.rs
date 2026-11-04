@@ -70,6 +70,14 @@ pub(super) struct Tab {
     visits: RefCell<Vec<Option<Location>>>,
 }
 
+/// Startup metrics the field harness reads: listings published and the first rows.
+fn published(rows: usize, started: std::time::Instant) {
+    crate::metrics::mark_batch_rendered(rows, started);
+    if rows > 0 {
+        crate::metrics::mark_first_visible_row(rows);
+    }
+}
+
 pub(super) fn home() -> PathBuf {
     glib::home_dir()
 }
@@ -837,9 +845,11 @@ impl Tab {
                 .browser
                 .column_preferences(depth)
                 .is_some_and(|p| p.show_hidden);
+            let started = std::time::Instant::now();
             self.browser.with_column_entries(depth, |entries| {
                 column.model.set_entries(entries, show_hidden)
             });
+            published(column.model.len() as usize, started);
             if column.model.selected().is_empty() {
                 let positions = self.browser.selected_positions(depth);
                 if !positions.is_empty() {
@@ -1012,9 +1022,11 @@ impl Tab {
         } else {
             let show_hidden = self.shows_hidden();
             self.syncing.set(true);
+            let started = std::time::Instant::now();
             self.browser.with_column_entries(depth, |entries| {
                 self.model.set_entries(entries, show_hidden)
             });
+            published(self.model.len() as usize, started);
             if self.model.selected().is_empty() {
                 let positions = self.browser.selected_positions(depth);
                 if !positions.is_empty() {

@@ -229,6 +229,11 @@ impl Window {
 
         this.add_tab(location.unwrap_or_else(start_location));
         this.window.present();
+        crate::metrics::mark_window_presented();
+        this.window.add_tick_callback(|_, _| {
+            crate::metrics::mark_first_themed_frame();
+            glib::ControlFlow::Break
+        });
         // Developer aid, like nyx-ui's NYX_PALETTE: open settings once the window is up.
         if std::env::var_os("NYX_FILES_SETTINGS").is_some() {
             let weak = Rc::downgrade(&this);

@@ -66,6 +66,8 @@ const GROUPS: &[(&str, &str, &str)] = &[
     ),
 ];
 
+const SPEC_DESCRIPTION: &str = "A fast, keyboard-first file manager.";
+
 const SPEC: Spec = Spec {
     groups: GROUPS,
     search_text: None,
@@ -75,7 +77,7 @@ const SPEC: Spec = Spec {
             name: "Files",
             icon: crate::APPLICATION_ID,
             version: env!("CARGO_PKG_VERSION"),
-            description: "A fast, keyboard-first file manager.",
+            description: SPEC_DESCRIPTION,
             licence: "GPL-3.0-or-later",
             website: "https://github.com/design-nexus/nyx-files",
             issues: "https://github.com/design-nexus/nyx-files/issues",
@@ -144,6 +146,27 @@ impl Group {
 }
 
 /// A small uppercase heading inside a group, as the embedded pages use.
+fn toolkit_version() -> String {
+    format!(
+        "GTK {}.{}.{}",
+        gtk::major_version(),
+        gtk::minor_version(),
+        gtk::micro_version()
+    )
+}
+
+fn version_info() -> String {
+    rust_i18n::t!(
+        "Files %{value1}\n%{value2}\nCommit: %{value3}\nToolkit: %{value4}\nAuthor: %{value5}\nLicense: GPL-3.0-or-later",
+        value1 = crate::build_info::displayed_version(),
+        value2 = crate::i18n::tr(SPEC_DESCRIPTION),
+        value3 = crate::build_info::COMMIT,
+        value4 = toolkit_version(),
+        value5 = crate::build_info::AUTHOR
+    )
+    .into_owned()
+}
+
 fn section_title(title: &str) -> gtk::Label {
     let label = gtk::Label::new(Some(&crate::i18n::tr(title).to_uppercase()));
     label.add_css_class("menu-heading");
@@ -823,6 +846,48 @@ fn extend_standard(body: &gtk::Box) {
         }
     }
     if let Some(list) = standard_list(body, "About") {
+        list.append(&section_title("Build"));
+        let kind = crate::build_info::build_kind();
+        let version = crate::build_info::displayed_version();
+        let version_value = widgets::label(&version, "dim");
+        version_value.set_selectable(true);
+        if kind != crate::services::BuildKind::Stable {
+            let badge = widgets::tag(&kind.localized_label(), "accent");
+            let holder = widgets::hbox(8);
+            holder.append(&version_value);
+            holder.append(&badge);
+            list.append(&widgets::row(
+                &crate::i18n::tr("Version"),
+                "",
+                Some(holder.upcast_ref()),
+            ));
+        } else {
+            list.append(&widgets::row(
+                &crate::i18n::tr("Version"),
+                "",
+                Some(version_value.upcast_ref()),
+            ));
+        }
+        for (title, value) in [
+            ("Commit", crate::build_info::COMMIT.to_owned()),
+            ("Toolkit", toolkit_version()),
+        ] {
+            let value = widgets::label(&value, "dim");
+            value.set_selectable(true);
+            list.append(&widgets::row(
+                &crate::i18n::tr(title),
+                "",
+                Some(value.upcast_ref()),
+            ));
+        }
+        let copy = gtk::Button::with_label(&crate::i18n::tr("Copy version info"));
+        copy.set_valign(gtk::Align::Center);
+        copy.connect_clicked(|button| button.clipboard().set_text(&version_info()));
+        list.append(&widgets::row(
+            &crate::i18n::tr("Version info"),
+            &crate::i18n::tr("For bug reports"),
+            Some(copy.upcast_ref()),
+        ));
         let diagnostics = crate::ui::settings::diagnostics::diagnostics_page();
         list.append(&section_title("Diagnostics"));
         list.append(&diagnostics);

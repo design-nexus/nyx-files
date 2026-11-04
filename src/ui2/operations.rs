@@ -28,7 +28,12 @@ pub(super) struct Progress {
     detail: gtk::Label,
     bar: gtk::ProgressBar,
     cancel: gtk::Button,
+    background: gtk::Button,
     cancel_with: RefCell<Option<Rc<crate::app::Browser>>>,
+    /// While a backgrounded operation's event is handled, the card belongs to
+    /// the operation in front and stays as it is.
+    muted: std::cell::Cell<bool>,
+    started: std::cell::Cell<Option<std::time::Instant>>,
     /// Entries a trash is moving, offered for permanent deletion if Trash refuses them.
     pub(super) deleting: RefCell<Vec<FileEntry>>,
     /// An archive to extract again with a password, and where to.
@@ -53,6 +58,9 @@ impl Progress {
         title.set_hexpand(true);
         title.set_ellipsize(gtk::pango::EllipsizeMode::End);
         head.append(&title);
+        let background =
+            widgets::icon_button("go-bottom-symbolic", &crate::i18n::tr("Run in background"));
+        head.append(&background);
         let cancel = widgets::icon_button("process-stop-symbolic", &crate::i18n::tr("Cancel"));
         head.append(&cancel);
         card.append(&head);
@@ -69,7 +77,10 @@ impl Progress {
             detail,
             bar,
             cancel,
+            background,
             cancel_with: RefCell::default(),
+            muted: Default::default(),
+            started: Default::default(),
             deleting: RefCell::default(),
             extracting: RefCell::default(),
             reveal_after: RefCell::default(),
@@ -80,10 +91,36 @@ impl Progress {
                 browser.cancel_file_operation();
             }
         });
+        let weak = Rc::downgrade(&progress);
+        progress.background.connect_clicked(move |button| {
+            let Some(progress) = weak.upgrade() else {
+                return;
+            };
+            let Some(browser) = progress.cancel_with.borrow().clone() else {
+                return;
+            };
+            if let Some(id) = browser.backgroundable_operation()
+                && browser.background_file_operation(id)
+            {
+                progress.finish();
+                if let Some(overlay) = button
+                    .ancestor(gtk::Overlay::static_type())
+                    .and_downcast::<gtk::Overlay>()
+                {
+                    toast::show(&overlay, &crate::i18n::tr("Running in the background"));
+                }
+            }
+        });
         progress
     }
 
     fn start(&self, browser: &Rc<crate::app::Browser>, title: &str, total: usize) {
+        if self.muted.get() {
+            return;
+        }
+        self.started.set(Some(std::time::Instant::now()));
+        self.background
+            .set_visible(browser.backgroundable_operation().is_some());
         self.title.set_text(&format!(
             "{} · {}",
             crate::i18n::tr(title),
@@ -96,13 +133,29 @@ impl Progress {
     }
 
     fn update(&self, fraction: f64, detail: Option<&str>) {
+        if self.muted.get() {
+            return;
+        }
+        if let Some(browser) = self.cancel_with.borrow().as_ref() {
+            self.background
+                .set_visible(browser.backgroundable_operation().is_some());
+        }
         self.bar.set_fraction(fraction.clamp(0.0, 1.0));
         if let Some(detail) = detail {
             self.detail.set_text(detail);
         }
     }
 
+    /// Bytes per second since the operation started, once it has run a moment.
+    fn rate(&self, transferred: u64) -> Option<u64> {
+        let elapsed = self.started.get()?.elapsed().as_secs_f64();
+        (elapsed >= 1.0 && transferred > 0).then(|| (transferred as f64 / elapsed) as u64)
+    }
+
     fn finish(&self) {
+        if self.muted.get() {
+            return;
+        }
         self.cancel_with.take();
         self.card.set_visible(false);
     }
@@ -143,6 +196,11 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, event: &BrowserEvent) {
     let progress = &window.progress;
     let browser = &tab.browser;
     match event {
+        BrowserEvent::BackgroundOperation { event, .. } => {
+            progress.muted.set(true);
+            handle(window, tab, event);
+            progress.muted.set(false);
+        }
         BrowserEvent::TransferStarted { total, moving } => {
             progress.start(browser, if *moving { "Moving" } else { "Copying" }, *total);
         }
@@ -164,7 +222,14 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, event: &BrowserEvent) {
                     }
                 }),
             };
-            let detail = current_file.as_ref().map(|f| f.to_string());
+            let rate = progress
+                .rate(*transferred_bytes)
+                .map(crate::i18n::transfer_rate);
+            let detail = match (current_file, rate) {
+                (Some(file), Some(rate)) => Some(format!("{file} · {rate}")),
+                (Some(file), None) => Some(file.to_string()),
+                (None, rate) => rate,
+            };
             progress.update(fraction, detail.as_deref());
         }
         BrowserEvent::FlushingToDevice => {
@@ -517,6 +582,36 @@ pub(super) fn compress(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntr
     ok.grab_focus();
 }
 
+struct LeftoverRow {
+    date: gtk::Label,
+    inside: gtk::Label,
+    restore: Option<gtk::Button>,
+}
+
+fn describe_inside(inside: &crate::services::LeftoverInside) -> Option<String> {
+    use crate::services::LeftoverInside;
+    match inside {
+        LeftoverInside::Item => None,
+        LeftoverInside::Items { names, more } if names.is_empty() && *more == 0 => {
+            Some(crate::i18n::tr("Nothing inside"))
+        }
+        LeftoverInside::Items { names, more } => {
+            let mut lines: Vec<String> = names
+                .iter()
+                .map(|name| name.to_string_lossy().into_owned())
+                .collect();
+            if *more > 0 {
+                lines.push(crate::i18n::count("more_items", *more));
+            }
+            Some(lines.join("\n"))
+        }
+        LeftoverInside::StillOpen(reason) | LeftoverInside::Unreadable(reason) => {
+            Some(reason.clone())
+        }
+        LeftoverInside::Gone => Some(crate::i18n::tr("No longer here")),
+    }
+}
+
 /// Lists what an interrupted operation left in a folder, to restore or trash.
 fn review_leftovers(tab: &Rc<Tab>, depth: usize) {
     let browser = tab.browser.clone();
@@ -532,6 +627,15 @@ fn review_leftovers(tab: &Rc<Tab>, depth: usize) {
         &rust_i18n::t!("In “%{folder}”", folder = folder.display_name()),
         "dim",
     ));
+    card.append(&widgets::label(
+        &crate::i18n::tr(
+            "Another program or computer may still be using these items. Restore never replaces an existing item.",
+        ),
+        "dim",
+    ));
+    let mut checked: std::collections::HashMap<std::ffi::OsString, LeftoverRow> =
+        std::collections::HashMap::new();
+    let names: Vec<std::ffi::OsString> = items.iter().map(|(e, _)| e.native_name.clone()).collect();
     for (entry, kind) in items {
         let row = gtk::Box::new(gtk::Orientation::Vertical, 4);
         row.add_css_class("properties-details");
@@ -540,10 +644,18 @@ fn review_leftovers(tab: &Rc<Tab>, depth: usize) {
         about.set_wrap(true);
         row.append(&about);
         row.append(&widgets::label(&entry.display_name, "mono"));
+        let date = widgets::label("", "dim");
+        row.append(&date);
+        let inside = widgets::label("", "dim");
+        inside.set_wrap(true);
+        inside.set_visible(false);
+        row.append(&inside);
         let actions = widgets::hbox(6);
         actions.set_halign(gtk::Align::End);
+        let mut restore_button = None;
         if leftovers::restorable(kind, &folder) {
             let restore = gtk::Button::with_label(&crate::i18n::tr("Restore"));
+            restore_button = Some(restore.clone());
             let (b, e, d) = (browser.clone(), entry.clone(), dialog.clone());
             restore.connect_clicked(move |_| {
                 d.close();
@@ -578,7 +690,45 @@ fn review_leftovers(tab: &Rc<Tab>, depth: usize) {
         actions.append(&remove);
         row.append(&actions);
         card.append(&row);
+        checked.insert(
+            entry.native_name.clone(),
+            LeftoverRow {
+                date,
+                inside,
+                restore: restore_button,
+            },
+        );
     }
+    // Contents, dates and whether something still has them open arrive in the background.
+    let review = browser.review_leftovers(
+        &folder,
+        names,
+        Box::new(move |reviewed| {
+            for reviewed in reviewed {
+                let Some(row) = checked.get(&reviewed.name) else {
+                    continue;
+                };
+                crate::util::set_full_modified_date(&row.date, reviewed.modified);
+                if let Some(text) = describe_inside(&reviewed.inside) {
+                    row.inside.set_text(&text);
+                    row.inside.set_visible(true);
+                }
+                if let (
+                    Some(restore),
+                    crate::services::LeftoverInside::StillOpen(_)
+                    | crate::services::LeftoverInside::Gone,
+                ) = (&row.restore, &reviewed.inside)
+                {
+                    restore.set_visible(false);
+                }
+            }
+        }),
+    );
+    let pending = std::cell::RefCell::new(Some(review));
+    dialog.connect_close_request(move |_| {
+        pending.take();
+        glib::Propagation::Proceed
+    });
     let close = gtk::Button::with_label(&crate::i18n::tr("Close"));
     close.set_halign(gtk::Align::End);
     let d = dialog.clone();

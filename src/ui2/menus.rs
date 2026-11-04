@@ -19,6 +19,12 @@ use super::{
     window::Window,
 };
 
+thread_local! {
+    /// Removals from Recent still in flight, so a second request skips them.
+    static RECENT_REMOVAL: crate::adapters::RecentRemovalState =
+        crate::adapters::RecentRemovalState::new();
+}
+
 fn in_trash(location: &Location) -> bool {
     location
         .uri_value()
@@ -29,6 +35,20 @@ fn copy_text(text: &str) {
     if let Some(display) = gtk::gdk::Display::default() {
         display.clipboard().set_text(text);
     }
+}
+
+/// Names the mount where an earlier trash attempt failed, when the first item is on it.
+fn trash_unavailable_reason(entries: &[FileEntry]) -> Option<String> {
+    let parent = entries.first()?.location.parent()?;
+    let (mount, _) = crate::adapters::trash_support::unsupported_reason_for(parent.native_path()?)?;
+    Some(
+        rust_i18n::t!(
+            "Trash isn't available on %{mount_point} (%{fs_type}).",
+            mount_point = mount.mount_point.display(),
+            fs_type = mount.fs_type
+        )
+        .into_owned(),
+    )
 }
 
 /// Asks before deleting for good; Trash can't take these back.
@@ -46,10 +66,23 @@ pub(super) fn delete_permanently(window: &Rc<Window>, tab: &Rc<Tab>, entries: Ve
     if entries.len() > names.len() {
         text.push_str(&format!(" +{}", entries.len() - names.len()));
     }
-    let note = widgets::label(
-        &format!("{text}\n\n{}", crate::i18n::tr("This can't be undone.")),
-        "dim",
-    );
+    let single = entries.len() == 1;
+    let remote = entries.iter().any(|e| e.location.native_path().is_none());
+    let reach = crate::i18n::tr(match (remote, single) {
+        (false, true) => "This item will be permanently deleted. This action cannot be undone.",
+        (false, false) => "These items will be permanently deleted. This action cannot be undone.",
+        (true, true) => {
+            "This item will be deleted without using Trash. Files can't undo this; whether it can be recovered depends on the storage provider."
+        }
+        (true, false) => {
+            "These items will be deleted without using Trash. Files can't undo this; whether they can be recovered depends on the storage provider."
+        }
+    });
+    let mut message = format!("{text}\n\n{reach}");
+    if let Some(reason) = trash_unavailable_reason(&entries) {
+        message = format!("{reason}\n{message}");
+    }
+    let note = widgets::label(&message, "dim");
     note.set_wrap(true);
     card.append(&note);
     let buttons = widgets::hbox(8);
@@ -515,6 +548,19 @@ pub(super) fn item_menu(
             })
             .icon("document-open-symbolic")
             .key("Enter"),
+        );
+    }
+    if !entries.is_empty() && entries.iter().all(|e| e.recent_uri.is_some()) {
+        let uris: Vec<String> = entries
+            .iter()
+            .filter_map(|e| e.recent_uri.clone())
+            .collect();
+        items.push(
+            menu::item(&crate::i18n::tr("Remove from Recent"), move || {
+                RECENT_REMOVAL
+                    .with(|state| crate::adapters::recent_remove_entries(state, uris.clone()));
+            })
+            .icon("list-remove-symbolic"),
         );
     }
     if let Some(folder) = folder.clone() {
