@@ -435,6 +435,13 @@ impl Window {
             }
         }
         if !super::tenxer::enabled() {
+            // Space previews before the list views take it to select the row.
+            if press.is(bindings::SPACE)
+                && !typing(&self.window)
+                && !super::preview_keys::has_focus(&tab)
+            {
+                return self.space(&tab);
+            }
             return false;
         }
         if tab.footer.prompt_has_focus() {
@@ -448,6 +455,19 @@ impl Window {
             return false;
         }
         super::tenxer::handle(self, &tab, press)
+    }
+
+    /// Space: a folder opens; a file shows in the preview, or hides it again.
+    fn space(&self, tab: &tab::Tab) -> bool {
+        match tab.selected().as_slice() {
+            [entry] if entry.is_directory() => tab.open(entry),
+            [entry] => tab.preview.toggle(
+                crate::ui::preview::preview_target(Some(entry.clone())),
+                tab.browser.active_depth(),
+            ),
+            _ => return false,
+        }
+        true
     }
 
     pub(super) fn focus_filter(&self) {
@@ -699,14 +719,7 @@ impl Window {
                 actions::rename(&tab, entry.clone());
             }
         } else if press.is(bindings::SPACE) {
-            match selected.as_slice() {
-                [entry] if entry.is_directory() => tab.open(entry),
-                [entry] => tab.preview.toggle(
-                    crate::ui::preview::preview_target(Some(entry.clone())),
-                    tab.browser.active_depth(),
-                ),
-                _ => return false,
-            }
+            return self.space(&tab);
         } else if press.is(bindings::ESCAPE) && tab.filtering() {
             self.close_filter();
             tab.focus_view();
@@ -966,6 +979,7 @@ impl Window {
         }
         let (crumbs, text) = tab.crumbs();
         self.path.set_crumbs(&crumbs, &text);
+        super::header::wire_separators(&self.path, &text);
         if let Some(actions) = self.header_actions.borrow().as_ref() {
             actions.sync(tab);
         }

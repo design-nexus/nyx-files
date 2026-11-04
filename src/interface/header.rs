@@ -287,3 +287,30 @@ pub(super) fn search_field(window: &Rc<Window>) -> gtk::Button {
     });
     field
 }
+
+/// Clicking an arrow between the crumbs turns the path into a field to type
+/// in, as clicking the path's empty end does.
+pub(super) fn wire_separators(path: &Rc<nyx_ui::pathbar::PathBar>, text: &str) {
+    let mut stack = vec![path.root.clone().upcast::<gtk::Widget>()];
+    while let Some(widget) = stack.pop() {
+        let mut child = widget.first_child();
+        while let Some(c) = child {
+            stack.push(c.clone());
+            child = c.next_sibling();
+        }
+        if !widget.has_css_class("crumb-sep") || widget.has_css_class("edit-wired") {
+            continue;
+        }
+        widget.add_css_class("edit-wired");
+        widget.set_cursor_from_name(Some("text"));
+        widget.set_tooltip_text(Some(&crate::i18n::tr("Type a path")));
+        let click = gtk::GestureClick::new();
+        let (bar, text) = (Rc::downgrade(path), text.to_string());
+        click.connect_released(move |_, _, _, _| {
+            if let Some(bar) = bar.upgrade() {
+                bar.edit(&text);
+            }
+        });
+        widget.add_controller(click);
+    }
+}

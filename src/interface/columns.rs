@@ -148,7 +148,7 @@ impl ColumnsView {
             scroller.add_css_class("column");
             let frame = gtk::Box::new(gtk::Orientation::Horizontal, 0);
             frame.append(&scroller);
-            frame.append(&self.resize_handle(&scroller));
+            frame.append(&self.resize_handle(&scroller, &view));
             self.strip.append(&frame);
             let column = Rc::new(Column { model, view, frame });
             make(columns.len(), &column);
@@ -166,26 +166,39 @@ impl ColumnsView {
 
     /// Dragging the edge resizes the column; when the drag ends the other
     /// columns take the same width, which new columns open at. A double-click
-    /// returns to the standard width.
-    fn resize_handle(&self, scroller: &gtk::ScrolledWindow) -> gtk::Box {
+    /// fits the column to its widest entry.
+    fn resize_handle(&self, scroller: &gtk::ScrolledWindow, view: &gtk::ListView) -> gtk::Box {
         let handle = gtk::Box::new(gtk::Orientation::Vertical, 0);
         handle.add_css_class("column-resize");
         handle.set_size_request(6, -1);
         handle.set_cursor_from_name(Some("col-resize"));
         handle.set_tooltip_text(Some(&crate::i18n::tr("Column width")));
         let drag = gtk::GestureDrag::new();
-        let start = Rc::new(std::cell::Cell::new(0));
+        drag.set_button(gtk::gdk::BUTTON_PRIMARY);
+        // The handle moves with the edge, so the drag is measured in window
+        // coordinates, not from the handle.
+        let start = Rc::new(std::cell::Cell::new((0, None::<f64>)));
         let (s, sc) = (start.clone(), scroller.downgrade());
-        drag.connect_drag_begin(move |_, _, _| {
+        drag.connect_drag_begin(move |gesture, _, _| {
             if let Some(sc) = sc.upgrade() {
-                s.set(sc.width());
+                let x = gesture
+                    .current_event()
+                    .and_then(|e| e.position())
+                    .map(|(x, _)| x);
+                s.set((sc.width(), x));
+                gesture.set_state(gtk::EventSequenceState::Claimed);
             }
         });
         let (s, sc) = (start.clone(), scroller.downgrade());
-        drag.connect_drag_update(move |_, dx, _| {
-            if let Some(sc) = sc.upgrade() {
-                sc.set_size_request((s.get() + dx.round() as i32).max(MIN_WIDTH), -1);
-            }
+        drag.connect_drag_update(move |gesture, fallback, _| {
+            let Some(sc) = sc.upgrade() else { return };
+            let (width, origin) = s.get();
+            let x = gesture
+                .current_event()
+                .and_then(|e| e.position())
+                .map(|(x, _)| x);
+            let offset = origin.zip(x).map_or(fallback, |(o, x)| x - o);
+            sc.set_size_request((width + offset.round() as i32).max(MIN_WIDTH), -1);
         });
         let (strip, sc) = (self.strip.downgrade(), scroller.downgrade());
         drag.connect_drag_end(move |_, _, _| {
@@ -198,14 +211,17 @@ impl ColumnsView {
         });
         handle.add_controller(drag);
         let click = gtk::GestureClick::new();
-        let strip = self.strip.downgrade();
+        let (sc, view) = (scroller.downgrade(), view.downgrade());
         click.connect_released(move |_, presses, _, _| {
-            if presses == 2
-                && let Some(strip) = strip.upgrade()
-            {
-                set_all_widths(&strip, WIDTH);
-                PreferenceManager::shared().set_browser_column_width(None);
+            if presses != 2 {
+                return;
             }
+            let (Some(sc), Some(view)) = (sc.upgrade(), view.upgrade()) else {
+                return;
+            };
+            let width = fitted_width(&view).max(MIN_WIDTH);
+            sc.set_size_request(width, -1);
+            PreferenceManager::shared().set_browser_column_width(Some(width));
         });
         handle.add_controller(click);
         handle
@@ -224,4 +240,23 @@ fn set_all_widths(strip: &gtk::Box, width: i32) {
         }
         frame = f.next_sibling();
     }
+}
+
+/// The width that shows the column's longest name whole, with its icon, count
+/// and arrow.
+fn fitted_width(view: &gtk::ListView) -> i32 {
+    let Some(model) = view.model() else {
+        return WIDTH;
+    };
+    let mut widest = 0;
+    for i in 0..model.n_items() {
+        let Some(item) = model.item(i) else { continue };
+        let Some(name) = model::row_of(&item).map(|r| r.entry.display_name.clone()) else {
+            continue;
+        };
+        let layout = view.create_pango_layout(Some(&name));
+        widest = widest.max(layout.pixel_size().0);
+    }
+    // Icon, gaps, a count and the arrow, and the row's padding.
+    widest + ICON + 120
 }

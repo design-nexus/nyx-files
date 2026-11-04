@@ -9,23 +9,23 @@ window.files-window columnview.file-list {
   padding: 0 8px 8px 0;
 }
 
-/* The List header: a raised band, its labels readable, the sorted column in
- * the accent with its arrow. */
+/* The List header: plain until hovered, as tall as the header's buttons, the
+ * sorted column's arrow in the accent. */
 window.files-window columnview.file-list > header {
-  background: @theme_card;
-  border-radius: var(--nyx-radius-small);
+  background: transparent;
   margin: 0;
 }
 
 window.files-window columnview.file-list > header > button {
   background: transparent;
   border: none;
+  border-radius: var(--nyx-radius-small);
   box-shadow: none;
   color: @theme_dim_text;
   font-size: 0.885em;
   font-weight: 600;
-  min-height: 0;
-  padding: 2px 10px;
+  min-height: 32px;
+  padding: 0 10px;
 }
 
 window.files-window columnview.file-list > header > button:hover {
@@ -522,4 +522,14 @@ window.files-window .column-resize {
 
 window.files-window .column-resize:hover {
   background: alpha(@theme_accent, 0.45);
+}
+
+/* The arrows between crumbs open the path for typing; a wider target. */
+window.files-window .pathbar .crumb-sep {
+  padding: 8px 4px;
+  margin: 0;
+}
+
+window.files-window .pathbar .crumb-sep:hover {
+  color: @theme_accent;
 }

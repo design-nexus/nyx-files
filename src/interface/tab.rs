@@ -760,9 +760,10 @@ impl Tab {
     }
 
     fn apply_grouping(&self) {
-        self.model.set_grouped(
-            self.mode.get() == BrowserMode::List && PreferenceManager::shared().group_by_type(),
-        );
+        let grouped =
+            self.mode.get() == BrowserMode::List && PreferenceManager::shared().group_by_type();
+        self.model.set_grouped(grouped);
+        self.list.set_grouped(grouped);
     }
 
     /// The model the selection and menus act on: the active column's in Columns.

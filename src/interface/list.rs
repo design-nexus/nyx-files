@@ -179,6 +179,32 @@ fn width_of(saved: &ListColumns, id: ListColumnId) -> Option<i32> {
     }
 }
 
+fn group_header_factory() -> gtk::SignalListItemFactory {
+    let header = gtk::SignalListItemFactory::new();
+    header.connect_setup(|_, item| {
+        if let Some(header) = item.downcast_ref::<gtk::ListHeader>() {
+            let label = gtk::Label::new(None);
+            label.set_xalign(0.0);
+            label.add_css_class("list-group");
+            header.set_child(Some(&label));
+        }
+    });
+    header.connect_bind(|_, item| {
+        let Some(header) = item.downcast_ref::<gtk::ListHeader>() else {
+            return;
+        };
+        let (Some(label), Some(object)) =
+            (header.child().and_downcast::<gtk::Label>(), header.item())
+        else {
+            return;
+        };
+        if let Some(row) = model::row_of(&object) {
+            label.set_text(&model::type_group(&row.entry).to_uppercase());
+        }
+    });
+    header
+}
+
 fn id_of(column: &gtk::ColumnViewColumn) -> Option<ListColumnId> {
     let id = column.id()?;
     ListColumnId::ALL
@@ -193,29 +219,6 @@ impl ListView {
         view.set_show_column_separators(false);
         view.set_show_row_separators(false);
         view.set_reorderable(true);
-        let header = gtk::SignalListItemFactory::new();
-        header.connect_setup(|_, item| {
-            if let Some(header) = item.downcast_ref::<gtk::ListHeader>() {
-                let label = gtk::Label::new(None);
-                label.set_xalign(0.0);
-                label.add_css_class("list-group");
-                header.set_child(Some(&label));
-            }
-        });
-        header.connect_bind(|_, item| {
-            let Some(header) = item.downcast_ref::<gtk::ListHeader>() else {
-                return;
-            };
-            let (Some(label), Some(object)) =
-                (header.child().and_downcast::<gtk::Label>(), header.item())
-            else {
-                return;
-            };
-            if let Some(row) = model::row_of(&object) {
-                label.set_text(&model::type_group(&row.entry).to_uppercase());
-            }
-        });
-        view.set_header_factory(Some(&header));
         let h = &model.hooks;
         let columns: Vec<gtk::ColumnViewColumn> = vec![
             name_column(h),
@@ -230,12 +233,16 @@ impl ListView {
         let saved = prefs.browser_list_columns();
         for id in prefs.list_column_order() {
             if let Some(column) = columns.iter().find(|c| id_of(c) == Some(id)) {
-                if let Some(width) = saved
+                let width = saved
                     .as_ref()
                     .and_then(|s| width_of(s, id))
-                    .filter(|w| *w > 0)
-                {
-                    column.set_fixed_width(width);
+                    .filter(|w| *w > 0);
+                if id == ListColumnId::Name {
+                    // Name takes the room the other columns leave until it is dragged.
+                    column.set_expand(width.is_none());
+                    column.set_fixed_width(width.unwrap_or(-1));
+                } else {
+                    column.set_fixed_width(width.unwrap_or(default_width(id)).max(min_width(id)));
                 }
                 view.append_column(column);
             }
@@ -263,6 +270,13 @@ impl ListView {
         list.follow_preferences();
         list.follow_header_sort();
         list
+    }
+
+    /// Type headings only while the list is grouped by type; ungrouped, GTK
+    /// would title the whole list after its first item.
+    pub(super) fn set_grouped(&self, grouped: bool) {
+        self.view
+            .set_header_factory(grouped.then(group_header_factory).as_ref());
     }
 
     pub(super) fn connect_sort(&self, f: impl Fn(SortKey, SortDirection) + 'static) {
@@ -382,12 +396,43 @@ impl ListView {
                 continue;
             };
             let view = self.view.downgrade();
-            column.connect_fixed_width_notify(move |_| {
+            column.connect_fixed_width_notify(move |column| {
+                let width = column.fixed_width();
+                match id_of(column) {
+                    Some(ListColumnId::Name) if width > 0 => column.set_expand(false),
+                    Some(id) if width > 0 && width < min_width(id) => {
+                        column.set_fixed_width(min_width(id));
+                        return;
+                    }
+                    _ => {}
+                }
                 if let Some(view) = view.upgrade() {
                     save_widths(&view);
                 }
             });
         }
+    }
+}
+
+/// The widths the columns open at, as before.
+fn default_width(id: ListColumnId) -> i32 {
+    match id {
+        ListColumnId::Name => -1,
+        ListColumnId::Mode => 160,
+        ListColumnId::Size => 90,
+        ListColumnId::Type => 120,
+        ListColumnId::Modified => 150,
+    }
+}
+
+/// How narrow a dragged column can get; Name has no minimum.
+fn min_width(id: ListColumnId) -> i32 {
+    match id {
+        ListColumnId::Name => 0,
+        ListColumnId::Mode => 80,
+        ListColumnId::Size => 70,
+        ListColumnId::Type => 80,
+        ListColumnId::Modified => 110,
     }
 }
 
@@ -397,10 +442,10 @@ fn save_widths(view: &gtk::ColumnView) {
         .browser_list_columns()
         .unwrap_or(ListColumns {
             name: None,
-            mode: 110,
-            size: 90,
-            kind: 140,
-            modified: 140,
+            mode: default_width(ListColumnId::Mode),
+            size: default_width(ListColumnId::Size),
+            kind: default_width(ListColumnId::Type),
+            modified: default_width(ListColumnId::Modified),
         });
     for i in 0..columns.n_items() {
         let Some(column) = columns.item(i).and_downcast::<gtk::ColumnViewColumn>() else {

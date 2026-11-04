@@ -465,7 +465,7 @@ pub(super) fn button(window: &Rc<Window>) -> gtk::MenuButton {
 /// The header button acting on whichever tab `current` gives.
 pub(super) fn button_for(current: CurrentTab) -> gtk::MenuButton {
     let button = gtk::MenuButton::new();
-    button.set_icon_name("tune-symbolic");
+    button.set_icon_name("preferences-desktop-appearance-symbolic");
     button.add_css_class("bar-button");
     button.set_valign(gtk::Align::Center);
     button.set_tooltip_text(Some(&crate::i18n::tr("Appearance")));
