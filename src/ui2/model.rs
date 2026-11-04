@@ -21,6 +21,7 @@ pub(super) fn row_of(item: &glib::Object) -> Option<std::cell::Ref<'_, Row>> {
 }
 
 type BindHook = RefCell<Option<Box<dyn Fn(usize, &FileEntry)>>>;
+type HoverHook = RefCell<Option<Box<dyn Fn(Option<u32>, &gtk::Widget)>>>;
 type ContextHook = RefCell<Option<Box<dyn Fn(Option<u32>, &gtk::Widget, f64, f64)>>>;
 type DragHook = RefCell<Option<Box<dyn Fn(u32) -> Vec<FileEntry>>>>;
 type DropHook = RefCell<
@@ -37,6 +38,8 @@ pub(super) struct Hooks {
     pub(super) drag: DragHook,
     /// Files dropped on a row (`Some`, when it is a folder) or on the view.
     pub(super) drop: DropHook,
+    /// The pointer entered row `Some(index)`, or left it (`None`).
+    pub(super) hover: HoverHook,
 }
 
 impl Hooks {
@@ -258,6 +261,22 @@ pub(super) fn on_context(
 
 /// Makes a row draggable and, when it is a folder, a drop target.
 pub(super) fn dnd_on(child: &impl IsA<gtk::Widget>, item: &gtk::ListItem, hooks: &Rc<Hooks>) {
+    let motion = gtk::EventControllerMotion::new();
+    let (weak, h) = (item.downgrade(), hooks.clone());
+    motion.connect_enter(move |m, _, _| {
+        if let (Some(item), Some(widget)) = (weak.upgrade(), m.widget())
+            && let Some(f) = h.hover.borrow().as_ref()
+        {
+            f(Some(item.position()), &widget);
+        }
+    });
+    let h = hooks.clone();
+    motion.connect_leave(move |m| {
+        if let (Some(widget), Some(f)) = (m.widget(), h.hover.borrow().as_ref()) {
+            f(None, &widget);
+        }
+    });
+    child.add_controller(motion);
     let source = gtk::DragSource::new();
     source.set_actions(gtk::gdk::DragAction::COPY | gtk::gdk::DragAction::MOVE);
     let (weak, h) = (item.downgrade(), hooks.clone());

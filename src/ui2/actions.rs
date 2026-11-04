@@ -130,7 +130,7 @@ pub(super) fn drop_into(
         return;
     }
     if forced.contains(gdk::DragAction::MOVE) || forced.contains(gdk::DragAction::COPY) {
-        transfer(
+        transfer_dropped(
             window,
             tab,
             destination,
@@ -140,13 +140,13 @@ pub(super) fn drop_into(
         return;
     }
     if sources.iter().all(|s| same_device(s, &destination)) {
-        transfer(window, tab, destination, sources, true);
+        transfer_dropped(window, tab, destination, sources, true);
         return;
     }
     use crate::services::CrossVolumeDropStrategy;
     match crate::ui::preferences::PreferenceManager::shared().cross_volume_drop_strategy() {
-        CrossVolumeDropStrategy::Copy => transfer(window, tab, destination, sources, false),
-        CrossVolumeDropStrategy::Move => transfer(window, tab, destination, sources, true),
+        CrossVolumeDropStrategy::Copy => transfer_dropped(window, tab, destination, sources, false),
+        CrossVolumeDropStrategy::Move => transfer_dropped(window, tab, destination, sources, true),
         CrossVolumeDropStrategy::Ask => {
             let (dialog, card) =
                 widgets::dialog(&crate::i18n::tr("Copy or move to another device?"), 400);
@@ -172,7 +172,7 @@ pub(super) fn drop_into(
                 );
                 button.connect_clicked(move |_| {
                     d.close();
-                    transfer(&w, &t, dest.clone(), src.clone(), moving);
+                    transfer_dropped(&w, &t, dest.clone(), src.clone(), moving);
                 });
             }
             dialog.present();
@@ -272,7 +272,7 @@ pub(super) fn paste_with(
             return;
         }
         let moving = CUT.with(|c| *c.borrow() == sources);
-        transfer_with(&window, &tab, destination, sources, moving, preset);
+        transfer_with(&window, &tab, destination, sources, moving, preset, true);
         if moving {
             CUT.with(|c| c.borrow_mut().clear());
         }
@@ -287,7 +287,19 @@ pub(super) fn transfer(
     sources: Vec<Location>,
     moving: bool,
 ) {
-    transfer_with(window, tab, destination, sources, moving, None);
+    transfer_with(window, tab, destination, sources, moving, None, true);
+}
+
+/// A drop: shows the destination afterwards only when the setting asks.
+fn transfer_dropped(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    destination: Location,
+    sources: Vec<Location>,
+    moving: bool,
+) {
+    let reveal = crate::ui::preferences::PreferenceManager::shared().open_folder_after_drop();
+    transfer_with(window, tab, destination, sources, moving, None, reveal);
 }
 
 fn transfer_with(
@@ -297,6 +309,7 @@ fn transfer_with(
     sources: Vec<Location>,
     moving: bool,
     preset: Option<TransferConflict>,
+    reveal: bool,
 ) {
     let dest_dir = destination.native_path().map(std::path::PathBuf::from);
     let clashes: Vec<&Location> = sources
@@ -328,7 +341,7 @@ fn transfer_with(
                 })
                 .collect();
             tab.browser
-                .transfer(destination.clone(), items, moving, true);
+                .transfer(destination.clone(), items, moving, reveal);
         }
     };
     if clashes.is_empty() {

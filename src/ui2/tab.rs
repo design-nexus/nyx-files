@@ -68,6 +68,21 @@ pub(super) struct Tab {
     /// Folders opened per depth whose listing has not finished yet; a finished
     /// one is recorded for Jump to Folder.
     visits: RefCell<Vec<Option<Location>>>,
+    /// When a pointer last pressed in a column, to tell clicks from keyboard moves.
+    last_pointer: Cell<Option<std::time::Instant>>,
+    pub(super) peek: super::peek::Peek,
+}
+
+/// With "Keep arrows in file list" (and in 10xer mode), arrow keys at a
+/// view's edge don't move focus out of it.
+fn keep_arrows(view: &gtk::Widget) {
+    view.connect_keynav_failed(|_, _| {
+        if PreferenceManager::shared().arrow_navigation_scoped_active() {
+            glib::Propagation::Stop
+        } else {
+            glib::Propagation::Proceed
+        }
+    });
 }
 
 /// Startup metrics the field harness reads: listings published and the first rows.
@@ -182,7 +197,10 @@ impl Tab {
             requested: RefCell::default(),
             open_file: RefCell::new(None),
             visits: RefCell::default(),
+            last_pointer: Cell::new(None),
+            peek: Default::default(),
         });
+        super::peek::install(&tab);
         tab.bind_preferences();
         let weak = Rc::downgrade(&tab);
         tab.browser.observe(move |event| {
@@ -237,6 +255,8 @@ impl Tab {
             }
         }));
         tab.wire_dnd(&tab.model.clone());
+        keep_arrows(tab.list.view.upcast_ref());
+        keep_arrows(tab.icons.view.upcast_ref());
         tab.apply_grouping();
         let weak = Rc::downgrade(&tab);
         PreferenceManager::shared().bind_preference(
@@ -534,6 +554,10 @@ impl Tab {
         *self.context.borrow_mut() = Some(Box::new(f));
     }
 
+    pub(super) fn mode(&self) -> BrowserMode {
+        self.mode.get()
+    }
+
     pub(super) fn set_mode(self: &Rc<Self>, mode: BrowserMode) {
         self.mode.set(mode);
         self.set_scope(mode);
@@ -717,6 +741,17 @@ impl Tab {
 
     fn wire_column(self: &Rc<Self>, depth: usize, column: &Rc<Column>) {
         self.wire_dnd(&column.model);
+        let click = gtk::GestureClick::new();
+        click.set_button(0);
+        click.set_propagation_phase(gtk::PropagationPhase::Capture);
+        let weak = Rc::downgrade(self);
+        click.connect_pressed(move |_, _, _, _| {
+            if let Some(tab) = weak.upgrade() {
+                tab.last_pointer.set(Some(std::time::Instant::now()));
+            }
+        });
+        column.view.add_controller(click);
+        keep_arrows(column.view.upcast_ref());
         let weak = Rc::downgrade(self);
         *column.model.hooks.bind.borrow_mut() = Some(Box::new(move |position, entry| {
             if let Some(tab) = weak.upgrade()
@@ -823,10 +858,16 @@ impl Tab {
             .set_selection(depth, &positions, positions.last().copied());
         let entries = column.model.selected();
         self.preview_single_click(&entries);
+        let keyboard = self
+            .last_pointer
+            .get()
+            .is_none_or(|at| at.elapsed() > std::time::Duration::from_millis(400));
+        let mirror = !keyboard || PreferenceManager::shared().columns_mirror_selection();
         match entries.as_slice() {
-            [entry] if entry.is_directory() => {
+            [entry] if entry.is_directory() && mirror => {
                 self.browser.show_child(depth, entry.location.clone())
             }
+            [entry] if entry.is_directory() => {}
             _ if self.columns.column(depth + 1).is_some() => self.browser.close_column(depth + 1),
             _ => {}
         }
@@ -961,6 +1002,7 @@ impl Tab {
             f(event);
         }
         self.record_visit(event);
+        self.peek.on_event(event);
         if !matches!(event, BrowserEvent::MetadataFilled { .. }) {
             self.requested.borrow_mut().clear();
         }
@@ -988,6 +1030,11 @@ impl Tab {
                 | BrowserEvent::SelectionSetChanged { .. }
                 | BrowserEvent::FocusChanged { .. }
                 | BrowserEvent::PreviewRequested { .. }
+                | BrowserEvent::PeekStarted { .. }
+                | BrowserEvent::PeekEntriesAdded { .. }
+                | BrowserEvent::PeekFinished
+                | BrowserEvent::PeekFailed { .. }
+                | BrowserEvent::PeekClosed
         ) {
             return;
         }

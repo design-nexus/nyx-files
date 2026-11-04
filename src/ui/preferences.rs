@@ -1001,6 +1001,11 @@ impl PreferenceManager {
 
 
 
+    /// 10xer mode always keeps arrow keys in the listing.
+    pub fn arrow_navigation_scoped_active(&self) -> bool {
+        self.tenxer_mode() || self.arrow_navigation_scoped()
+    }
+
     pub fn show_keybinding_hints(&self) -> bool {
         self.preferences.borrow().show_keybinding_hints
     }
