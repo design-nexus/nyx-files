@@ -26,7 +26,7 @@ pub(in crate::ui) fn open_location(
     open_location_at(location, None, parent, browser);
 }
 
-pub(in crate::ui) fn open_location_at(
+pub(crate) fn open_location_at(
     location: &Location,
     position: Option<std::time::Duration>,
     parent: &impl IsA<gtk::Widget>,

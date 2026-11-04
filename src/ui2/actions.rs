@@ -197,6 +197,24 @@ pub(super) fn copy(entries: &[FileEntry], cut: bool) {
     });
 }
 
+/// After a cut is pasted, the clipboard no longer offers those files as a cut.
+pub(super) fn finish_cut(moved: &[Location]) {
+    let cleared = CUT.with(|c| {
+        let mut cut = c.borrow_mut();
+        let had = !cut.is_empty() && cut.iter().any(|l| moved.contains(l));
+        if had {
+            cut.clear();
+        }
+        had
+    });
+    if cleared && let Some(display) = gdk::Display::default() {
+        display
+            .clipboard()
+            .set_content(None::<&gdk::ContentProvider>)
+            .ok();
+    }
+}
+
 pub(super) fn copy_paths(entries: &[FileEntry]) {
     let text: Vec<String> = entries
         .iter()
@@ -338,6 +356,7 @@ pub(super) fn trash(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>)
         return;
     }
     let count = entries.len();
+    window.progress.deleting.replace(entries.clone());
     tab.browser.delete(entries, false);
     let message = if count == 1 {
         crate::i18n::tr("Moved to Trash")
@@ -500,6 +519,51 @@ pub(super) fn item_menu(
             })
             .icon("document-edit-symbolic")
             .key(&keys(bindings::RENAME)),
+        );
+    }
+    if entries.iter().all(|e| e.location.native_path().is_some()) {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Compress…"), move || {
+                super::operations::compress(&w, &t, e.clone())
+            })
+            .icon("package-x-generic-symbolic"),
+        );
+    }
+    if let [entry] = entries.as_slice()
+        && !entry.is_directory()
+        && crate::services::ArchiveFormat::from_extension(&entry.display_name).is_some()
+    {
+        let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Extract here"), move || {
+                super::operations::extract(&w, &t, e.clone(), None)
+            })
+            .icon("archive-extract-symbolic"),
+        );
+        let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Extract to…"), move || {
+                let (w, t, e) = (w.clone(), t.clone(), e.clone());
+                let dialog = gtk::FileDialog::builder()
+                    .title(crate::i18n::tr("Extract to"))
+                    .modal(true)
+                    .build();
+                if let Some(folder) = e
+                    .location
+                    .parent()
+                    .and_then(|p| p.native_path().map(gio::File::for_path))
+                {
+                    dialog.set_initial_folder(Some(&folder));
+                }
+                let window = w.window.clone();
+                dialog.select_folder(Some(&window), gio::Cancellable::NONE, move |result| {
+                    if let Some(path) = result.ok().and_then(|f| f.path()) {
+                        super::operations::extract(&w, &t, e.clone(), Some(Location::local(path)));
+                    }
+                });
+            })
+            .icon("folder-open-symbolic"),
         );
     }
     {

@@ -197,7 +197,7 @@ impl PreferenceManager {
     }
 
     /// A sort equal to the default is not stored, so the folder follows later defaults.
-    pub(in crate::ui) fn set_folder_sort(
+    pub(crate) fn set_folder_sort(
         &self,
         location: &Location,
         sort_key: SortKey,
@@ -306,7 +306,7 @@ impl PreferenceManager {
     /// Saved values follow a folder renamed or moved within Strata, whether or not
     /// per-folder settings are in use, and are dropped when it moves somewhere
     /// that is not remembered.
-    pub(in crate::ui) fn relocate_folder_views(
+    pub(crate) fn relocate_folder_views(
         &self,
         from: &Location,
         to: &Location,
@@ -324,7 +324,7 @@ impl PreferenceManager {
     /// Drops the values of a removed folder and of the folders inside it. A
     /// `trash_identity` keeps them for [`Self::restore_folder_views`] until the
     /// session ends.
-    pub(in crate::ui) fn forget_folder_views_within(
+    pub(crate) fn forget_folder_views_within(
         &self,
         location: &Location,
         trash_identity: Option<ItemIdentity>,
@@ -350,7 +350,7 @@ impl PreferenceManager {
         self.folder_views_changed(store, Affects::Sorts);
     }
 
-    pub(in crate::ui) fn restore_folder_views(
+    pub(crate) fn restore_folder_views(
         &self,
         location: &Location,
         identity: Option<ItemIdentity>,

@@ -191,7 +191,7 @@ pub(super) fn transfer_heading(moving: bool) -> (&'static str, &'static str) {
     }
 }
 
-pub(in crate::ui::browser) fn cancelled_operation_summary(
+pub(crate) fn cancelled_operation_summary(
     completed: usize,
     failed: usize,
     not_attempted: usize,

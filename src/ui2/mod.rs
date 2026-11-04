@@ -14,6 +14,7 @@ mod list;
 mod model;
 mod mount;
 mod open_with;
+mod operations;
 mod properties;
 mod search;
 mod settings;

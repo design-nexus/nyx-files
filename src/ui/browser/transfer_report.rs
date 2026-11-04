@@ -289,7 +289,7 @@ fn left_sections(report: &TransferReport) -> Vec<(String, Lines)> {
     left
 }
 
-pub(super) fn outcome_detail(outcome: String, report: &TransferReport) -> String {
+pub(crate) fn outcome_detail(outcome: String, report: &TransferReport) -> String {
     let mut reported = renamed_sections(&report.renamed);
     reported.extend(left_sections(report));
     if reported.is_empty() {

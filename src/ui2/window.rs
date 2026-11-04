@@ -45,6 +45,7 @@ pub(super) struct Window {
     active: Cell<usize>,
     view_switch: RefCell<Vec<(BrowserMode, gtk::ToggleButton)>>,
     filter: gtk::SearchEntry,
+    pub(super) progress: Rc<super::operations::Progress>,
 }
 
 /// The window with focus, for keys that reach every window.
@@ -151,6 +152,7 @@ impl Window {
         frame.append(&tab_row.root);
         frame.append(&body);
         let overlay = gtk::Overlay::new();
+        let progress = super::operations::Progress::new(&overlay);
         overlay.set_child(Some(&frame));
         window.set_child(Some(&overlay));
 
@@ -169,6 +171,7 @@ impl Window {
             tabs: RefCell::new(Vec::new()),
             active: Cell::new(0),
             view_switch: RefCell::new(Vec::new()),
+            progress,
             filter,
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
@@ -676,6 +679,15 @@ impl Window {
             if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
                 w.show_menu(&t, entry, widget, x, y);
             }
+        });
+        let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
+        tab.connect_events(move |event| {
+            let (weak, weak_tab, event) = (weak.clone(), weak_tab.clone(), event.clone());
+            glib::idle_add_local_once(move || {
+                if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
+                    super::operations::handle(&w, &t, &event);
+                }
+            });
         });
         let weak = Rc::downgrade(self);
         tab.connect_result_open(move |item| {

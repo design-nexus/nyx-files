@@ -8,7 +8,7 @@ use std::{
     rc::Rc,
 };
 
-use gtk::{gio, glib, prelude::*};
+use gtk::{glib, prelude::*};
 
 use crate::{
     adapters::{LocalFileSource, LocalOperationProvider},
@@ -27,6 +27,7 @@ use crate::ui::{browser_modes::BrowserMode, preferences::PreferenceManager};
 type Changed = Box<dyn Fn()>;
 type ContextFn = Box<dyn Fn(Option<FileEntry>, &gtk::Widget, f64, f64)>;
 type RejectedFn = Box<dyn Fn(crate::services::LocationValidationError)>;
+type EventFn = Box<dyn Fn(&BrowserEvent)>;
 type ResultFn = Box<dyn Fn(crate::services::SearchItem)>;
 type DropFn = Box<dyn Fn(Location, Vec<Location>, gtk::gdk::DragAction)>;
 
@@ -48,6 +49,7 @@ pub(super) struct Tab {
     results_items: RefCell<Vec<crate::services::SearchItem>>,
     filter_query: RefCell<String>,
     result_open: RefCell<Option<ResultFn>>,
+    events: RefCell<Option<EventFn>>,
     status: gtk::Label,
     mode: Cell<BrowserMode>,
     refresh_queued: Cell<bool>,
@@ -143,6 +145,7 @@ impl Tab {
             results_items: RefCell::default(),
             filter_query: RefCell::default(),
             result_open: RefCell::new(None),
+            events: RefCell::new(None),
             status,
             mode: Cell::new(PreferenceManager::shared().browser_mode()),
             refresh_queued: Cell::new(false),
@@ -247,6 +250,11 @@ impl Tab {
         });
         tab.browser.navigate(location);
         tab
+    }
+
+    /// Every browser event, for operation progress and results.
+    pub(super) fn connect_events(&self, f: impl Fn(&BrowserEvent) + 'static) {
+        *self.events.borrow_mut() = Some(Box::new(f));
     }
 
     /// Keys for the shortcut footer (F1 and the reference while it is open).
@@ -678,6 +686,9 @@ impl Tab {
     }
 
     fn on_event(self: &Rc<Self>, event: &BrowserEvent) {
+        if let Some(f) = self.events.borrow().as_ref() {
+            f(event);
+        }
         if !matches!(event, BrowserEvent::MetadataFilled { .. }) {
             self.requested.borrow_mut().clear();
         }
@@ -789,19 +800,12 @@ impl Tab {
             self.browser.navigate(entry.location.clone());
             return;
         }
-        let file = match entry.location.native_path() {
-            Some(path) => gio::File::for_path(path),
-            None => match entry.location.uri_value() {
-                Some(uri) => gio::File::for_uri(uri),
-                None => return,
-            },
-        };
-        let uri = file.uri();
-        if let Err(error) =
-            gio::AppInfo::launch_default_for_uri(&uri, None::<&gio::AppLaunchContext>)
-        {
-            tracing::warn!(%error, "couldn't open {uri}");
-        }
+        crate::ui::browser::desktop::open_location_at(
+            &entry.location,
+            None,
+            &self.page,
+            &self.browser,
+        );
     }
 
     /// The breadcrumbs for the folder showing: from Home when inside it, else from `/`.

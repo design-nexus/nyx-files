@@ -56,11 +56,11 @@ enum Inside {
     Status(String),
 }
 
-fn title() -> String {
+pub(crate) fn title() -> String {
     crate::i18n::tr("Items left by an interrupted operation")
 }
 
-fn heading(kind: Leftover) -> String {
+pub(crate) fn heading(kind: Leftover) -> String {
     crate::i18n::tr(match kind {
         Leftover::Originals => "Set-aside originals",
         Leftover::MergeOriginals => "Originals set aside by a merge",
@@ -70,7 +70,7 @@ fn heading(kind: Leftover) -> String {
     })
 }
 
-fn explanation(kind: Leftover) -> String {
+pub(crate) fn explanation(kind: Leftover) -> String {
     crate::i18n::tr(match kind {
         Leftover::Originals => {
             "Originals moved aside before being replaced. Restore puts them back."
@@ -90,7 +90,7 @@ fn explanation(kind: Leftover) -> String {
     })
 }
 
-fn restorable(kind: Leftover, folder: &Location) -> bool {
+pub(crate) fn restorable(kind: Leftover, folder: &Location) -> bool {
     match kind {
         Leftover::Originals | Leftover::MergeOriginals => folder.native_path().is_some(),
         Leftover::Original | Leftover::MaybeOriginal => true,
@@ -98,7 +98,7 @@ fn restorable(kind: Leftover, folder: &Location) -> bool {
     }
 }
 
-fn recovered_name(taken: &[String]) -> String {
+pub(crate) fn recovered_name(taken: &[String]) -> String {
     let base = crate::i18n::tr("Recovered item");
     std::iter::once(base.clone())
         .chain((1..).map(|number| format!("{base} ({number})")))
