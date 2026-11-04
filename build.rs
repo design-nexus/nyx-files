@@ -9,7 +9,7 @@ use std::{
 fn main() {
     println!("cargo::rerun-if-changed=data/locales");
     write_translation_catalogs();
-    glib_build_tools::compile_resources(&["data"], "data/strata.gresource.xml", "strata.gresource");
+    glib_build_tools::compile_resources(&["data"], "data/files.gresource.xml", "files.gresource");
 
     println!("cargo::rerun-if-env-changed=STRATA_TRUSTED_COMMAND_PATH");
     validate_trusted_command_path();

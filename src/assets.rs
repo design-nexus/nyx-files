@@ -272,7 +272,7 @@ pub fn set_catppuccin_theme_colors(enabled: bool) {
 
 pub fn prepare() -> Result<(), Box<dyn std::error::Error>> {
     let _startup = crate::util::ui_thread::allow(crate::util::ui_thread::Exception::Startup);
-    gio::resources_register_include!("strata.gresource")?;
+    gio::resources_register_include!("files.gresource")?;
 
     let font_directory = glib::user_cache_dir()
         .join("nyx-files")
@@ -289,7 +289,7 @@ pub fn prepare() -> Result<(), Box<dyn std::error::Error>> {
 
 pub fn register_icon_theme() {
     if let Some(display) = gdk::Display::default() {
-        gtk::IconTheme::for_display(&display).add_resource_path("/io/github/lgse/Strata/icons");
+        gtk::IconTheme::for_display(&display).add_resource_path("/io/github/design_nexus/nyx/Files/icons");
     }
     // Desktop shells resolve the window icon by matching the application ID to a
     // desktop entry, but GTK also needs the name to expose the bundled icon on its
@@ -637,7 +637,7 @@ fn primary_icon_texture_at(
     if name == icons::STRATA_LOGO {
         return texture_from_svg(name, color, texture_px, || {
             let data = gio::resources_lookup_data(
-                "/io/github/lgse/Strata/brand/strata-logo-white.svg",
+                "/io/github/design_nexus/nyx/Files/brand/strata-logo-white.svg",
                 gio::ResourceLookupFlags::NONE,
             )
             .ok()?;
@@ -658,7 +658,7 @@ fn primary_icon_texture_at(
         color,
         texture_px,
         || {
-            let path = format!("/io/github/lgse/Strata/icons/scalable/actions/{name}.svg");
+            let path = format!("/io/github/design_nexus/nyx/Files/icons/scalable/actions/{name}.svg");
             let data = gio::resources_lookup_data(&path, gio::ResourceLookupFlags::NONE).ok()?;
             let source = std::str::from_utf8(data.as_ref()).ok()?;
             let mut source = recolor_icon_source(source, color);
@@ -694,7 +694,7 @@ fn catppuccin_icon_texture_at(
         &palette,
         texture_px,
         || {
-            let path = format!("/io/github/lgse/Strata/icons/catppuccin/{name}.svg");
+            let path = format!("/io/github/design_nexus/nyx/Files/icons/catppuccin/{name}.svg");
             let data = gio::resources_lookup_data(&path, gio::ResourceLookupFlags::NONE).ok()?;
             let mut source = std::str::from_utf8(data.as_ref()).ok()?.to_owned();
             for (variable, hex) in flavor.palette() {
@@ -792,7 +792,7 @@ pub(crate) fn sized_folder_decoration_paintable(
         .max(logical_px.saturating_mul(scale_factor))
         .clamp(24, 768);
     let folder_data = gio::resources_lookup_data(
-        "/io/github/lgse/Strata/icons/scalable/actions/strata-folder.svg",
+        "/io/github/design_nexus/nyx/Files/icons/scalable/actions/strata-folder.svg",
         gio::ResourceLookupFlags::NONE,
     )
     .ok()?;
@@ -814,7 +814,7 @@ pub(crate) fn sized_folder_decoration_paintable(
     }
 
     let foreground = contrasting_foreground(color);
-    let path = format!("/io/github/lgse/Strata/icons/scalable/actions/{decoration}.svg");
+    let path = format!("/io/github/design_nexus/nyx/Files/icons/scalable/actions/{decoration}.svg");
     let data = gio::resources_lookup_data(&path, gio::ResourceLookupFlags::NONE).ok()?;
     let badge = std::str::from_utf8(data.as_ref()).ok()?;
     let body = svg_body(badge)?;
@@ -878,12 +878,12 @@ pub(crate) fn sized_folder_glyph_paintable(
         texture_px,
         || {
             let folder_data = gio::resources_lookup_data(
-                "/io/github/lgse/Strata/icons/scalable/actions/strata-folder.svg",
+                "/io/github/design_nexus/nyx/Files/icons/scalable/actions/strata-folder.svg",
                 gio::ResourceLookupFlags::NONE,
             )
             .ok()?;
             let folder = std::str::from_utf8(folder_data.as_ref()).ok()?;
-            let path = format!("/io/github/lgse/Strata/icons/scalable/actions/{glyph}.svg");
+            let path = format!("/io/github/design_nexus/nyx/Files/icons/scalable/actions/{glyph}.svg");
             let data = gio::resources_lookup_data(&path, gio::ResourceLookupFlags::NONE).ok()?;
             let body = svg_body(std::str::from_utf8(data.as_ref()).ok()?)?.to_owned();
             // Centred in the folder body (x 3–21, y 8–19), drawn at the folder's own

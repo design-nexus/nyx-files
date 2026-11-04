@@ -157,7 +157,7 @@ fn cold_interface_icons_render_when_decoder_workers_cannot_start() {
             .expect("disable new decoder workers in this isolated process");
             super::ICON_TEXTURES.with(|cache| cache.borrow_mut().clear());
             let names = gio::resources_enumerate_children(
-                "/io/github/lgse/Strata/icons/scalable/actions/",
+                "/io/github/design_nexus/nyx/Files/icons/scalable/actions/",
                 gio::ResourceLookupFlags::NONE,
             )
             .expect("bundled icon resources");
@@ -235,7 +235,7 @@ fn nested_spin_button_steps_resolve_to_bundled_icons() {
                     .expect("resolved icon file")
                     .uri();
                 assert!(
-                    uri.starts_with("resource:///io/github/lgse/Strata/icons/"),
+                    uri.starts_with("resource:///io/github/design_nexus/nyx/Files/icons/"),
                     "{name} resolved outside the bundle: {uri}"
                 );
                 steps.push(name);
@@ -303,7 +303,7 @@ fn catppuccin_file_icons_render_in_both_flavors() {
         || {
             use super::{CatppuccinFlavor, IconContext};
             let names = gio::resources_enumerate_children(
-                "/io/github/lgse/Strata/icons/catppuccin/",
+                "/io/github/design_nexus/nyx/Files/icons/catppuccin/",
                 gio::ResourceLookupFlags::NONE,
             )
             .expect("bundled Catppuccin icons");

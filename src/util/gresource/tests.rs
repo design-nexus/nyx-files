@@ -9,7 +9,7 @@ fn a_bundled_file_reads_back_by_path_listing_and_uri() {
     for (folder, name, data) in [
         ("/", "top.xml", b"<top/>".as_slice()),
         (
-            "/io/github/lgse/Strata/generated/source-styles/",
+            "/io/github/design_nexus/nyx/Files/generated/source-styles/",
             "strata-current.xml",
             b"<scheme/>",
         ),

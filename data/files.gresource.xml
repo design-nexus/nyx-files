@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/io/github/lgse/Strata">
+  <gresource prefix="/io/github/design_nexus/nyx/Files">
     <file>brand/strata-logo-white.svg</file>
     <file>icons/scalable/actions/strata-arrow-down.svg</file>
     <file>icons/scalable/actions/strata-arrow-down-wide-narrow.svg</file>
@@ -468,9 +468,5 @@
     <file>icons/catppuccin/strata-ctp-yarn-lock.svg</file>
     <file>icons/catppuccin/strata-ctp-zap.svg</file>
     <file>icons/catppuccin/strata-ctp-zig.svg</file>
-  </gresource>
-  <gresource prefix="/org/gtk/libgtk/theme/StrataEmpty">
-    <file alias="gtk.css">theme-empty.css</file>
-    <file alias="gtk-dark.css">theme-empty.css</file>
   </gresource>
 </gresources>

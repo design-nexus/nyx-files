@@ -639,8 +639,8 @@ fn merging_recurses_into_subdirectories_shared_by_both_sides() -> Result<(), Box
 fn a_merge_from_a_location_without_paths_does_not_claim_provenance_for_undo()
 -> Result<(), Box<dyn Error>> {
     let _serial = serial()?;
-    gio::resources_register_include!("strata.gresource")?;
-    let source = gio::File::for_uri("resource:///io/github/lgse/Strata/brand");
+    gio::resources_register_include!("files.gresource")?;
+    let source = gio::File::for_uri("resource:///io/github/design_nexus/nyx/Files/brand");
     assert!(!source.is_native());
     let root = tempfile::tempdir()?;
     let target = root.path().join("brand");
@@ -679,8 +679,8 @@ fn a_merge_from_a_location_without_paths_does_not_claim_provenance_for_undo()
 fn a_merge_from_a_location_without_paths_keeps_unproven_copies_during_no_trash_undo()
 -> Result<(), Box<dyn Error>> {
     let _serial = serial()?;
-    gio::resources_register_include!("strata.gresource")?;
-    let source = gio::File::for_uri("resource:///io/github/lgse/Strata/icons/scalable");
+    gio::resources_register_include!("files.gresource")?;
+    let source = gio::File::for_uri("resource:///io/github/design_nexus/nyx/Files/icons/scalable");
     let root = tempfile::tempdir()?;
     let target = root.path().join("scalable");
     write_files(&target, &[("stays.txt", "keep me")])?;

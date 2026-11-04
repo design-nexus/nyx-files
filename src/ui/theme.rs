@@ -49,7 +49,7 @@ thread_local! {
     static SOURCE_STYLE_RESOURCE: RefCell<Option<gio::Resource>> = const { RefCell::new(None) };
 }
 
-const SOURCE_STYLE_FOLDER: &str = "/io/github/lgse/Strata/generated/source-styles/";
+const SOURCE_STYLE_FOLDER: &str = "/io/github/design_nexus/nyx/Files/generated/source-styles/";
 
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
