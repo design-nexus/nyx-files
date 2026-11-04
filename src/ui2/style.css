@@ -141,3 +141,37 @@ window.files-window .drop-target {
   box-shadow: inset 0 0 0 2px alpha(@theme_accent, 0.7);
   background: alpha(@theme_accent, 0.12);
 }
+
+/* Properties */
+
+.properties-card {
+  padding: 18px;
+}
+
+.properties-name {
+  font-size: 1.15em;
+  font-weight: 600;
+}
+
+.properties-details {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: var(--nyx-radius-card);
+  background: @theme_card;
+}
+
+.properties-row-label {
+  color: @theme_dim_text;
+  font-size: 0.96em;
+}
+
+.properties-row-value {
+  font-feature-settings: "tnum";
+}
+
+window.files-window button.chip.permission-bit {
+  min-width: 26px;
+  min-height: 24px;
+  padding: 0;
+  font-family: "JetBrains Mono", monospace;
+}

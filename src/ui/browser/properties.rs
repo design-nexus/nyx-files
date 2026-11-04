@@ -19,7 +19,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-mod media;
+pub(crate) mod media;
 
 const SIZE_PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
 
@@ -340,7 +340,7 @@ pub fn format_permissions(mode: u32) -> String {
     format!("{symbolic}  {:03o}", mode & 0o777)
 }
 
-fn directory_counts_label(summary: &DirectorySummary) -> String {
+pub(crate) fn directory_counts_label(summary: &DirectorySummary) -> String {
     let prefix = if summary.truncated() { "≥ " } else { "" };
     rust_i18n::t!(
         "%{files}, %{folders}",
@@ -356,7 +356,7 @@ fn directory_counts_label(summary: &DirectorySummary) -> String {
     .into_owned()
 }
 
-fn measurement_warning_text(summary: &DirectorySummary) -> Option<String> {
+pub(crate) fn measurement_warning_text(summary: &DirectorySummary) -> Option<String> {
     let mut reasons = Vec::new();
     if summary.issues.unreadable {
         reasons.push(crate::i18n::tr("Some folders or entries couldn't be read."));

@@ -9,6 +9,7 @@ mod icons;
 mod list;
 mod model;
 mod places;
+mod properties;
 mod settings;
 mod tab;
 mod theme;

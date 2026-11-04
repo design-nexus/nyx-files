@@ -8,7 +8,7 @@ use crate::sandbox::{
     self, Cancellation, MediaPreviewBackend, ParseOperation, metadata::MediaMetadata,
 };
 
-pub(super) use crate::ui::raw_details::MetadataLoad;
+pub(crate) use crate::ui::raw_details::MetadataLoad;
 
 fn append_row(parent: &gtk::Box, name: &str, value: &str) -> gtk::Label {
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -129,7 +129,7 @@ fn rows(metadata: &MediaMetadata) -> Vec<(&'static str, String)> {
     rows
 }
 
-pub(super) fn load(section: &gtk::Box, path: PathBuf) -> MetadataLoad {
+pub(crate) fn load(section: &gtk::Box, path: PathBuf) -> MetadataLoad {
     let cancellation = Cancellation::default();
     let handle = MetadataLoad(cancellation.clone());
     while let Some(child) = section.first_child() {

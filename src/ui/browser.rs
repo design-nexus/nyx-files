@@ -64,7 +64,7 @@ mod preferences;
 mod presentation;
 mod preview;
 mod progress;
-mod properties;
+pub(crate) mod properties;
 mod result_selection;
 mod tab_location;
 mod tab_stops;

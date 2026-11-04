@@ -3,7 +3,7 @@
 mod accessibility;
 mod actions;
 mod blur;
-mod browser;
+pub(crate) mod browser;
 pub(crate) mod browser_modes;
 mod chooser;
 mod close_guard;
@@ -38,7 +38,7 @@ pub(crate) mod preferences;
 mod presence;
 mod preview;
 mod progress_dock;
-mod raw_details;
+pub(crate) mod raw_details;
 mod recent_apps;
 mod resize_feedback;
 mod scrolling;

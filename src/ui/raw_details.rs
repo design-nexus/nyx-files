@@ -15,7 +15,7 @@ pub(super) fn supports(entry: &FileEntry) -> bool {
             || sandbox::raw_metadata::is_raw(Path::new(&entry.display_name)))
 }
 
-pub(super) struct MetadataLoad(pub(super) Cancellation);
+pub(crate) struct MetadataLoad(pub(super) Cancellation);
 
 impl Drop for MetadataLoad {
     fn drop(&mut self) {

@@ -371,6 +371,14 @@ pub(super) fn item_menu(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEnt
         let e = entries.clone();
         items.push(menu::item(&crate::i18n::tr("Copy path"), move || copy_paths(&e)).icon("edit-copy-symbolic"));
     }
+    if let [entry] = entries.as_slice() {
+        let entry = entry.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("Properties"), move || super::properties::show(&entry))
+                .icon("document-properties-symbolic")
+                .key(&keys(bindings::PROPERTIES)),
+        );
+    }
     items.push(menu::separator());
     {
         let (w, t) = (window.clone(), tab.clone());

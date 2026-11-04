@@ -393,6 +393,10 @@ impl Window {
             if let [entry] = selected.as_slice() {
                 actions::rename(&tab, entry.clone());
             }
+        } else if press.is(bindings::PROPERTIES) {
+            if let [entry] = selected.as_slice() {
+                super::properties::show(entry);
+            }
         } else if press.is(bindings::SELECT_ALL) {
             tab.active_model().selection.select_all();
         } else if press.is(bindings::OPEN_IN_NEW_TAB) {
