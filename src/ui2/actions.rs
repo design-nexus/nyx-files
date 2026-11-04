@@ -733,6 +733,52 @@ pub(super) fn sidebar_menu(
             }
         }
         Target::Volume(_) | Target::Mount(_) => {
+            if let Target::Volume(volume) = &target
+                && volume.get_mount().is_none()
+                && volume.can_mount()
+            {
+                let w = window.clone();
+                let v = volume.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("Mount"), move || {
+                        let w = w.clone();
+                        let v2 = v.clone();
+                        v.mount(
+                            gio::MountMountFlags::NONE,
+                            Some(&super::mount::operation()),
+                            gio::Cancellable::NONE,
+                            move |r| match r {
+                                Ok(()) => {
+                                    if let Some(m) = v2.get_mount() {
+                                        w.navigate_to(location_of(&m.root()));
+                                    }
+                                }
+                                Err(e) if e.matches(gio::IOErrorEnum::FailedHandled) => {}
+                                Err(e) => toast::show(&w.overlay, e.message()),
+                            },
+                        );
+                    })
+                    .icon("drive-harddisk-symbolic"),
+                );
+            }
+            {
+                let t = target.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("Properties"), move || {
+                        super::drives::show_properties(&t)
+                    })
+                    .icon("document-properties-symbolic"),
+                );
+            }
+            {
+                let t = target.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("Set label…"), move || {
+                        super::drives::set_label(&t)
+                    })
+                    .icon("document-edit-symbolic"),
+                );
+            }
             if let Some(label) = super::devices::release_label(&target) {
                 let t = target.clone();
                 let w = window.clone();
@@ -742,6 +788,16 @@ pub(super) fn sidebar_menu(
                         super::devices::release(&t, w.window.upcast_ref())
                     })
                     .icon("media-eject-symbolic"),
+                );
+            }
+            if super::drives::can_format(&target) {
+                let (t, w) = (target.clone(), window.clone());
+                items.push(
+                    menu::item(&crate::i18n::tr("Format…"), move || {
+                        super::drives::format(&t, &w.overlay)
+                    })
+                    .icon("edit-clear-all-symbolic")
+                    .danger(),
                 );
             }
         }

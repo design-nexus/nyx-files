@@ -1338,7 +1338,7 @@ impl PreferenceManager {
             .cloned()
     }
 
-    pub(in crate::ui) fn set_device_label(&self, device_id: &str, label: &str) {
+    pub(crate) fn set_device_label(&self, device_id: &str, label: &str) {
         let label = label.trim();
         if device_id.is_empty()
             || label.chars().count() > 255

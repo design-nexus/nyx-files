@@ -61,7 +61,7 @@ pub(crate) enum PropertiesTarget {
 }
 
 impl PropertiesTarget {
-    pub(super) fn volume(&self) -> Option<gio::Volume> {
+    pub(crate) fn volume(&self) -> Option<gio::Volume> {
         match self {
             Self::Volume(volume) => Some(volume.clone()),
             Self::Mount(mount) => mount.volume(),

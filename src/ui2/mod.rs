@@ -6,6 +6,7 @@
 mod actions;
 mod columns;
 mod devices;
+mod drives;
 mod icons;
 mod list;
 mod model;

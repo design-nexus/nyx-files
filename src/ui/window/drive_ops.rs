@@ -13,14 +13,14 @@ use gtk::{gio, glib, prelude::*};
 use crate::ui::browser::show_error_dialog;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum FilesystemType {
+pub(crate) enum FilesystemType {
     Fat32,
     Ntfs,
     Exfat,
 }
 
 impl FilesystemType {
-    pub(super) fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Fat32 => "FAT32",
             Self::Ntfs => "NTFS",
@@ -28,7 +28,7 @@ impl FilesystemType {
         }
     }
 
-    pub(super) fn max_label_len(self) -> usize {
+    pub(crate) fn max_label_len(self) -> usize {
         match self {
             Self::Fat32 => 11,
             Self::Ntfs => 32,
@@ -36,7 +36,7 @@ impl FilesystemType {
         }
     }
 
-    pub(super) fn label_character_error(self, label: &str) -> Option<String> {
+    pub(crate) fn label_character_error(self, label: &str) -> Option<String> {
         let forbidden = match self {
             Self::Fat32 => "*?.,;:/\\|+=<>[]\"",
             Self::Exfat => "*?:/\\|<>\"",
@@ -96,7 +96,7 @@ impl FilesystemType {
         self.mkfs_candidates().iter().find_map(|cmd| tool_path(cmd))
     }
 
-    pub(super) fn format_tool_name(self) -> &'static str {
+    pub(crate) fn format_tool_name(self) -> &'static str {
         match self {
             Self::Fat32 => "mkfs.fat",
             Self::Ntfs => "mkfs.ntfs or mkntfs",
@@ -104,7 +104,7 @@ impl FilesystemType {
         }
     }
 
-    pub(super) fn available(self) -> bool {
+    pub(crate) fn available(self) -> bool {
         self.resolve_mkfs().is_some()
     }
 }
@@ -116,7 +116,7 @@ pub(super) fn show_mount(volume: Option<&gio::Volume>) -> bool {
 
 /// Eligible targets are removable drives only. Network shares, internal
 /// fixed disks, and volumes without a drive association are excluded.
-pub(super) fn is_eligible(volume: Option<&gio::Volume>) -> bool {
+pub(crate) fn is_eligible(volume: Option<&gio::Volume>) -> bool {
     if let Some(volume) = volume
         && let Some(drive) = volume.drive()
     {
@@ -126,7 +126,7 @@ pub(super) fn is_eligible(volume: Option<&gio::Volume>) -> bool {
 }
 
 #[derive(Debug)]
-pub(super) enum DriveOpError {
+pub(crate) enum DriveOpError {
     CommandFailed(String),
     DeviceNotFound,
     Cancelled,
@@ -147,7 +147,7 @@ impl std::fmt::Display for DriveOpError {
 }
 
 impl DriveOpError {
-    pub(super) fn user_message(&self) -> String {
+    pub(crate) fn user_message(&self) -> String {
         match self {
             Self::CommandFailed(message) => message.clone(),
             Self::DeviceNotFound => crate::i18n::tr("Could not identify the drive's block device"),
@@ -219,7 +219,7 @@ fn is_executable(path: &Path) -> bool {
             .unwrap_or(false)
 }
 
-pub(super) fn block_device_for_volume(volume: &gio::Volume) -> Option<PathBuf> {
+pub(crate) fn block_device_for_volume(volume: &gio::Volume) -> Option<PathBuf> {
     if let Some(device) = super::gio_volume_unix_device(volume) {
         return Some(PathBuf::from(device.as_str()));
     }
@@ -228,7 +228,7 @@ pub(super) fn block_device_for_volume(volume: &gio::Volume) -> Option<PathBuf> {
 
 /// Total and available bytes for a mounted path, or `None` when the
 /// filesystem does not report capacity.
-pub(super) fn usage_for_path(path: &Path) -> Option<(u64, u64)> {
+pub(crate) fn usage_for_path(path: &Path) -> Option<(u64, u64)> {
     let stat = rustix::fs::statvfs(path).ok()?;
     if stat.f_blocks == 0 {
         return None;
@@ -244,7 +244,7 @@ pub(super) fn usage_for_path(path: &Path) -> Option<(u64, u64)> {
     ))
 }
 
-pub(super) fn block_device_for_path(path: &Path) -> Option<PathBuf> {
+pub(crate) fn block_device_for_path(path: &Path) -> Option<PathBuf> {
     super::devices::block_device_from_mount_table(&crate::adapters::mount_watch::latest(), path)
 }
 
@@ -253,7 +253,7 @@ pub(super) fn mounted_path_for_device(device: &Path) -> Option<PathBuf> {
 }
 
 /// Human-readable filesystem name for a block device.
-pub(super) fn filesystem_label_for_device(device: &Path) -> Option<String> {
+pub(crate) fn filesystem_label_for_device(device: &Path) -> Option<String> {
     let fstype = tool_path("lsblk").and_then(|exe| {
         Command::new(exe)
             .args(["-n", "-o", "FSTYPE", &device.to_string_lossy()])
@@ -275,7 +275,7 @@ pub(super) fn filesystem_label_for_device(device: &Path) -> Option<String> {
 
 /// Total size in bytes for a block device, via `lsblk`. Works whether or
 /// not the volume is mounted.
-pub(super) fn device_size_bytes(device: &Path) -> Option<u64> {
+pub(crate) fn device_size_bytes(device: &Path) -> Option<u64> {
     let exe = tool_path("lsblk")?;
     let output = Command::new(exe)
         .args(["-b", "-n", "-o", "SIZE", &device.to_string_lossy()])
@@ -311,7 +311,7 @@ async fn unmount_for_exclusive_access(
 }
 
 /// Format the volume's block device.
-pub(super) async fn format_volume(
+pub(crate) async fn format_volume(
     parent: gtk::Widget,
     volume: gio::Volume,
     fs_type: FilesystemType,
