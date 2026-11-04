@@ -473,6 +473,36 @@ impl Window {
         true
     }
 
+    pub(super) fn navigate_to(&self, location: Location) {
+        self.navigate(location);
+    }
+
+    /// A location that needs mounting first is mounted, then opened; other
+    /// refusals are shown as a toast.
+    fn rejected(
+        self: &Rc<Self>,
+        tab: &Rc<tab::Tab>,
+        error: crate::services::LocationValidationError,
+    ) {
+        use crate::services::LocationValidationError as E;
+        match error {
+            E::NotMounted(location) | E::Mountable(location) => {
+                let (overlay, tab) = (self.overlay.clone(), Rc::downgrade(tab));
+                let target = location.clone();
+                super::mount::mount_location(&location, move |result| match result {
+                    Ok(()) => {
+                        if let Some(tab) = tab.upgrade() {
+                            tab.browser.navigate(target);
+                        }
+                    }
+                    Err(Some(message)) => nyx_ui::toast::show(&overlay, &message),
+                    Err(None) => {}
+                });
+            }
+            other => nyx_ui::toast::show(&self.overlay, &other.to_string()),
+        }
+    }
+
     pub(super) fn current_browser(&self) -> Option<Rc<crate::app::Browser>> {
         self.current().map(|t| t.browser.clone())
     }
@@ -498,6 +528,12 @@ impl Window {
         tab.connect_context(move |entry, widget, x, y| {
             if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
                 w.show_menu(&t, entry, widget, x, y);
+            }
+        });
+        let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
+        tab.connect_rejected(move |error| {
+            if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
+                w.rejected(&t, error);
             }
         });
         let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));

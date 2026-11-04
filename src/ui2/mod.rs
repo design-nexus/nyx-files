@@ -9,6 +9,7 @@ mod devices;
 mod icons;
 mod list;
 mod model;
+mod mount;
 mod properties;
 mod settings;
 mod sidebar;

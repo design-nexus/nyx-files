@@ -26,6 +26,7 @@ use crate::ui::{browser_modes::BrowserMode, preferences::PreferenceManager};
 
 type Changed = Box<dyn Fn()>;
 type ContextFn = Box<dyn Fn(Option<FileEntry>, &gtk::Widget, f64, f64)>;
+type RejectedFn = Box<dyn Fn(crate::services::LocationValidationError)>;
 type DropFn = Box<dyn Fn(Location, Vec<Location>, gtk::gdk::DragAction)>;
 
 pub(super) struct Tab {
@@ -43,6 +44,7 @@ pub(super) struct Tab {
     changed: RefCell<Vec<Changed>>,
     context: RefCell<Option<ContextFn>>,
     dropped: RefCell<Option<DropFn>>,
+    rejected: RefCell<Option<RejectedFn>>,
     select_next: RefCell<Option<Location>>,
     /// Items whose metadata has been asked for, so a rebind doesn't ask again.
     requested: RefCell<std::collections::HashSet<Location>>,
@@ -88,6 +90,7 @@ impl Tab {
             changed: Default::default(),
             context: RefCell::new(None),
             dropped: RefCell::new(None),
+            rejected: RefCell::new(None),
             select_next: RefCell::new(None),
             requested: RefCell::default(),
         });
@@ -146,6 +149,14 @@ impl Tab {
         tab.wire_dnd(&tab.model.clone());
         tab.browser.navigate(location);
         tab
+    }
+
+    /// Navigation the browser refused (not mounted, missing, not allowed).
+    pub(super) fn connect_rejected(
+        &self,
+        f: impl Fn(crate::services::LocationValidationError) + 'static,
+    ) {
+        *self.rejected.borrow_mut() = Some(Box::new(f));
     }
 
     /// Files dropped: the destination folder, the files, and Shift/Ctrl's choice.
@@ -427,6 +438,14 @@ impl Tab {
     fn on_event(self: &Rc<Self>, event: &BrowserEvent) {
         if !matches!(event, BrowserEvent::MetadataFilled { .. }) {
             self.requested.borrow_mut().clear();
+        }
+        if let BrowserEvent::LocationNavigationRejected { error }
+        | BrowserEvent::NavigationRejected { error, .. } = event
+        {
+            if let Some(f) = self.rejected.borrow().as_ref() {
+                f(error.clone());
+            }
+            return;
         }
         match event {
             BrowserEvent::EntryCreated { location } => {

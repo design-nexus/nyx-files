@@ -713,6 +713,15 @@ pub(super) fn sidebar_menu(
                 })
                 .icon("view-conceal-symbolic"),
             );
+            if id == "network" {
+                let w = window.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("Connect to server…"), move || {
+                        connect_to_server(&w)
+                    })
+                    .icon("network-server-symbolic"),
+                );
+            }
             if id == "trash" {
                 let w = window.clone();
                 items.push(menu::separator());
@@ -811,5 +820,16 @@ pub(super) fn empty_trash(window: &Rc<Window>) {
         });
         dialog.present();
         cancel.grab_focus();
+    });
+}
+
+pub(super) fn connect_to_server(window: &Rc<Window>) {
+    let w = window.clone();
+    super::mount::connect_dialog(move |location, pin| {
+        if pin {
+            let name = location.display_name();
+            super::sidebar::pin(location.clone(), name);
+        }
+        w.navigate_to(location);
     });
 }

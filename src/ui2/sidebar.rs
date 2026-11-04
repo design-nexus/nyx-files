@@ -37,6 +37,7 @@ pub(super) struct SidebarContent {
     current: RefCell<Option<Location>>,
     pins: RefCell<bookmarks::Pins>,
     queued: Cell<bool>,
+    cloud_watch: Cell<bool>,
     monitor: gio::VolumeMonitor,
     keep: RefCell<Vec<Box<dyn std::any::Any>>>,
 }
@@ -162,6 +163,7 @@ impl SidebarContent {
             current: RefCell::default(),
             pins: RefCell::new(bookmarks::current()),
             queued: Cell::new(false),
+            cloud_watch: Cell::new(false),
             monitor: gio::VolumeMonitor::get(),
             keep: RefCell::default(),
         });
@@ -215,6 +217,16 @@ impl SidebarContent {
                 }
             });
         }
+        let weak = Rc::downgrade(&content);
+        prefs.bind_preference(
+            &content.sidebar.root,
+            PreferenceManager::cloud_sidebar,
+            move |_, _| {
+                if let Some(c) = weak.upgrade() {
+                    c.queue_rebuild();
+                }
+            },
+        );
         content.rebuild();
         content
     }
@@ -267,6 +279,7 @@ impl SidebarContent {
         self.places();
         self.pinned();
         self.devices();
+        self.cloud();
         self.sidebar.refresh();
         let current = self.current.borrow().clone();
         self.mark(current.as_ref());
@@ -438,8 +451,8 @@ impl SidebarContent {
     }
 
     fn mount_volume(self: &Rc<Self>, volume: &gio::Volume, anchor: &gtk::Widget) {
-        let window = anchor.root().and_downcast::<gtk::Window>();
-        let operation = gtk::MountOperation::new(window.as_ref());
+        let _ = anchor;
+        let operation = super::mount::operation();
         let (open, v) = (self.open.clone(), volume.clone());
         volume.mount(
             gio::MountMountFlags::NONE,
@@ -456,7 +469,7 @@ impl SidebarContent {
                     if let Some(window) = nyx_ui::widgets::main_window()
                         && let Some(overlay) = window.child().and_downcast::<gtk::Overlay>()
                     {
-                        nyx_ui::toast::show(&overlay, &error.message().to_string());
+                        nyx_ui::toast::show(&overlay, error.message());
                     }
                 }
             },
@@ -502,4 +515,112 @@ pub(super) fn is_place_location(location: &Location) -> bool {
 
 pub(super) fn is_pinned(location: &Location) -> bool {
     is_place(location) || bookmarks::current().iter().any(|(l, _)| l == location)
+}
+
+impl SidebarContent {
+    /// Cloud accounts from nyx-cloud, when the setting shows them.
+    fn cloud(self: &Rc<Self>) {
+        if !PreferenceManager::shared().cloud_sidebar() {
+            return;
+        }
+        let holder = gtk::Box::new(gtk::Orientation::Vertical, 1);
+        let heading = sidebar::group_label(&crate::i18n::tr("Cloud"), false);
+        heading.set_visible(false);
+        self.sidebar.append(&heading);
+        self.sidebar.append(&holder);
+        let (weak, h, head) = (Rc::downgrade(self), holder.downgrade(), heading.downgrade());
+        glib::MainContext::default().spawn_local(async move {
+            let remotes = gio::spawn_blocking(|| nyx_cloud::Client::connect()?.list()).await;
+            let (Some(content), Some(holder), Some(heading)) =
+                (weak.upgrade(), h.upgrade(), head.upgrade())
+            else {
+                return;
+            };
+            let Ok(Ok(remotes)) = remotes else { return };
+            let remotes: Vec<_> = remotes.into_iter().filter(|r| r.storage_enabled).collect();
+            heading.set_visible(!remotes.is_empty());
+            for remote in remotes {
+                let item =
+                    sidebar::nav_item("weather-overcast-symbolic", &remote.name, &remote.name);
+                let (w, r) = (Rc::downgrade(&content), remote.clone());
+                item.button.connect_clicked(move |b| {
+                    if let Some(c) = w.upgrade() {
+                        c.open_cloud(r.id.clone(), b.clone());
+                    }
+                });
+                holder.append(&item.button);
+            }
+            content.sidebar.refresh();
+        });
+        if !self.cloud_watch.get() {
+            self.cloud_watch.set(true);
+            let weak = Rc::downgrade(self);
+            glib::MainContext::default().spawn_local(async move {
+                let Ok(bus) = gio::bus_get_future(gio::BusType::Session).await else {
+                    return;
+                };
+                let w = weak.clone();
+                let subscription = bus.subscribe_to_signal(
+                    Some(nyx_cloud::BUS),
+                    Some(nyx_cloud::BUS),
+                    Some("Changed"),
+                    Some(nyx_cloud::PATH),
+                    None,
+                    gio::DBusSignalFlags::NONE,
+                    move |_| {
+                        if let Some(c) = w.upgrade() {
+                            c.queue_rebuild();
+                        }
+                    },
+                );
+                if let Some(c) = weak.upgrade() {
+                    c.keep.borrow_mut().push(Box::new(subscription));
+                }
+            });
+        }
+    }
+
+    /// Mounts an account if needed (up to 35 s), then opens it.
+    fn open_cloud(self: &Rc<Self>, id: String, button: gtk::Button) {
+        button.set_sensitive(false);
+        let open = self.open.clone();
+        glib::MainContext::default().spawn_local(async move {
+            let result = gio::spawn_blocking(move || -> anyhow::Result<String> {
+                let client = nyx_cloud::Client::connect()?;
+                let find = |client: &nyx_cloud::Client| -> anyhow::Result<nyx_cloud::Remote> {
+                    client.list()?.into_iter().find(|r| r.id == id).ok_or_else(|| anyhow::anyhow!("Account unavailable"))
+                };
+                if find(&client)?.mount_status == "mounted" {
+                    return Ok(find(&client)?.mount_path);
+                }
+                client.mount(&id)?;
+                for _ in 0..175 {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    let r = find(&client)?;
+                    if r.mount_status == "mounted" {
+                        return Ok(r.mount_path);
+                    }
+                    if r.connection == "error" || r.connection == "authentication_required" {
+                        anyhow::bail!("Connection failed");
+                    }
+                }
+                anyhow::bail!("Connection timed out")
+            })
+            .await;
+            button.set_sensitive(true);
+            match result {
+                Ok(Ok(path)) => open(Location::local(path)),
+                _ => {
+                    if let Some(window) = nyx_ui::widgets::main_window()
+                        && let Some(overlay) = window.child().and_downcast::<gtk::Overlay>()
+                    {
+                        nyx_ui::toast::show(
+                            &overlay,
+                            &crate::i18n::tr("Cloud connection failed. Retry the account or open Online Accounts in Settings."),
+                        );
+                    }
+                }
+            }
+        });
+    }
 }
