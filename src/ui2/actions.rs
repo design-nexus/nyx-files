@@ -825,6 +825,38 @@ pub(super) fn sidebar_menu(
                     .icon("media-eject-symbolic"),
                 );
             }
+            let (mount, drive, encrypted) = match &target {
+                Target::Volume(v) => (
+                    v.get_mount(),
+                    v.drive(),
+                    crate::ui::window::gio_volume_is_encrypted(v),
+                ),
+                Target::Mount(m) => (
+                    Some(m.clone()),
+                    m.drive(),
+                    crate::ui::window::gio_mount_is_encrypted(m),
+                ),
+                _ => (None, None, false),
+            };
+            if encrypted && mount.is_some() {
+                let w = window.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("Lock"), move || {
+                        let Some(browser) = w.current_browser() else {
+                            return;
+                        };
+                        crate::ui::window::lock_cleartext_then_stop(
+                            mount.clone(),
+                            crate::ui::window::password_stop_drive(drive.clone()),
+                            w.window.upcast_ref(),
+                            &browser,
+                            None,
+                            &Rc::new(std::cell::Cell::new(false)),
+                        );
+                    })
+                    .icon("system-lock-screen-symbolic"),
+                );
+            }
             if super::drives::can_format(&target) {
                 let (t, w) = (target.clone(), window.clone());
                 items.push(

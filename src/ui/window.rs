@@ -3724,13 +3724,13 @@ fn confirm_forget_cached_password(
     focus_button(&confirm);
 }
 
-fn password_stop_drive(drive: Option<gio::Drive>) -> Option<gio::Drive> {
+pub(crate) fn password_stop_drive(drive: Option<gio::Drive>) -> Option<gio::Drive> {
     drive.filter(|drive| {
         drive.start_stop_type() == gio::DriveStartStopType::Password && drive.can_stop()
     })
 }
 
-fn lock_cleartext_then_stop(
+pub(crate) fn lock_cleartext_then_stop(
     mount: Option<gio::Mount>,
     drive: Option<gio::Drive>,
     parent: &gtk::Widget,
@@ -3888,7 +3888,7 @@ fn gio_volume_is_locked(volume: &gio::Volume) -> bool {
     devices::encrypted_device_is_locked(&names, volume.get_mount().is_some())
 }
 
-fn gio_mount_is_encrypted(mount: &gio::Mount) -> bool {
+pub(crate) fn gio_mount_is_encrypted(mount: &gio::Mount) -> bool {
     if let Some(volume) = mount.volume() {
         return gio_volume_is_encrypted(&volume);
     }
