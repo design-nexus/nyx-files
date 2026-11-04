@@ -97,8 +97,8 @@ window.files-window gridview.file-grid {
 }
 
 window.files-window gridview.file-grid > child {
-  padding: 8px 4px;
-  margin: 2px;
+  padding: 4px 2px;
+  margin: 0;
   border-radius: var(--nyx-radius-card);
 }
 

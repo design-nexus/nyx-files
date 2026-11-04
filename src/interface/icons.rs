@@ -5,7 +5,7 @@
 
 use std::{cell::Cell, rc::Rc};
 
-use gtk::prelude::*;
+use gtk::{glib, prelude::*};
 
 use super::model::{self, EntryModel, Hooks};
 
@@ -13,7 +13,18 @@ pub(super) struct IconsView {
     pub(super) root: gtk::ScrolledWindow,
     pub(super) view: gtk::GridView,
     hooks: Rc<Hooks>,
-    size: Cell<i32>,
+    size: Rc<Cell<i32>>,
+}
+
+/// Tile spacing and the narrowest tile, as the grid had them before.
+const SPACING: i32 = 4;
+const MIN_TILE: i32 = 116;
+const ICON_PADDING: i32 = 6;
+
+/// A tile is its thumbnail and padding, never narrower than `MIN_TILE`; names
+/// wrap inside it rather than widen it.
+fn tile_width(size: i32) -> i32 {
+    (size + ICON_PADDING * 2).max(MIN_TILE)
 }
 
 fn factory(hooks: &Rc<Hooks>, size: i32) -> gtk::SignalListItemFactory {
@@ -23,18 +34,21 @@ fn factory(hooks: &Rc<Hooks>, size: i32) -> gtk::SignalListItemFactory {
         let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
             return;
         };
-        let tile = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        let tile = gtk::Box::new(gtk::Orientation::Vertical, 4);
         tile.add_css_class("icon-tile");
-        tile.set_size_request((size + 40).max(104), -1);
+        tile.set_size_request(tile_width(size), -1);
         let icon = model::icon_slot(size);
         icon.add_css_class("tile-icon");
-        let label = gtk::Label::new(None);
-        label.set_wrap(true);
-        label.set_wrap_mode(gtk::pango::WrapMode::Word);
-        label.set_lines(2);
-        label.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
-        label.set_justify(gtk::Justification::Center);
-        label.set_max_width_chars(14);
+        icon.set_margin_top(ICON_PADDING);
+        let label = gtk::Inscription::new(None);
+        label.set_min_chars(0);
+        label.set_nat_chars(0);
+        label.set_min_lines(1);
+        label.set_nat_lines(2);
+        label.set_xalign(0.5);
+        label.set_yalign(0.0);
+        label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        label.set_text_overflow(gtk::InscriptionOverflow::EllipsizeMiddle);
         label.add_css_class("tile-name");
         let detail = gtk::Label::new(None);
         detail.add_css_class("tile-detail");
@@ -65,8 +79,11 @@ fn factory(hooks: &Rc<Hooks>, size: i32) -> gtk::SignalListItemFactory {
             model::show_icon(&icon, &r.entry, size);
         }
         let name = tile.first_child().and_then(|c| c.next_sibling());
-        if let Some(label) = name.as_ref().and_then(|c| c.downcast_ref::<gtk::Label>()) {
-            label.set_text(&r.entry.display_name);
+        if let Some(label) = name
+            .as_ref()
+            .and_then(|c| c.downcast_ref::<gtk::Inscription>())
+        {
+            label.set_text(Some(&r.entry.display_name));
         }
         if let Some(detail) = tile.last_child().and_downcast::<gtk::Label>() {
             let text = super::list::size_text(&r.entry);
@@ -89,7 +106,7 @@ impl IconsView {
         );
         view.add_css_class("file-grid");
         view.set_max_columns(32);
-        view.set_min_columns(2);
+        view.set_min_columns(1);
         view.set_enable_rubberband(true);
         model::on_context(&view, &model.hooks, || None);
         model::drop_on_view(&view, &model.hooks);
@@ -99,12 +116,35 @@ impl IconsView {
             .hexpand(true)
             .child(&view)
             .build();
-        Self {
+        let icons = Self {
             root,
             view,
             hooks: model.hooks.clone(),
-            size: Cell::new(size),
-        }
+            size: Rc::new(Cell::new(size)),
+        };
+        icons.pin_columns();
+        icons
+    }
+
+    /// As many columns as whole tiles fit, so the grid does not spread a few
+    /// columns across the width.
+    fn pin_columns(&self) {
+        let (view, size) = (self.view.downgrade(), self.size.clone());
+        let last = Cell::new((-1, -1));
+        self.root.add_tick_callback(move |root, _| {
+            let width = root.width();
+            if last.replace((width, size.get())) != (width, size.get())
+                && width > 0
+                && let Some(view) = view.upgrade()
+            {
+                // The grid's own 16 px of side padding is not tile space.
+                let columns = ((width - 16) / (tile_width(size.get()) + SPACING)).max(1) as u32;
+                if view.max_columns() != columns {
+                    view.set_max_columns(columns);
+                }
+            }
+            glib::ControlFlow::Continue
+        });
     }
 
     pub(super) fn size(&self) -> i32 {

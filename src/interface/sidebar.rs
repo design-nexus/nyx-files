@@ -84,7 +84,6 @@ thread_local! {
 type Shown = fn(&PreferenceManager) -> bool;
 
 const PLACES: [(&str, Shown); 10] = [
-    ("recent", PreferenceManager::sidebar_show_recent),
     ("home", PreferenceManager::sidebar_show_home),
     ("desktop", PreferenceManager::sidebar_show_desktop),
     ("documents", PreferenceManager::sidebar_show_documents),
@@ -92,6 +91,7 @@ const PLACES: [(&str, Shown); 10] = [
     ("music", PreferenceManager::sidebar_show_music),
     ("pictures", PreferenceManager::sidebar_show_pictures),
     ("videos", PreferenceManager::sidebar_show_videos),
+    ("recent", PreferenceManager::sidebar_show_recent),
     ("network", PreferenceManager::sidebar_show_network),
     ("trash", PreferenceManager::sidebar_show_trash),
 ];
@@ -698,7 +698,16 @@ impl SidebarContent {
                     }
                 });
                 holder.append(&item.button);
+                // Marked like other places while its folder is the one open.
+                if !remote.mount_path.is_empty() {
+                    content
+                        .rows
+                        .borrow_mut()
+                        .push((Location::local(&remote.mount_path), item.clone()));
+                }
             }
+            let current = content.current.borrow().clone();
+            content.mark(current.as_ref());
             content.sidebar.refresh();
         });
         if !self.cloud_watch.get() {

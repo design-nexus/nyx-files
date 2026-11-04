@@ -35,7 +35,7 @@ fn css() -> String {
         "window.files-window {{ font-size: {text:.1}px; }}\n\
          window.files-window columnview.file-list > listview > row,\n\
          window.files-window listview.file-column > row {{ min-height: {row}px; }}\n\
-         window.files-window gridview.file-grid > child {{ padding: {tile}px 4px; }}\n\
+         window.files-window gridview.file-grid > child {{ padding: {tile}px 2px; }}\n\
          window.files-window .app-header {{ padding-top: {frame}px; padding-bottom: {frame}px; }}\n\
          window.files-window .tab-row {{ padding-top: {half}px; padding-bottom: {half}px; }}\n\
          window.files-window .sidebar button.nav-item {{ margin-top: {half}px; margin-bottom: {half}px; }}\n\
