@@ -104,3 +104,33 @@ window.files-window .view-switch button.segment {
   min-height: 26px;
   padding: 0 4px;
 }
+
+/* Columns view */
+
+window.files-window listview.file-column {
+  background: transparent;
+  padding: 4px 6px;
+}
+
+window.files-window listview.file-column > row {
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: var(--nyx-radius-small);
+}
+
+window.files-window listview.file-column > row:hover {
+  background: @row_hover;
+}
+
+window.files-window listview.file-column > row:selected {
+  background: @nav_active;
+}
+
+.file-column .column-more {
+  color: @theme_text_tertiary;
+  -gtk-icon-size: 12px;
+}
+
+.column-strip .column + .column {
+  box-shadow: inset 1px 0 alpha(@theme_text, 0.05);
+}

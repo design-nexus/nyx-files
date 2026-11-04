@@ -17,6 +17,7 @@ use crate::{
 };
 
 use super::{
+    columns::{Column, ColumnsView},
     icons::IconsView,
     list::ListView,
     model::EntryModel,
@@ -28,7 +29,8 @@ type ContextFn = Box<dyn Fn(Option<FileEntry>, &gtk::Widget, f64, f64)>;
 
 pub(super) struct Tab {
     pub(super) browser: Rc<Browser>,
-    pub(super) model: EntryModel,
+    pub(super) model: Rc<EntryModel>,
+    columns: ColumnsView,
     list: ListView,
     icons: IconsView,
     pub(super) page: gtk::Stack,
@@ -50,13 +52,15 @@ impl Tab {
     pub(super) fn new(location: Location) -> Rc<Tab> {
         let browser = Browser::with_preferences(Rc::new(LocalFileSource), PreferenceManager::shared().sort_preferences());
         browser.set_operation_provider(Rc::new(LocalOperationProvider));
-        let model = EntryModel::new();
+        let model = Rc::new(EntryModel::new());
+        let columns = ColumnsView::new();
         let list = ListView::new(&model);
         list.view.set_enable_rubberband(true);
         let icons = IconsView::new(&model);
         let page = gtk::Stack::new();
         page.add_named(&list.root, Some("list"));
         page.add_named(&icons.root, Some("icons"));
+        page.add_named(&columns.root, Some("columns"));
         let status = gtk::Label::new(None);
         status.add_css_class("dim-label");
         status.set_wrap(true);
@@ -65,6 +69,7 @@ impl Tab {
         let tab = Rc::new(Tab {
             browser,
             model,
+            columns,
             list,
             icons,
             page,
@@ -130,15 +135,134 @@ impl Tab {
         *self.context.borrow_mut() = Some(Box::new(f));
     }
 
-    pub(super) fn set_mode(&self, mode: BrowserMode) {
+    pub(super) fn set_mode(self: &Rc<Self>, mode: BrowserMode) {
         self.mode.set(mode);
+        self.refresh();
         self.show_page();
+    }
+
+    /// The model the selection and menus act on: the active column's in Columns.
+    pub(super) fn active_model(&self) -> Rc<EntryModel> {
+        if self.mode.get() == BrowserMode::Columns
+            && let Some(column) = self.depth().and_then(|d| self.columns.column(d))
+        {
+            return column.model.clone();
+        }
+        self.model.clone()
+    }
+
+    fn column_count(&self) -> usize {
+        (0..).take_while(|&d| self.browser.location_at(d).is_some()).count()
+    }
+
+    fn wire_column(self: &Rc<Self>, depth: usize, column: &Rc<Column>) {
+        let weak = Rc::downgrade(self);
+        *column.model.hooks.bind.borrow_mut() = Some(Box::new(move |position, entry| {
+            if let Some(tab) = weak.upgrade()
+                && entry.modified_unix_seconds == MetadataValue::Unknown
+            {
+                tab.browser.request_visible_metadata_fill(depth, position, entry.location.clone(), false);
+            }
+        }));
+        let (weak, model) = (Rc::downgrade(self), Rc::downgrade(&column.model));
+        *column.model.hooks.context.borrow_mut() = Some(Box::new(move |index, widget, x, y| {
+            let (Some(tab), Some(model)) = (weak.upgrade(), model.upgrade()) else { return };
+            tab.browser.set_active_column(depth);
+            let entry = index.and_then(|i| {
+                model.select_for_menu(i);
+                model.entry(i)
+            });
+            if let Some(f) = tab.context.borrow().as_ref() {
+                f(entry, widget, x, y);
+            }
+        }));
+        let weak = Rc::downgrade(self);
+        column.model.selection.connect_selection_changed(move |_, _, _| {
+            if let Some(tab) = weak.upgrade() {
+                tab.column_selected(depth);
+            }
+        });
+        let (weak, model) = (Rc::downgrade(self), Rc::downgrade(&column.model));
+        column.view.connect_activate(move |_, index| {
+            let (Some(tab), Some(model)) = (weak.upgrade(), model.upgrade()) else { return };
+            let Some(entry) = model.entry(index) else { return };
+            if entry.is_directory() {
+                tab.browser.descend(depth, entry.location.clone());
+            } else {
+                tab.open(&entry);
+            }
+        });
+        let keys = gtk::EventControllerKey::new();
+        let weak = Rc::downgrade(self);
+        crate::ui::keys::on_press(&keys, move |_, press| {
+            let Some(tab) = weak.upgrade() else { return glib::Propagation::Proceed };
+            use crate::ui::keys::bindings::{LEFT, RIGHT};
+            if press.is(LEFT) && depth > 0 {
+                tab.focus_column(depth - 1);
+            } else if press.is(RIGHT) && tab.columns.column(depth + 1).is_some() {
+                tab.focus_column(depth + 1);
+            } else {
+                return glib::Propagation::Proceed;
+            }
+            glib::Propagation::Stop
+        });
+        column.view.add_controller(keys);
+        let weak = Rc::downgrade(self);
+        let focus = gtk::EventControllerFocus::new();
+        focus.connect_enter(move |_| {
+            if let Some(tab) = weak.upgrade() {
+                tab.browser.set_active_column(depth);
+            }
+        });
+        column.view.add_controller(focus);
+    }
+
+    fn focus_column(&self, depth: usize) {
+        let Some(column) = self.columns.column(depth) else { return };
+        self.browser.set_active_column(depth);
+        if column.model.selection.selection().is_empty() && column.model.len() > 0 {
+            column.model.selection.select_item(0, true);
+        }
+        column.view.grab_focus();
+        for f in self.changed.borrow().iter() {
+            f();
+        }
+    }
+
+    fn column_selected(&self, depth: usize) {
+        if self.syncing.get() {
+            return;
+        }
+        let Some(column) = self.columns.column(depth) else { return };
+        let selected = column.model.selected_positions();
+        let positions: Vec<usize> = selected.iter().map(|(_, p)| *p).collect();
+        self.browser.set_active_column(depth);
+        self.browser.set_selection(depth, &positions, positions.last().copied());
+        let entries = column.model.selected();
+        match entries.as_slice() {
+            [entry] if entry.is_directory() => self.browser.show_child(depth, entry.location.clone()),
+            _ if self.columns.column(depth + 1).is_some() => self.browser.close_column(depth + 1),
+            _ => {}
+        }
+    }
+
+    fn refresh_columns(self: &Rc<Self>) {
+        let count = self.column_count();
+        self.columns.ensure(count, |depth, column| self.wire_column(depth, column));
+        self.syncing.set(true);
+        for depth in 0..count {
+            let Some(column) = self.columns.column(depth) else { continue };
+            let show_hidden = self.browser.column_preferences(depth).is_some_and(|p| p.show_hidden);
+            self.browser.with_column_entries(depth, |entries| column.model.set_entries(entries, show_hidden));
+        }
+        self.syncing.set(false);
     }
 
     fn view_page(&self) -> &'static str {
         match self.mode.get() {
             BrowserMode::Icons => "icons",
-            BrowserMode::List | BrowserMode::Columns => "list",
+            BrowserMode::List => "list",
+            BrowserMode::Columns => "columns",
         }
     }
 
@@ -151,12 +275,18 @@ impl Tab {
     pub(super) fn focus_view(&self) {
         match self.mode.get() {
             BrowserMode::Icons => self.icons.view.grab_focus(),
-            _ => self.list.view.grab_focus(),
+            BrowserMode::List => self.list.view.grab_focus(),
+            BrowserMode::Columns => {
+                if let Some(column) = self.depth().and_then(|d| self.columns.column(d)) {
+                    column.view.grab_focus();
+                }
+                true
+            }
         };
     }
 
     pub(super) fn selected(&self) -> Vec<FileEntry> {
-        self.model.selected()
+        self.active_model().selected()
     }
 
     pub(super) fn shows_hidden(&self) -> bool {
@@ -221,7 +351,7 @@ impl Tab {
         });
     }
 
-    fn refresh(&self) {
+    fn refresh(self: &Rc<Self>) {
         let Some(depth) = self.depth() else { return };
         let Some(snapshot) = self.browser.column_snapshot(depth) else { return };
         if let Some(error) = &snapshot.error {
@@ -232,16 +362,26 @@ impl Tab {
         }
         let key = (snapshot.location.clone(), snapshot.count);
         let moved = self.shown.borrow().as_ref().map(|(l, _)| l) != Some(&key.0);
-        let show_hidden = self.shows_hidden();
-        self.syncing.set(true);
-        self.browser.with_column_entries(depth, |entries| self.model.set_entries(entries, show_hidden));
-        if let Some(location) = self.select_next.borrow().clone()
-            && self.model.select_location(&location).is_some()
-        {
-            self.select_next.borrow_mut().take();
+        let columns = self.mode.get() == BrowserMode::Columns;
+        if columns {
+            self.refresh_columns();
+        } else {
+            let show_hidden = self.shows_hidden();
+            self.syncing.set(true);
+            self.browser.with_column_entries(depth, |entries| self.model.set_entries(entries, show_hidden));
+            self.syncing.set(false);
         }
-        self.syncing.set(false);
-        self.push_selection();
+        if let Some(location) = self.select_next.borrow().clone() {
+            let model = self.active_model();
+            self.syncing.set(!columns);
+            if model.select_location(&location).is_some() {
+                self.select_next.borrow_mut().take();
+            }
+            self.syncing.set(false);
+        }
+        if !columns {
+            self.push_selection();
+        }
         *self.shown.borrow_mut() = Some(key);
         if moved {
             if self.model.len() > 0 {

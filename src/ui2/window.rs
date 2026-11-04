@@ -394,7 +394,7 @@ impl Window {
                 actions::rename(&tab, entry.clone());
             }
         } else if press.is(bindings::SELECT_ALL) {
-            tab.model.selection.select_all();
+            tab.active_model().selection.select_all();
         } else if press.is(bindings::OPEN_IN_NEW_TAB) {
             for entry in selected.iter().filter(|e| e.is_directory()) {
                 self.add_tab(entry.location.clone());

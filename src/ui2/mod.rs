@@ -4,6 +4,7 @@
 //! `NYX_FILES_UI=2` is set, as its own (non-unique) instance.
 
 mod actions;
+mod columns;
 mod icons;
 mod list;
 mod model;
