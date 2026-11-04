@@ -65,3 +65,42 @@ window.files-window button.chip:checked {
   color: @theme_text;
   box-shadow: inset 0 0 0 1px alpha(@theme_accent, 0.45);
 }
+
+/* Icons view */
+
+window.files-window gridview.file-grid {
+  background: transparent;
+  padding: 8px 12px 12px 4px;
+}
+
+window.files-window gridview.file-grid > child {
+  padding: 8px 4px;
+  margin: 2px;
+  border-radius: var(--nyx-radius-card);
+}
+
+window.files-window gridview.file-grid > child:hover {
+  background: @row_hover;
+}
+
+window.files-window gridview.file-grid > child:selected {
+  background: @nav_active;
+}
+
+.file-grid .tile-name {
+  font-size: 0.96em;
+}
+
+window.files-window rubberband {
+  background: alpha(@theme_accent, 0.15);
+  border: 1px solid alpha(@theme_accent, 0.6);
+  border-radius: 4px;
+}
+
+/* View switch */
+
+window.files-window .view-switch button.segment {
+  min-width: 30px;
+  min-height: 26px;
+  padding: 0 4px;
+}

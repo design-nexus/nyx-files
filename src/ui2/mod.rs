@@ -3,7 +3,10 @@
 //! The Nyx 2.0 interface, built on nyx-ui. Runs instead of `crate::ui` when
 //! `NYX_FILES_UI=2` is set, as its own (non-unique) instance.
 
+mod actions;
+mod icons;
 mod list;
+mod model;
 mod places;
 mod settings;
 mod tab;

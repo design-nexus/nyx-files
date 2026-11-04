@@ -13,12 +13,13 @@ use nyx_ui::{chrome, pathbar::PathBar, sidebar::Sidebar, tabs::TabRow, widgets};
 use crate::{
     model::Location,
     ui::{
+        browser_modes::BrowserMode,
         keys::{Binding, KeyPress, Keys, bindings},
         preferences::PreferenceManager,
     },
 };
 
-use super::{places, settings, tab};
+use super::{actions, places, settings, tab};
 
 thread_local! {
     static WINDOWS: RefCell<Vec<Rc<Window>>> = const { RefCell::new(Vec::new()) };
@@ -38,6 +39,7 @@ pub(super) struct Window {
     up: gtk::Button,
     tabs: RefCell<Vec<Rc<tab::Tab>>>,
     active: Cell<usize>,
+    view_switch: RefCell<Vec<(BrowserMode, gtk::ToggleButton)>>,
 }
 
 /// The window with focus, for keys that reach every window.
@@ -51,6 +53,11 @@ pub(super) fn focused() -> Option<Rc<Window>> {
 fn start_location() -> Location {
     let prefs = PreferenceManager::shared();
     Location::local(prefs.default_directory().unwrap_or_else(tab::home))
+}
+
+/// True while the keyboard is typing into a text field.
+fn typing(window: &gtk::ApplicationWindow) -> bool {
+    gtk::prelude::GtkWindowExt::focus(window).is_some_and(|f| f.is::<gtk::Text>() || f.is::<gtk::TextView>())
 }
 
 const QUIT: Binding = Binding::ctrl(gdk::Key::q);
@@ -123,6 +130,7 @@ impl Window {
             up,
             tabs: RefCell::new(Vec::new()),
             active: Cell::new(0),
+            view_switch: RefCell::new(Vec::new()),
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
         this.window.connect_destroy(|window| {
@@ -134,6 +142,7 @@ impl Window {
                 settings::open(&w);
             }
         });
+        header.end.append(&this.build_view_switch());
         header.end.append(&settings_button);
 
         this.wire();
@@ -277,10 +286,119 @@ impl Window {
             tab.iter().for_each(|t| t.browser.forward());
         } else if press.is(bindings::PARENT_FOLDER) {
             tab.iter().for_each(|t| t.browser.parent());
+        } else if press.is(bindings::VIEW_COLUMNS) {
+            self.set_mode(BrowserMode::Columns);
+        } else if press.is(bindings::VIEW_ICONS) {
+            self.set_mode(BrowserMode::Icons);
+        } else if press.is(bindings::VIEW_LIST) {
+            self.set_mode(BrowserMode::List);
+        } else if press.is_any(&[bindings::HIDDEN_FILES, bindings::HIDDEN_FILES_PERIOD]) {
+            tab.iter().for_each(|t| t.browser.toggle_hidden());
+        } else if press.is(bindings::REFRESH) {
+            tab.iter().for_each(|t| t.browser.reload_active());
+        } else if press.is(bindings::NEW_FOLDER) {
+            tab.iter().for_each(actions::new_folder);
+        } else if typing(&self.window) {
+            return false;
+        } else if self.handle_file_key(press) {
         } else if press.is_any(&[bindings::TAB_NEXT, bindings::TAB_NEXT_PAGE_DOWN]) {
             self.select((self.active.get() + 1) % count);
         } else if press.is_any(&[bindings::TAB_PREVIOUS, bindings::TAB_PREVIOUS_PAGE_UP]) {
             self.select((self.active.get() + count - 1) % count);
+        } else {
+            return false;
+        }
+        true
+    }
+
+    fn build_view_switch(self: &Rc<Self>) -> gtk::Box {
+        let switch = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        switch.add_css_class("segmented");
+        switch.add_css_class("view-switch");
+        switch.set_valign(gtk::Align::Center);
+        switch.set_margin_end(6);
+        let current = PreferenceManager::shared().browser_mode();
+        let mut first: Option<gtk::ToggleButton> = None;
+        for (mode, icon, message, binding) in [
+            (BrowserMode::Columns, "view-dual-symbolic", "Columns (%{keys})", bindings::VIEW_COLUMNS),
+            (BrowserMode::Icons, "view-grid-symbolic", "Icons (%{keys})", bindings::VIEW_ICONS),
+            (BrowserMode::List, "view-list-symbolic", "List (%{keys})", bindings::VIEW_LIST),
+        ] {
+            let button = gtk::ToggleButton::new();
+            button.set_icon_name(icon);
+            button.add_css_class("segment");
+            button.set_tooltip_text(Some(&with_keys(message, binding)));
+            if let Some(f) = &first {
+                button.set_group(Some(f));
+            } else {
+                first = Some(button.clone());
+            }
+            button.set_active(mode == current);
+            let weak = Rc::downgrade(self);
+            button.connect_toggled(move |b| {
+                if b.is_active()
+                    && let Some(w) = weak.upgrade()
+                {
+                    w.set_mode(mode);
+                }
+            });
+            switch.append(&button);
+            self.view_switch.borrow_mut().push((mode, button));
+        }
+        switch
+    }
+
+    fn set_mode(&self, mode: BrowserMode) {
+        PreferenceManager::shared().set_browser_mode(mode);
+        for tab in self.tabs.borrow().iter() {
+            tab.set_mode(mode);
+        }
+        for (m, button) in self.view_switch.borrow().iter() {
+            if *m == mode && !button.is_active() {
+                button.set_active(true);
+            }
+        }
+        if let Some(tab) = self.current() {
+            tab.focus_view();
+        }
+    }
+
+    pub(super) fn open_tab(self: &Rc<Self>, location: Location) {
+        self.add_tab(location);
+    }
+
+    fn show_menu(self: &Rc<Self>, tab: &Rc<tab::Tab>, entry: Option<crate::model::FileEntry>, widget: &gtk::Widget, x: f64, y: f64) {
+        let items = match entry {
+            Some(_) => actions::item_menu(self, tab, tab.selected()),
+            None => actions::folder_menu(self, tab),
+        };
+        nyx_ui::menu::popup_at(widget, x, y, items);
+    }
+
+    /// Keys that act on the selected items; not while typing in a field.
+    fn handle_file_key(self: &Rc<Self>, press: &KeyPress) -> bool {
+        let Some(tab) = self.current() else { return false };
+        let selected = tab.selected();
+        if press.is(bindings::COPY) {
+            actions::copy(&selected, false);
+        } else if press.is(bindings::CUT) {
+            actions::copy(&selected, true);
+        } else if press.is(bindings::PASTE) {
+            if let Some(here) = tab.location() {
+                actions::paste(self, &tab, here);
+            }
+        } else if press.is(bindings::DELETE) {
+            actions::trash(self, &tab, selected);
+        } else if press.is(bindings::RENAME) {
+            if let [entry] = selected.as_slice() {
+                actions::rename(&tab, entry.clone());
+            }
+        } else if press.is(bindings::SELECT_ALL) {
+            tab.model.selection.select_all();
+        } else if press.is(bindings::OPEN_IN_NEW_TAB) {
+            for entry in selected.iter().filter(|e| e.is_directory()) {
+                self.add_tab(entry.location.clone());
+            }
         } else {
             return false;
         }
@@ -300,6 +418,12 @@ impl Window {
     fn add_tab(self: &Rc<Self>, location: Location) {
         let tab = tab::Tab::new(location);
         self.pages.add_child(&tab.page);
+        let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
+        tab.connect_context(move |entry, widget, x, y| {
+            if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
+                w.show_menu(&t, entry, widget, x, y);
+            }
+        });
         let weak = Rc::downgrade(self);
         tab.connect_changed(move || {
             if let Some(w) = weak.upgrade() {
@@ -319,7 +443,7 @@ impl Window {
         self.active.set(index);
         self.pages.set_visible_child(&tab.page);
         self.sync();
-        tab.list.view.grab_focus();
+        tab.focus_view();
     }
 
     fn close_tab(&self, index: usize) {
