@@ -201,6 +201,7 @@ impl Tab {
             peek: Default::default(),
         });
         super::peek::install(&tab);
+        tab.single_clicks(&tab.model.clone(), None);
         tab.bind_preferences();
         let weak = Rc::downgrade(&tab);
         tab.browser.observe(move |event| {
@@ -651,6 +652,32 @@ impl Tab {
         );
     }
 
+    /// Opens on a single click what the view's "Opening items" setting says to.
+    fn single_clicks(self: &Rc<Self>, model: &Rc<EntryModel>, column: Option<usize>) {
+        let (weak, m) = (Rc::downgrade(self), Rc::downgrade(model));
+        *model.hooks.click.borrow_mut() = Some(Box::new(move |index| {
+            let (Some(tab), Some(model)) = (weak.upgrade(), m.upgrade()) else {
+                return;
+            };
+            let Some(entry) = model.entry(index) else {
+                return;
+            };
+            let activation = PreferenceManager::shared().click_activation(tab.mode());
+            let count = if entry.is_directory() {
+                activation.folders
+            } else {
+                activation.files
+            };
+            // In Columns a selected folder already shows in the next column.
+            if count != crate::ui::browser_modes::ClickCount::One
+                || (column.is_some() && entry.is_directory())
+            {
+                return;
+            }
+            tab.open(&entry);
+        }));
+    }
+
     fn record_visit(&self, event: &BrowserEvent) {
         let mut visits = self.visits.borrow_mut();
         let finished = match event {
@@ -741,6 +768,7 @@ impl Tab {
 
     fn wire_column(self: &Rc<Self>, depth: usize, column: &Rc<Column>) {
         self.wire_dnd(&column.model);
+        self.single_clicks(&column.model, Some(depth));
         let click = gtk::GestureClick::new();
         click.set_button(0);
         click.set_propagation_phase(gtk::PropagationPhase::Capture);

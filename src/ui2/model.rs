@@ -40,6 +40,8 @@ pub(super) struct Hooks {
     pub(super) drop: DropHook,
     /// The pointer entered row `Some(index)`, or left it (`None`).
     pub(super) hover: HoverHook,
+    /// A plain single click on row `index`.
+    pub(super) click: RefCell<Option<Box<dyn Fn(u32)>>>,
 }
 
 impl Hooks {
@@ -261,6 +263,22 @@ pub(super) fn on_context(
 
 /// Makes a row draggable and, when it is a folder, a drop target.
 pub(super) fn dnd_on(child: &impl IsA<gtk::Widget>, item: &gtk::ListItem, hooks: &Rc<Hooks>) {
+    let click = gtk::GestureClick::new();
+    click.set_button(gtk::gdk::BUTTON_PRIMARY);
+    let (weak, h) = (item.downgrade(), hooks.clone());
+    click.connect_released(move |gesture, presses, _, _| {
+        let plain = !gesture
+            .current_event_state()
+            .intersects(gtk::gdk::ModifierType::CONTROL_MASK | gtk::gdk::ModifierType::SHIFT_MASK);
+        if presses == 1
+            && plain
+            && let Some(item) = weak.upgrade()
+            && let Some(f) = h.click.borrow().as_ref()
+        {
+            f(item.position());
+        }
+    });
+    child.add_controller(click);
     let motion = gtk::EventControllerMotion::new();
     let (weak, h) = (item.downgrade(), hooks.clone());
     motion.connect_enter(move |m, _, _| {
