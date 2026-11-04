@@ -21,11 +21,17 @@ pub(super) fn row_of(item: &glib::Object) -> Option<std::cell::Ref<'_, Row>> {
 
 type BindHook = RefCell<Option<Box<dyn Fn(usize, &FileEntry)>>>;
 type ContextHook = RefCell<Option<Box<dyn Fn(Option<u32>, &gtk::Widget, f64, f64)>>>;
+type DragHook = RefCell<Option<Box<dyn Fn(u32) -> Vec<FileEntry>>>>;
+type DropHook = RefCell<Option<Box<dyn Fn(Option<FileEntry>, Vec<crate::model::Location>, gtk::gdk::DragAction) -> bool>>>;
 
 #[derive(Default)]
 pub(super) struct Hooks {
     pub(super) bind: BindHook,
     pub(super) context: ContextHook,
+    /// The entries a drag starting on row `index` carries.
+    pub(super) drag: DragHook,
+    /// Files dropped on a row (`Some`, when it is a folder) or on the view.
+    pub(super) drop: DropHook,
 }
 
 impl Hooks {
@@ -119,4 +125,63 @@ impl EntryModel {
 pub(super) fn on_context(widget: &impl IsA<gtk::Widget>, hooks: &Rc<Hooks>, position: impl Fn() -> Option<u32> + 'static) {
     let hooks = hooks.clone();
     nyx_ui::menu::on_right_click(widget, move |w, x, y| hooks.context(position(), w, x, y));
+}
+
+/// Makes a row draggable and, when it is a folder, a drop target.
+pub(super) fn dnd_on(child: &impl IsA<gtk::Widget>, item: &gtk::ListItem, hooks: &Rc<Hooks>) {
+    let source = gtk::DragSource::new();
+    source.set_actions(gtk::gdk::DragAction::COPY | gtk::gdk::DragAction::MOVE);
+    let (weak, h) = (item.downgrade(), hooks.clone());
+    source.connect_prepare(move |_, _, _| {
+        let index = weak.upgrade()?.position();
+        let entries = h.drag.borrow().as_ref().map(|f| f(index)).unwrap_or_default();
+        super::actions::file_content(&entries)
+    });
+    child.add_controller(source);
+    let target = gtk::DropTarget::new(gtk::gdk::FileList::static_type(), gtk::gdk::DragAction::COPY | gtk::gdk::DragAction::MOVE);
+    target.set_preload(true);
+    let weak = item.downgrade();
+    target.connect_accept(move |_, _| {
+        weak.upgrade()
+            .and_then(|i| i.item())
+            .and_then(|o| row_of(&o).map(|r| r.entry.is_directory()))
+            .unwrap_or(false)
+    });
+    target.connect_enter(|t, _, _| {
+        if let Some(w) = t.widget() {
+            w.add_css_class("drop-target");
+        }
+        super::actions::drop_action(t)
+    });
+    target.connect_motion(|t, _, _| super::actions::drop_action(t));
+    target.connect_leave(|t| {
+        if let Some(w) = t.widget() {
+            w.remove_css_class("drop-target");
+        }
+    });
+    let (weak, h) = (item.downgrade(), hooks.clone());
+    target.connect_drop(move |t, value, _, _| {
+        if let Some(w) = t.widget() {
+            w.remove_css_class("drop-target");
+        }
+        let Some(folder) = weak.upgrade().and_then(|i| i.item()).and_then(|o| row_of(&o).map(|r| r.entry.clone())) else {
+            return false;
+        };
+        let Some(sources) = super::actions::dropped(value) else { return false };
+        h.drop.borrow().as_ref().is_some_and(|f| f(Some(folder), sources, super::actions::forced_action(t)))
+    });
+    child.add_controller(target);
+}
+
+/// Makes a view's empty space take drops into the folder showing.
+pub(super) fn drop_on_view(view: &impl IsA<gtk::Widget>, hooks: &Rc<Hooks>) {
+    let target = gtk::DropTarget::new(gtk::gdk::FileList::static_type(), gtk::gdk::DragAction::COPY | gtk::gdk::DragAction::MOVE);
+    target.connect_enter(|t, _, _| super::actions::drop_action(t));
+    target.connect_motion(|t, _, _| super::actions::drop_action(t));
+    let h = hooks.clone();
+    target.connect_drop(move |t, value, _, _| {
+        let Some(sources) = super::actions::dropped(value) else { return false };
+        h.drop.borrow().as_ref().is_some_and(|f| f(None, sources, super::actions::forced_action(t)))
+    });
+    view.add_controller(target);
 }

@@ -45,6 +45,7 @@ fn column_list(model: &EntryModel) -> gtk::ListView {
         row.append(&more);
         let weak = item.downgrade();
         model::on_context(&row, &hooks, move || weak.upgrade().map(|i| i.position()));
+        model::dnd_on(&row, item, &hooks);
         item.set_child(Some(&row));
     });
     let hooks = model.hooks.clone();
@@ -70,6 +71,7 @@ fn column_list(model: &EntryModel) -> gtk::ListView {
     view.add_css_class("file-column");
     view.set_enable_rubberband(true);
     model::on_context(&view, &model.hooks, || None);
+    model::drop_on_view(&view, &model.hooks);
     view
 }
 
@@ -123,9 +125,5 @@ impl ColumnsView {
 
     pub(super) fn column(&self, depth: usize) -> Option<Rc<Column>> {
         self.columns.borrow().get(depth).cloned()
-    }
-
-    pub(super) fn depth_of(&self, view: &gtk::ListView) -> Option<usize> {
-        self.columns.borrow().iter().position(|c| &c.view == view)
     }
 }

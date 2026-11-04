@@ -60,6 +60,7 @@ fn name_column(hooks: &Rc<Hooks>) -> gtk::ColumnViewColumn {
         row.append(&icon);
         row.append(&label);
         context_on(&row, item, &h);
+        model::dnd_on(&row, item, &h);
         item.set_child(Some(&row));
     });
     let h = hooks.clone();
@@ -122,6 +123,7 @@ impl ListView {
         }));
         view.append_column(&column(&crate::i18n::tr("Kind"), &model.hooks, |label, entry| label.set_text(&kind(entry))));
         model::on_context(&view, &model.hooks, || None);
+        model::drop_on_view(&view, &model.hooks);
         let root = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
             .vexpand(true)

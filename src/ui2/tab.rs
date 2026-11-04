@@ -26,6 +26,7 @@ use crate::ui::{browser_modes::BrowserMode, preferences::PreferenceManager};
 
 type Changed = Box<dyn Fn()>;
 type ContextFn = Box<dyn Fn(Option<FileEntry>, &gtk::Widget, f64, f64)>;
+type DropFn = Box<dyn Fn(Location, Vec<Location>, gtk::gdk::DragAction)>;
 
 pub(super) struct Tab {
     pub(super) browser: Rc<Browser>,
@@ -41,6 +42,7 @@ pub(super) struct Tab {
     shown: RefCell<Option<(Location, usize)>>,
     changed: RefCell<Vec<Changed>>,
     context: RefCell<Option<ContextFn>>,
+    dropped: RefCell<Option<DropFn>>,
     select_next: RefCell<Option<Location>>,
 }
 
@@ -80,6 +82,7 @@ impl Tab {
             shown: RefCell::new(None),
             changed: Default::default(),
             context: RefCell::new(None),
+            dropped: RefCell::new(None),
             select_next: RefCell::new(None),
         });
         let weak = Rc::downgrade(&tab);
@@ -126,8 +129,32 @@ impl Tab {
                 tab.browser.request_visible_metadata_fill(depth, position, entry.location.clone(), false);
             }
         }));
+        tab.wire_dnd(&tab.model.clone());
         tab.browser.navigate(location);
         tab
+    }
+
+    /// Files dropped: the destination folder, the files, and Shift/Ctrl's choice.
+    pub(super) fn connect_drop(&self, f: impl Fn(Location, Vec<Location>, gtk::gdk::DragAction) + 'static) {
+        *self.dropped.borrow_mut() = Some(Box::new(f));
+    }
+
+    fn wire_dnd(self: &Rc<Self>, model: &Rc<EntryModel>) {
+        let m = Rc::downgrade(model);
+        *model.hooks.drag.borrow_mut() = Some(Box::new(move |index| {
+            let Some(model) = m.upgrade() else { return Vec::new() };
+            model.select_for_menu(index);
+            model.selected()
+        }));
+        let weak = Rc::downgrade(self);
+        *model.hooks.drop.borrow_mut() = Some(Box::new(move |folder, sources, action| {
+            let Some(tab) = weak.upgrade() else { return false };
+            let Some(destination) = folder.map(|f| f.location).or_else(|| tab.location()) else { return false };
+            if let Some(f) = tab.dropped.borrow().as_ref() {
+                f(destination, sources, action);
+            }
+            true
+        }));
     }
 
     /// Right-clicks: the item under the pointer (selected for the menu), or none.
@@ -156,6 +183,7 @@ impl Tab {
     }
 
     fn wire_column(self: &Rc<Self>, depth: usize, column: &Rc<Column>) {
+        self.wire_dnd(&column.model);
         let weak = Rc::downgrade(self);
         *column.model.hooks.bind.borrow_mut() = Some(Box::new(move |position, entry| {
             if let Some(tab) = weak.upgrade()

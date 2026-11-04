@@ -38,6 +38,7 @@ impl IconsView {
             tile.append(&label);
             let weak = item.downgrade();
             model::on_context(&tile, &hooks, move || weak.upgrade().map(|i| i.position()));
+        model::dnd_on(&tile, item, &hooks);
             item.set_child(Some(&tile));
         });
         let hooks = model.hooks.clone();
@@ -61,6 +62,7 @@ impl IconsView {
         view.set_min_columns(2);
         view.set_enable_rubberband(true);
         model::on_context(&view, &model.hooks, || None);
+        model::drop_on_view(&view, &model.hooks);
         let root = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
             .vexpand(true)

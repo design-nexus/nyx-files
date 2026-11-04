@@ -134,3 +134,10 @@ window.files-window listview.file-column > row:selected {
 .column-strip .column + .column {
   box-shadow: inset 1px 0 alpha(@theme_text, 0.05);
 }
+
+/* A folder under a drag */
+window.files-window .drop-target {
+  border-radius: var(--nyx-radius-small);
+  box-shadow: inset 0 0 0 2px alpha(@theme_accent, 0.7);
+  background: alpha(@theme_accent, 0.12);
+}

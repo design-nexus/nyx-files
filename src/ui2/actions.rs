@@ -39,18 +39,113 @@ fn keys(binding: crate::ui::keys::Binding) -> String {
     key_label(&Keys::One(binding))
 }
 
-pub(super) fn copy(entries: &[FileEntry], cut: bool) {
+/// The files as clipboard or drag content: a file list and `text/uri-list`,
+/// plus GNOME's copied-files form when `cut` says which it is.
+fn content(entries: &[FileEntry], cut: Option<bool>) -> Option<gdk::ContentProvider> {
     let files: Vec<gio::File> = entries.iter().filter_map(|e| file_of(&e.location)).collect();
     if files.is_empty() {
-        return;
+        return None;
     }
     let list = gdk::ContentProvider::for_value(&gdk::FileList::from_array(&files).to_value());
     let uris: String = files.iter().map(|f| format!("{}\r\n", f.uri())).collect();
     let uri_list = gdk::ContentProvider::for_bytes("text/uri-list", &glib::Bytes::from_owned(uris.clone().into_bytes()));
-    let gnome = format!("{}\n{}", if cut { "cut" } else { "copy" }, uris.replace("\r\n", "\n").trim_end());
-    let gnome = gdk::ContentProvider::for_bytes("x-special/gnome-copied-files", &glib::Bytes::from_owned(gnome.into_bytes()));
+    let mut parts = vec![list, uri_list];
+    if let Some(cut) = cut {
+        let gnome = format!("{}\n{}", if cut { "cut" } else { "copy" }, uris.replace("\r\n", "\n").trim_end());
+        parts.push(gdk::ContentProvider::for_bytes("x-special/gnome-copied-files", &glib::Bytes::from_owned(gnome.into_bytes())));
+    }
+    Some(gdk::ContentProvider::new_union(&parts))
+}
+
+pub(super) fn file_content(entries: &[FileEntry]) -> Option<gdk::ContentProvider> {
+    content(entries, None)
+}
+
+pub(super) fn dropped(value: &glib::Value) -> Option<Vec<Location>> {
+    let files = value.get::<gdk::FileList>().ok()?;
+    let locations: Vec<Location> = files.files().iter().map(location_of).collect();
+    (!locations.is_empty()).then_some(locations)
+}
+
+/// Shift moves and Ctrl copies; otherwise empty, and the drop decides.
+pub(super) fn forced_action(target: &gtk::DropTarget) -> gdk::DragAction {
+    let state = target.current_event_state();
+    if state.contains(gdk::ModifierType::SHIFT_MASK) {
+        gdk::DragAction::MOVE
+    } else if state.contains(gdk::ModifierType::CONTROL_MASK) {
+        gdk::DragAction::COPY
+    } else {
+        gdk::DragAction::empty()
+    }
+}
+
+/// What the pointer shows while over a target.
+pub(super) fn drop_action(target: &gtk::DropTarget) -> gdk::DragAction {
+    let forced = forced_action(target);
+    if forced.is_empty() { gdk::DragAction::MOVE } else { forced }
+}
+
+fn same_device(a: &Location, b: &Location) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    match (a.native_path(), b.native_path()) {
+        (Some(a), Some(b)) => match (std::fs::symlink_metadata(a), std::fs::metadata(b)) {
+            (Ok(a), Ok(b)) => a.dev() == b.dev(),
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+/// Files dropped into `destination`: moved on the same drive, else as the
+/// "Drag & drop to another device" setting says; Shift and Ctrl override.
+pub(super) fn drop_into(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location, sources: Vec<Location>, forced: gdk::DragAction) {
+    let sources: Vec<Location> = sources.into_iter().filter(|s| s != &destination && !destination.is_within(s)).collect();
+    if sources.is_empty() {
+        return;
+    }
+    if forced.contains(gdk::DragAction::MOVE) || forced.contains(gdk::DragAction::COPY) {
+        transfer(window, tab, destination, sources, forced.contains(gdk::DragAction::MOVE));
+        return;
+    }
+    if sources.iter().all(|s| same_device(s, &destination)) {
+        transfer(window, tab, destination, sources, true);
+        return;
+    }
+    use crate::services::CrossVolumeDropStrategy;
+    match crate::ui::preferences::PreferenceManager::shared().cross_volume_drop_strategy() {
+        CrossVolumeDropStrategy::Copy => transfer(window, tab, destination, sources, false),
+        CrossVolumeDropStrategy::Move => transfer(window, tab, destination, sources, true),
+        CrossVolumeDropStrategy::Ask => {
+            let (dialog, card) = widgets::dialog(&crate::i18n::tr("Copy or move to another device?"), 400);
+            let buttons = widgets::hbox(8);
+            buttons.set_halign(gtk::Align::End);
+            let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
+            let copy_button = gtk::Button::with_label(&crate::i18n::tr("Copy"));
+            let move_button = gtk::Button::with_label(&crate::i18n::tr("Move"));
+            copy_button.add_css_class("suggested-action");
+            for b in [&cancel, &move_button, &copy_button] {
+                buttons.append(b);
+            }
+            card.append(&buttons);
+            let d = dialog.clone();
+            cancel.connect_clicked(move |_| d.close());
+            for (button, moving) in [(&copy_button, false), (&move_button, true)] {
+                let (d, w, t, dest, src) = (dialog.clone(), window.clone(), tab.clone(), destination.clone(), sources.clone());
+                button.connect_clicked(move |_| {
+                    d.close();
+                    transfer(&w, &t, dest.clone(), src.clone(), moving);
+                });
+            }
+            dialog.present();
+            copy_button.grab_focus();
+        }
+    }
+}
+
+pub(super) fn copy(entries: &[FileEntry], cut: bool) {
+    let Some(content) = content(entries, Some(cut)) else { return };
     if let Some(display) = gdk::Display::default() {
-        display.clipboard().set_content(Some(&gdk::ContentProvider::new_union(&[list, uri_list, gnome]))).ok();
+        display.clipboard().set_content(Some(&content)).ok();
     }
     CUT.with(|c| *c.borrow_mut() = if cut { entries.iter().map(|e| e.location.clone()).collect() } else { Vec::new() });
 }
@@ -181,14 +276,48 @@ pub(super) fn trash(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>)
     });
 }
 
+/// Asks for a new name with the part before the extension selected.
 pub(super) fn rename(tab: &Rc<Tab>, entry: FileEntry) {
-    let tab = tab.clone();
-    let name = entry.display_name.clone();
-    widgets::ask_text(&crate::i18n::tr("Rename"), "", &name, &crate::i18n::tr("Rename"), move |new_name| {
-        if new_name != entry.display_name {
-            tab.browser.rename(entry.clone(), new_name);
+    let (dialog, card) = widgets::dialog(&crate::i18n::tr("Rename"), 420);
+    let field = gtk::Entry::new();
+    field.set_text(&entry.display_name);
+    card.append(&field);
+    let buttons = widgets::hbox(8);
+    buttons.set_halign(gtk::Align::End);
+    buttons.set_margin_top(6);
+    let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
+    let ok = gtk::Button::with_label(&crate::i18n::tr("Rename"));
+    ok.add_css_class("suggested-action");
+    buttons.append(&cancel);
+    buttons.append(&ok);
+    card.append(&buttons);
+    let d = dialog.clone();
+    cancel.connect_clicked(move |_| d.close());
+    let submit = {
+        let (d, f, tab) = (dialog.clone(), field.clone(), tab.clone());
+        move || {
+            let name = f.text().trim().to_string();
+            if name.is_empty() {
+                f.add_css_class("error");
+                return;
+            }
+            d.close();
+            if name != entry.display_name {
+                tab.browser.rename(entry.clone(), name);
+            }
         }
-    });
+    };
+    let s2 = submit.clone();
+    ok.connect_clicked(move |_| s2());
+    field.connect_activate(move |_| submit());
+    dialog.present();
+    field.grab_focus();
+    let name = field.text();
+    let stem = match name.rfind('.') {
+        Some(dot) if dot > 0 && !name[..dot].is_empty() && name[dot..].len() <= 6 => name[..dot].chars().count() as i32,
+        _ => -1,
+    };
+    field.select_region(0, stem);
 }
 
 pub(super) fn new_folder(tab: &Rc<Tab>) {

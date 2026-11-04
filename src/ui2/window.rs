@@ -424,6 +424,12 @@ impl Window {
                 w.show_menu(&t, entry, widget, x, y);
             }
         });
+        let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
+        tab.connect_drop(move |destination, sources, action| {
+            if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
+                actions::drop_into(&w, &t, destination, sources, action);
+            }
+        });
         let weak = Rc::downgrade(self);
         tab.connect_changed(move || {
             if let Some(w) = weak.upgrade() {
