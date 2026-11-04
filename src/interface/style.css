@@ -14,7 +14,7 @@ window.files-window columnview.file-list {
 window.files-window columnview.file-list > header {
   background: @theme_card;
   border-radius: var(--nyx-radius-small);
-  margin: 4px 0 2px;
+  margin: 0;
 }
 
 window.files-window columnview.file-list > header > button {
@@ -24,7 +24,8 @@ window.files-window columnview.file-list > header > button {
   color: @theme_dim_text;
   font-size: 0.885em;
   font-weight: 600;
-  padding: 6px 10px;
+  min-height: 0;
+  padding: 2px 10px;
 }
 
 window.files-window columnview.file-list > header > button:hover {
@@ -117,14 +118,6 @@ window.files-window rubberband {
   background: alpha(@theme_accent, 0.15);
   border: 1px solid alpha(@theme_accent, 0.6);
   border-radius: 4px;
-}
-
-/* View switch */
-
-window.files-window .view-switch button.segment {
-  min-width: 30px;
-  min-height: 26px;
-  padding: 0 4px;
 }
 
 /* Columns view */
@@ -403,7 +396,37 @@ window.files-chooser .chooser-actions label.error {
 window.files-window .header-group {
   background: @field;
   border-radius: var(--nyx-radius-small);
-  padding: 2px;
+  padding: 0;
+  min-height: 32px;
+}
+
+/* Every header control is the search field's 32 px. */
+window.files-window .app-header button.bar-button,
+window.files-window .app-header togglebutton.bar-button,
+window.files-window .app-header menubutton.bar-button > button,
+window.files-window .app-header menubutton.header-button > button,
+window.files-window .app-header button.header-button,
+window.files-window .app-header .segmented button.segment {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0;
+}
+
+window.files-window .app-header .segmented button.segment {
+  min-width: 34px;
+}
+
+window.files-window .app-header .segmented,
+window.files-window .app-header .header-group,
+window.files-window .app-header button.header-search-field,
+window.files-window .app-header button.header-button,
+window.files-window .app-header menubutton.header-button {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+window.files-window .header-group .pathbar button.crumb {
+  min-height: 32px;
 }
 
 window.files-window .header-group > button.bar-button,
@@ -434,7 +457,7 @@ window.files-window .header-group > button.leftovers-button image {
 
 window.files-window .header-group .header-search {
   margin: 0 0 0 2px;
-  min-height: 28px;
+  min-height: 32px;
   background: @theme_bg;
 }
 
@@ -455,7 +478,7 @@ window.files-window menubutton.header-button > button:hover {
 }
 
 window.files-window button.header-search-field {
-  min-height: 30px;
+  min-height: 32px;
   min-width: 150px;
   padding: 0 10px;
   background: @field;

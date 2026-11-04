@@ -133,7 +133,7 @@ impl Window {
         filter.set_width_chars(16);
         crate::ui::tenxer_mode::hide_while_enabled(&filter);
         let tab_row = TabRow::new(&with_keys("New tab (%{keys})", bindings::TAB_NEW));
-        tab_row.set_hide_single(false);
+        tab_row.set_hide_single(true);
 
         let holder: Rc<RefCell<std::rc::Weak<Window>>> = Rc::default();
         let (h1, h2) = (holder.clone(), holder.clone());
@@ -208,6 +208,24 @@ impl Window {
         let search_field = super::header::search_field(&this);
         search_field.set_margin_start(6);
         header.end.append(&search_field);
+        let new_tab = super::header::group();
+        new_tab.set_margin_start(6);
+        let new_tab_button = widgets::bar_button(
+            "tab-new-symbolic",
+            &with_keys("New tab (%{keys})", bindings::TAB_NEW),
+        );
+        let weak = Rc::downgrade(&this);
+        new_tab_button.connect_clicked(move |_| {
+            if let Some(w) = weak.upgrade() {
+                let location = w
+                    .current()
+                    .and_then(|t| t.location())
+                    .unwrap_or_else(start_location);
+                w.add_tab(location);
+            }
+        });
+        new_tab.append(&new_tab_button);
+        header.end.append(&new_tab);
         header.end.append(&this.build_view_switch());
         let appearance = super::appearance::button(&this);
         appearance.add_css_class("header-button");
@@ -938,6 +956,8 @@ impl Window {
             })
             .collect();
         self.tab_row.set_tabs(&shown, self.active.get());
+        // One tab needs no strip; the header's New tab button opens a second.
+        self.tab_row.root.set_visible(shown.len() > 1);
         let Some(tab) = tabs.get(self.active.get()) else {
             return;
         };
