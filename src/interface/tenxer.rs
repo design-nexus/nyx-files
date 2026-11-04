@@ -62,12 +62,6 @@ pub(super) fn wire(window: &Rc<Window>, tab: &Rc<Tab>) {
             _ => {}
         }
     });
-    let w = Rc::downgrade(window);
-    tab.footer.connect_chord_changed(move |chord| {
-        if let Some(w) = w.upgrade() {
-            w.show_place_keycaps(chord == Some(Chord::Go));
-        }
-    });
 }
 
 /// Escape in a prompt: Filter clears; Search keeps its results; others close.

@@ -636,12 +636,6 @@ impl Chooser {
                 _ => {}
             }
         });
-        let content = Rc::downgrade(&self.content);
-        self.tab.footer.connect_chord_changed(move |chord| {
-            if let Some(content) = content.upgrade() {
-                content.show_keycaps(chord == Some(crate::ui::tenxer_mode::Chord::Go));
-            }
-        });
 
         let weak = Rc::downgrade(self);
         self.sidebar_toggle.connect_toggled(move |toggle| {

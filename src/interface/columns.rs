@@ -18,7 +18,6 @@ const ICON: i32 = 17;
 pub(super) struct Column {
     pub(super) model: Rc<EntryModel>,
     pub(super) view: gtk::ListView,
-    scroller: gtk::ScrolledWindow,
     /// The column and the handle at its right edge that resizes it.
     frame: gtk::Box,
 }
@@ -151,12 +150,7 @@ impl ColumnsView {
             frame.append(&scroller);
             frame.append(&self.resize_handle(&scroller));
             self.strip.append(&frame);
-            let column = Rc::new(Column {
-                model,
-                view,
-                scroller,
-                frame,
-            });
+            let column = Rc::new(Column { model, view, frame });
             make(columns.len(), &column);
             columns.push(column);
         }

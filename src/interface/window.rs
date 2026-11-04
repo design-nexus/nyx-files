@@ -466,10 +466,6 @@ impl Window {
         self.path.edit(&text);
     }
 
-    pub(super) fn show_place_keycaps(&self, shown: bool) {
-        self.content.show_keycaps(shown);
-    }
-
     pub(super) fn visible_pins(&self) -> Vec<Location> {
         self.content.visible_pins()
     }
