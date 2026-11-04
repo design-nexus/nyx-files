@@ -99,11 +99,11 @@ impl EntryModel {
                     row.position != *position || row.entry != **entry
                 };
                 if changed {
-                    *item.borrow_mut::<Row>() = Row {
+                    let fresh = glib::BoxedAnyObject::new(Row {
                         position: *position,
                         entry: (*entry).clone(),
-                    };
-                    self.store.items_changed(i as u32, 1, 1);
+                    });
+                    self.store.splice(i as u32, 1, &[fresh]);
                 }
             }
             if self.selection.selection() != selected {

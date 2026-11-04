@@ -425,6 +425,9 @@ impl Tab {
     }
 
     fn on_event(self: &Rc<Self>, event: &BrowserEvent) {
+        if !matches!(event, BrowserEvent::MetadataFilled { .. }) {
+            self.requested.borrow_mut().clear();
+        }
         match event {
             BrowserEvent::EntryCreated { location } => {
                 *self.select_next.borrow_mut() = Some(location.clone())
