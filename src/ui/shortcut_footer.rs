@@ -35,7 +35,7 @@ type PromptResetListeners = Rc<RefCell<Vec<Box<dyn Fn()>>>>;
 type FilterSource = Rc<RefCell<Option<Rc<dyn Fn() -> Option<Option<FilterStatus>>>>>>;
 
 #[derive(Clone)]
-pub(super) struct ShortcutFooter {
+pub(crate) struct ShortcutFooter {
     root: gtk::Stack,
     status: gtk::Box,
     paste: gtk::Label,
@@ -1360,7 +1360,7 @@ impl ShortcutFooter {
         self.session.is_open()
     }
 
-    pub(in crate::ui) fn handle_key(&self, press: &KeyPress) -> Option<glib::Propagation> {
+    pub(crate) fn handle_key(&self, press: &KeyPress) -> Option<glib::Propagation> {
         const SHIFT: gdk::ModifierType = gdk::ModifierType::SHIFT_MASK;
         let reference_open = self.session.is_open();
         let f1 = press.is(REFERENCE);

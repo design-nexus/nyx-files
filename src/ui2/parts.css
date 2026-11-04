@@ -1,5 +1,5 @@
-/* The preview's own parts (text, code, documents, tables, PDF, images, media,
- * archives), on the 2.0 colours. */
+/* Files' own parts that ui2 reuses (the preview, the shortcut footer and
+ * reference, background jobs, path completion, 10xer), on the 2.0 colours. */
 
 @define-color files_bg @theme_bg;
 @define-color files_surface @theme_surface;
@@ -36,6 +36,79 @@ menubutton.icons-thumbnail-menu > button image,
 .preview-panel-option:focus-visible {
   outline: 2px solid alpha(@files_accent, 0.6);
   outline-offset: -2px;
+}
+
+.search-backdrop {
+  background: alpha(@files_bg, 0.58);
+  transition: opacity 200ms ease-out;
+}
+
+.search-backdrop.modal-hidden {
+  opacity: 0;
+}
+
+.action-dialog-cancel,
+.settings-action-button,
+.settings-action-library-button > button,
+window.dialog.colorchooser button.text-button:not(.suggested-action) {
+  background: transparent;
+  border: 1px solid alpha(@files_border, 0.54);
+  border-radius: 5px;
+  box-shadow: none;
+  color: @files_text;
+  min-height: 26px;
+  padding: 2px 11px;
+  transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out;
+}
+
+.action-dialog-cancel:hover,
+.settings-action-button:hover,
+.settings-action-library-button > button:hover,
+window.dialog.colorchooser button.text-button:not(.suggested-action):hover {
+  background: alpha(@files_accent, 0.15);
+  border-color: @files_text;
+}
+
+.action-dialog-cancel:active,
+.settings-action-button:active,
+.settings-action-library-button > button:active,
+.settings-action-library-button > button:checked,
+window.dialog.colorchooser button.text-button:not(.suggested-action):active {
+  background: alpha(@files_accent, 0.22);
+  border-color: @files_accent;
+  color: @files_accent;
+  transform: scale(0.97);
+}
+
+.action-dialog-cancel:focus-visible,
+.settings-action-button:focus-visible,
+.settings-action-library-button > button:focus-visible,
+window.dialog.colorchooser button.text-button:not(.suggested-action):focus-visible {
+  border-color: @files_accent;
+  outline: 2px solid alpha(@files_accent, 0.5);
+  outline-offset: 1px;
+}
+
+.action-dialog-cancel:disabled,
+.settings-action-button:disabled,
+.settings-action-library-button > button:disabled,
+.action-dialog-confirm:disabled,
+.action-dialog-close:disabled,
+window.dialog.colorchooser button.text-button:not(.suggested-action):disabled,
+window.dialog.colorchooser button.text-button.suggested-action:disabled,
+colorchooser button.circular:disabled {
+  background: alpha(@files_muted, 0.3);
+  border-color: alpha(@files_border, 0.38);
+  color: @files_dim_text;
+  opacity: 0.7;
+}
+
+.file-operation-card .job-status {
+  color: @files_accent;
+}
+
+.file-operation-card .job-description {
+  color: @files_text;
 }
 
 .mode-scroll scrollbar.horizontal > range > trough,
@@ -536,7 +609,7 @@ menubutton.icons-thumbnail-menu > button image,
 
 .preview-document-table > header sort-indicator.ascending,
 .preview-document-table > header sort-indicator.descending {
-  -gtk-icon-source: -gtk-recolor(url("resource:///io/github/lgse/Strata/icons/scalable/actions/files-caret.svg"));
+  -gtk-icon-source: -gtk-recolor(url("resource:///io/github/lgse/Strata/icons/scalable/actions/strata-caret.svg"));
   -gtk-icon-size: 10px;
   min-width: 12px;
   min-height: 12px;
@@ -971,6 +1044,358 @@ entry.preview-command-entry selection {
   color: @files_accent;
 }
 
+.tenxer-splash {
+  opacity: 0;
+  transform: translateY(16px) scale(0.88);
+  transition: opacity 220ms ease-out, transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid alpha(@files_accent, 0.65);
+  box-shadow: 0 0 36px alpha(@files_glow, 0.4);
+}
+
+.tenxer-splash.tenxer-splash-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.tenxer-splash.tenxer-splash-exiting {
+  opacity: 0;
+  transform: translateY(-8px) scale(1);
+  transition: opacity 300ms ease-in, transform 300ms ease-in;
+}
+
+.tenxer-splash.tenxer-splash-static {
+  transform: none;
+  transition: none;
+}
+
+.shortcut-footer {
+  background: @files_surface;
+  color: @files_text;
+  border-top: 1px solid @files_border;
+  padding: 3px 11px 3px 4px;
+  min-height: 24px;
+  font-size: 0.85em;
+}
+
+.shortcut-footer-count,
+.tenxer-experimental,
+.shortcut-footer-chord,
+.shortcut-footer-feedback {
+  color: @files_text;
+  font-weight: normal;
+}
+
+.sidebar-keycap {
+  color: @files_text;
+  background-color: @files_bg;
+  border: 1px solid @files_border;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+
+.shortcut-footer-chord-hint {
+  color: @files_dim_text;
+  font-weight: normal;
+}
+
+.shortcut-footer-prompt-label {
+  color: @files_accent;
+  font-weight: bold;
+}
+
+entry.form-control.shortcut-footer-prompt {
+  min-height: 20px;
+  padding: 0 6px;
+}
+
+entry.form-control.shortcut-footer-prompt:focus,
+entry.form-control.shortcut-footer-prompt:focus-visible,
+entry.form-control.shortcut-footer-prompt:focus-within {
+  border-color: alpha(@files_border, 0.54);
+  box-shadow: none;
+  outline: none;
+}
+
+.tenxer-tag,
+.shortcut-footer-chord-pill,
+.shortcut-footer-paste {
+  color: @files_accent;
+  background-color: alpha(@files_accent, 0.14);
+  border: 1px solid alpha(@files_accent, 0.4);
+  border-radius: 999px;
+  margin: 0;
+  padding: 0 8px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.shortcut-footer-button > button,
+button.shortcut-footer-button {
+  background: transparent;
+  color: @files_text;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-shadow: none;
+  min-height: 20px;
+  min-width: 0;
+  padding: 0 6px;
+}
+
+.shortcut-footer-button > button:hover,
+button.shortcut-footer-button:hover {
+  background: @files_highlight;
+  color: @files_text;
+  border-color: @files_border;
+}
+
+.shortcut-footer-button > button:active,
+.shortcut-footer-button > button:checked,
+button.shortcut-footer-button:active,
+button.shortcut-footer-button:checked {
+  background: @files_highlight;
+  color: @files_text;
+  border-color: @files_accent;
+}
+
+.shortcut-footer-button > button:focus-visible,
+button.shortcut-footer-button:focus-visible {
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+.shortcut-footer-button > button:disabled,
+button.shortcut-footer-button:disabled {
+  color: @files_dim_text;
+  background: @files_surface;
+}
+
+.shortcut-popover > contents,
+.shortcut-reference-panel {
+  background: @files_surface;
+  color: @files_text;
+  border: 1px solid alpha(@files_border, 0.6);
+  border-radius: 9px;
+  padding: 0;
+  box-shadow: 0 0 14px alpha(@files_glow, 0.24);
+}
+
+.shortcut-chord-popover > contents {
+  padding: 8px;
+}
+
+.shortcut-reference-header,
+.shortcut-reference-footer {
+  padding: 14px 20px;
+}
+
+.shortcut-reference-header {
+  border-bottom: 1px solid @files_border;
+}
+
+.shortcut-reference-footer {
+  border-top: 1px solid @files_border;
+}
+
+.shortcut-reference-title {
+  color: @files_text;
+  font-weight: 600;
+}
+
+.shortcut-reference-sidebar {
+  min-width: 225px;
+  border-right: 1px solid @files_border;
+}
+
+.shortcut-reference-categories {
+  padding: 12px 0;
+}
+
+.shortcut-reference-body.compact .shortcut-reference-categories {
+  padding: 10px 12px;
+}
+
+.shortcut-reference-body.compact .shortcut-reference-sidebar {
+  min-width: 0;
+  border-right: 0;
+  border-bottom: 1px solid @files_border;
+}
+
+.shortcut-reference-body.compact .shortcut-reference-results {
+  padding: 12px 16px;
+}
+
+.shortcut-reference-category {
+  background: transparent;
+  color: @files_dim_text;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  padding: 9px 18px;
+}
+
+.shortcut-reference-category:hover {
+  background: alpha(@files_accent, 0.1);
+  color: @files_text;
+}
+
+.shortcut-reference-category:focus,
+.shortcut-reference-category:focus-visible {
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+.shortcut-reference-category.selected {
+  background: alpha(@files_accent, 0.16);
+  color: @files_text;
+  border-left: 3px solid @files_accent;
+}
+
+.shortcut-reference-body.compact .shortcut-reference-category {
+  border: 1px solid alpha(@files_border, 0.4);
+  border-radius: 14px;
+  min-height: 22px;
+  padding: 0 9px;
+}
+
+.shortcut-reference-body.compact .shortcut-reference-category.selected {
+  background: alpha(@files_accent, 0.2);
+  border-color: @files_accent;
+}
+
+.shortcut-reference-body.compact .shortcut-reference-category:focus,
+.shortcut-reference-body.compact .shortcut-reference-category:focus-visible {
+  border-color: @files_accent;
+  box-shadow: 0 0 0 1px @files_accent;
+  outline: none;
+}
+
+.shortcut-reference-search {
+  min-width: 150px;
+}
+
+.shortcut-reference-results separator {
+  background: @files_accent;
+  border: 0;
+  padding: 0;
+  min-height: 1px;
+}
+
+.shortcut-reference-results {
+  padding: 20px 24px;
+}
+
+.shortcut-reference-heading {
+  color: @files_accent;
+  font-weight: 600;
+}
+
+.shortcut-reference-key {
+  color: @files_text;
+  background: alpha(@files_text, 0.06);
+  border: 1px solid @files_border;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 0.9em;
+}
+
+.shortcut-reference-description {
+  color: @files_text;
+}
+
+.shortcut-reference-note,
+.shortcut-reference-count {
+  color: @files_dim_text;
+  font-size: 0.9em;
+}
+
+.shortcut-popover scrolledwindow:focus,
+.shortcut-popover scrolledwindow:focus-visible,
+.shortcut-reference-panel scrolledwindow:focus,
+.shortcut-reference-panel scrolledwindow:focus-visible {
+  outline: none;
+}
+
+.shortcut-reference-scroll:focus,
+.shortcut-reference-scroll:focus-visible {
+  background: alpha(@files_accent, 0.06);
+}
+
+.shortcut-reference-panel.tenxer-active scrolledwindow:focus,
+.shortcut-reference-panel.tenxer-active scrolledwindow:focus-visible {
+  outline: none;
+}
+
+.path-completion-popover contents {
+  background: @files_surface;
+  border: 1px solid alpha(@files_border, 0.55);
+  border-radius: 9px;
+  box-shadow: 0 0 14px alpha(@files_glow, 0.16), 0 8px 24px alpha(@files_bg, 0.32);
+  padding: 4px;
+}
+
+.path-completion-scroll,
+.path-completion-scroll viewport {
+  background: transparent;
+}
+
+.path-completion-list {
+  background: transparent;
+  color: @files_text;
+}
+
+.path-completion-list row.path-completion-row {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  box-shadow: none;
+  color: @files_text;
+  font-size: 0.9em;
+  margin: 1px 0;
+  min-height: 32px;
+  outline: none;
+  padding: 0;
+}
+
+.path-completion-row-content {
+  padding: 5px 9px;
+}
+
+.path-completion-list row.path-completion-row:hover:not(:selected) {
+  background: alpha(@files_highlight, 0.72);
+  color: @files_text;
+}
+
+.path-completion-list row.path-completion-row:selected {
+  background: alpha(@files_accent, 0.22);
+  box-shadow: inset 0 0 0 1px alpha(@files_accent, 0.72);
+  color: @files_text;
+}
+
+.path-completion-list row.path-completion-row:active {
+  background: alpha(@files_accent, 0.28);
+  color: @files_text;
+}
+
+.path-completion-parent {
+  color: @files_dim_text;
+  font-size: 0.82em;
+}
+
+.path-completion-list row.path-completion-row:selected .path-completion-parent {
+  color: @files_text;
+  opacity: 0.72;
+}
+
+.path-completion-shortcuts {
+  border-top: 1px solid alpha(@files_border, 0.28);
+  color: @files_dim_text;
+  font-size: 0.76em;
+  margin-top: 3px;
+  padding: 6px 9px 4px;
+}
+
 .customize-preview {
   padding: 2px 0 8px;
 }
@@ -1064,6 +1489,298 @@ entry.preview-command-entry selection {
   border: 1px solid alpha(@files_border, 0.6);
 }
 
+.settings-dialog entry.settings-search,
+.settings-action-library entry.settings-search {
+  padding-left: calc(1em + 24px);
+  padding-right: calc(1em + 22px);
+}
+
+.jobs-indicator {
+  margin: 0;
+}
+
+.jobs-indicator > button,
+.jobs-indicator > button:hover,
+.jobs-indicator > button:active,
+.jobs-indicator > button:checked {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.jobs-indicator-label {
+  color: @files_accent;
+  font-weight: bold;
+}
+
+.jobs-indicator:hover .jobs-indicator-label {
+  color: @files_text;
+}
+
+popover.jobs-popover.background {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.jobs-popover > contents {
+  background: @files_surface;
+  color: @files_text;
+  border: 1px solid alpha(@files_border, 0.5);
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 6px 24px alpha(@files_bg, 0.4);
+}
+
+.jobs-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid alpha(@files_border, 0.24);
+}
+
+.jobs-title,
+.job-name {
+  color: @files_text;
+  font-weight: 700;
+}
+
+.jobs-running-summary,
+.job-status {
+  color: @files_accent;
+  font-size: 0.85em;
+}
+
+.jobs-finished-summary {
+  color: @files_dim_text;
+  font-size: 0.85em;
+}
+
+.jobs-popover .jobs-list {
+  min-width: 0;
+}
+
+.job-row {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid alpha(@files_border, 0.2);
+  border-radius: 0;
+  margin: 0;
+  padding: 14px 16px;
+}
+
+.job-row:last-child {
+  border-bottom: none;
+}
+
+.job-row.job-active {
+  background: alpha(@files_highlight, 0.18);
+}
+
+.job-icon-bezel {
+  background: alpha(@files_accent, 0.08);
+  border: 1px solid alpha(@files_accent, 0.3);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.job-meta {
+  color: @files_dim_text;
+  font-size: 0.85em;
+}
+
+.job-progress {
+  min-height: 4px;
+  margin-top: 4px;
+}
+
+.job-progress trough {
+  background: alpha(@files_bg, 0.65);
+  border: none;
+  border-radius: 4px;
+  min-height: 4px;
+}
+
+.job-progress progress {
+  background: @files_accent;
+  border: none;
+  border-radius: 4px;
+  min-height: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.job-detail {
+  margin-top: 6px;
+}
+
+.job-log {
+  background: alpha(@files_bg, 0.55);
+  border: 1px solid alpha(@files_border, 0.24);
+  border-radius: 4px;
+  color: @files_text;
+  font-family: monospace;
+  font-size: 0.85em;
+  padding: 8px;
+}
+
+.jobs-empty {
+  color: @files_dim_text;
+  padding: 16px;
+}
+
+.job-action {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-shadow: none;
+  color: @files_accent;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0;
+}
+
+.job-action:hover {
+  background: @files_highlight;
+  color: @files_text;
+}
+
+.job-action:active {
+  background: alpha(@files_accent, 0.22);
+}
+
+.job-action:disabled {
+  color: @files_dim_text;
+  opacity: 0.45;
+}
+
+.job-action:focus-visible {
+  outline: 2px solid @files_accent;
+  outline-offset: -2px;
+}
+
+.job-action.jobs-clear {
+  color: @files_dim_text;
+  padding: 0 4px;
+  font-size: 0.85em;
+}
+
+.job-action.jobs-clear label {
+  transform: translateY(1px);
+}
+
+.settings-action-button,
+.settings-action-library-button > button {
+  min-width: 0;
+  padding: 0 8px;
+}
+
+popover.settings-action-library {
+  background: @files_surface;
+}
+
+popover.settings-action-library > contents {
+  min-width: 440px;
+  background: @files_surface;
+  color: @files_text;
+  border: 1px solid alpha(@files_border, 0.6);
+  border-radius: 9px;
+  padding: 0;
+  box-shadow: none;
+}
+
+.action-library-search {
+  padding: 6px;
+  border-bottom: 1px solid alpha(@files_border, 0.35);
+}
+
+.action-library-search entry {
+  background: transparent;
+  border-color: transparent;
+}
+
+.action-library-filters {
+  padding: 10px 12px;
+  border-bottom: 1px solid alpha(@files_border, 0.35);
+}
+
+.action-library-category {
+  background: transparent;
+  color: @files_dim_text;
+  border: 1px solid alpha(@files_border, 0.4);
+  border-radius: 14px;
+  box-shadow: none;
+  min-height: 22px;
+  padding: 0 9px;
+}
+
+.action-library-category:hover {
+  background: @files_highlight;
+  color: @files_text;
+}
+
+.action-library-category:checked,
+.action-library-category:active {
+  background: alpha(@files_accent, 0.2);
+  color: @files_text;
+  border-color: @files_accent;
+}
+
+.action-library-list {
+  padding: 6px;
+}
+
+.action-library-template {
+  padding: 10px 8px;
+}
+
+.action-library-template:active {
+  transform: none;
+}
+
+.action-library-title {
+  color: @files_text;
+}
+
+.settings-action-library .action-library-language {
+  color: @files_dim_text;
+  border: 1px solid alpha(@files_border, 0.4);
+  border-radius: 4px;
+  font-size: 0.75em;
+  padding: 0 5px;
+}
+
+.action-library-requirements {
+  font-size: 0.8em;
+}
+
+.action-library-footer {
+  padding: 10px 12px;
+  border-top: 1px solid alpha(@files_border, 0.35);
+}
+
+headerbar,
+headerbar > windowhandle > box,
+headerbar.browser-header,
+.mode-pane-header,
+.column-header,
+.list-headings,
+.shortcut-footer {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+
+.list-headings,
+.column-header,
+.shortcut-footer {
+  background: @files_bg;
+}
+
+.shortcut-footer {
+  font-size: 11.5px;
+}
+
 .preview-header {
   background: transparent;
   box-shadow: none;
@@ -1125,4 +1842,9 @@ entry.preview-command-entry selection {
   padding: 0 14px;
   color: mix(@files_dim_text, @files_bg, 0.2);
   font-size: 11.5px;
+}
+
+.settings-shortcut-keys {
+  font-family: monospace;
+  color: @files_dim_text;
 }

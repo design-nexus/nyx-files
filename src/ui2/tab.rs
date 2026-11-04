@@ -39,6 +39,9 @@ pub(super) struct Tab {
     pub(super) page: gtk::Stack,
     /// The views and the preview beside them.
     pub(super) root: gtk::Paned,
+    /// The paned views and preview, with the shortcut footer under them.
+    pub(super) container: gtk::Box,
+    footer: crate::ui::shortcut_footer::ShortcutFooter,
     pub(super) preview: crate::ui::preview::PreviewDrawer,
     filter: crate::ui::search_session::SearchSession,
     results: gtk::ListBox,
@@ -112,6 +115,19 @@ impl Tab {
         root.set_position(i32::MAX);
         root.set_vexpand(true);
         preview.attach_split_only(&root);
+        let footer = crate::ui::shortcut_footer::ShortcutFooter::new(
+            PreferenceManager::shared().browser_mode(),
+        );
+        footer.bind_preferences(&PreferenceManager::shared());
+        let jobs = crate::ui::jobs::JobsIndicator::new();
+        footer.set_activity(jobs.widget());
+        let container = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        container.append(&root);
+        container.append(footer.widget());
+        jobs.bind_window(&container);
+        if let Some(display) = gtk::gdk::Display::default() {
+            let _ = footer.connect_clipboard(&display.clipboard());
+        }
         let tab = Rc::new(Tab {
             browser,
             model,
@@ -120,6 +136,8 @@ impl Tab {
             icons,
             page,
             root,
+            container,
+            footer,
             preview,
             filter: Default::default(),
             results,
@@ -203,6 +221,7 @@ impl Tab {
             },
         );
         tab.preview.observe_browser(&tab.browser);
+        tab.footer.observe_browser(&tab.browser);
         let weak = Rc::downgrade(&tab);
         tab.results.connect_row_activated(move |_, row| {
             let Some(tab) = weak.upgrade() else { return };
@@ -229,6 +248,11 @@ impl Tab {
         });
         tab.browser.navigate(location);
         tab
+    }
+
+    /// Keys for the shortcut footer (F1 and the reference while it is open).
+    pub(super) fn footer_key(&self, press: &crate::ui::keys::KeyPress) -> bool {
+        self.footer.handle_key(press).is_some()
     }
 
     /// Where a filter result goes when activated.
@@ -358,6 +382,7 @@ impl Tab {
 
     pub(super) fn set_mode(self: &Rc<Self>, mode: BrowserMode) {
         self.mode.set(mode);
+        self.footer.set_mode(mode);
         self.apply_grouping();
         self.refresh();
         self.show_page();
@@ -547,6 +572,12 @@ impl Tab {
             self.browser.with_column_entries(depth, |entries| {
                 column.model.set_entries(entries, show_hidden)
             });
+            if column.model.selected().is_empty() {
+                let positions = self.browser.selected_positions(depth);
+                if !positions.is_empty() {
+                    column.model.select_positions(&positions);
+                }
+            }
         }
         self.syncing.set(false);
     }
@@ -712,6 +743,12 @@ impl Tab {
             self.browser.with_column_entries(depth, |entries| {
                 self.model.set_entries(entries, show_hidden)
             });
+            if self.model.selected().is_empty() {
+                let positions = self.browser.selected_positions(depth);
+                if !positions.is_empty() {
+                    self.model.select_positions(&positions);
+                }
+            }
             self.syncing.set(false);
         }
         if let Some(location) = self.select_next.borrow().clone() {

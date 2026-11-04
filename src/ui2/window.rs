@@ -339,6 +339,9 @@ impl Window {
     }
 
     fn handle_key(self: &Rc<Self>, press: &KeyPress) -> bool {
+        if self.current().is_some_and(|t| t.footer_key(press)) {
+            return true;
+        }
         let tab = self.current();
         let count = self.tabs.borrow().len().max(1);
         if press.is(bindings::TAB_NEW) {
@@ -667,7 +670,7 @@ impl Window {
 
     fn add_tab(self: &Rc<Self>, location: Location) {
         let tab = tab::Tab::new(location);
-        self.pages.add_child(&tab.root);
+        self.pages.add_child(&tab.container);
         let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
         tab.connect_context(move |entry, widget, x, y| {
             if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
@@ -711,7 +714,7 @@ impl Window {
             return;
         };
         self.active.set(index);
-        self.pages.set_visible_child(&tab.root);
+        self.pages.set_visible_child(&tab.container);
         self.sync();
         tab.focus_view();
     }
@@ -732,7 +735,7 @@ impl Window {
             self.window.close();
             return;
         };
-        self.pages.remove(&tab.root);
+        self.pages.remove(&tab.container);
         let len = self.tabs.borrow().len();
         let active = self.active.get();
         let next = if active > index || active >= len {

@@ -17,7 +17,7 @@ pub(super) fn install() {
     nyx_theme::install(nyx_theme::Style {
         window_class: "files-window",
         base_skip: &[],
-        css: concat!(include_str!("preview.css"), include_str!("style.css")),
+        css: concat!(include_str!("parts.css"), include_str!("style.css")),
         no_glow_css: "",
         extra_colors: None,
         prefs: || {

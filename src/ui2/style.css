@@ -332,3 +332,30 @@ window.files-window list.search-results > row:hover {
 window.files-window list.filter-results {
   padding: 4px 8px;
 }
+
+/* Shortcut footer: quiet text on the one surface */
+
+window.files-window .shortcut-footer {
+  background: transparent;
+  border: none;
+  min-height: 28px;
+  padding: 0 10px;
+  color: @theme_dim_text;
+  font-size: 0.885em;
+}
+
+window.files-window button.shortcut-footer-button,
+window.files-window menubutton.shortcut-footer-button > button {
+  min-height: 24px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: @theme_dim_text;
+}
+
+window.files-window button.shortcut-footer-button:hover,
+window.files-window menubutton.shortcut-footer-button > button:hover {
+  background: @row_hover;
+  color: @theme_text;
+}

@@ -214,6 +214,22 @@ impl EntryModel {
             .collect()
     }
 
+    /// Selects the rows at these browser column positions.
+    pub(super) fn select_positions(&self, positions: &[usize]) {
+        let bits = gtk::Bitset::new_empty();
+        for i in 0..self.len() {
+            if let Some(item) = self.sorted.item(i)
+                && row_of(&item).is_some_and(|r| positions.contains(&r.position))
+            {
+                bits.add(i);
+            }
+        }
+        if !bits.is_empty() {
+            self.selection
+                .set_selection(&bits, &gtk::Bitset::new_range(0, self.len()));
+        }
+    }
+
     /// Selects `index` alone unless it is already part of the selection.
     pub(super) fn select_for_menu(&self, index: u32) {
         if !self.selection.is_selected(index) {
