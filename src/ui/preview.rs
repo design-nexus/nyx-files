@@ -264,9 +264,9 @@ mod tests;
 pub(crate) const PREVIEW_LABEL: &str = "Preview";
 const NEXT_FILE: &[keys::Binding] = &[UP, DOWN];
 
-#[derive(Clone)]
 type Stepper = Rc<dyn Fn(i32) -> Option<FileEntry>>;
 
+#[derive(Clone)]
 pub struct PreviewDrawer {
     state: Rc<PreviewState>,
 }
