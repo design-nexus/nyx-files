@@ -46,7 +46,7 @@ pub(super) use customization::show_customize_modal;
 mod desktop;
 mod destination;
 mod dissolve_delete;
-mod entry;
+pub(crate) mod entry;
 mod entry_animation;
 mod events;
 mod file_commands;

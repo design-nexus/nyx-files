@@ -54,7 +54,7 @@ mod tabs_session;
 pub(crate) mod tenxer_mode;
 mod terminal;
 mod theme;
-mod thumbnail;
+pub(crate) mod thumbnail;
 mod top_bar_navigation;
 pub(crate) mod udiskie_preferences;
 mod virtual_preview;

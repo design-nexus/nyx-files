@@ -9,6 +9,9 @@ use gtk::{gio, glib, prelude::*};
 use crate::model::{FileEntry, MetadataValue};
 
 use super::model::{self, EntryModel, Hooks};
+use crate::ui::thumbnail::ThumbnailSlot;
+
+const ICON: i32 = 18;
 
 pub(super) struct ListView {
     pub(super) root: gtk::ScrolledWindow,
@@ -51,8 +54,7 @@ fn name_column(hooks: &Rc<Hooks>) -> gtk::ColumnViewColumn {
     factory.connect_setup(move |_, item| {
         let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-        let icon = gtk::Image::new();
-        icon.add_css_class("entry-icon");
+        let icon = model::icon_slot(ICON);
         let label = gtk::Label::new(None);
         label.set_xalign(0.0);
         label.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
@@ -69,14 +71,15 @@ fn name_column(hooks: &Rc<Hooks>) -> gtk::ColumnViewColumn {
         let (Some(row), Some(object)) = (item.child(), item.item()) else { return };
         let Some(r) = model::row_of(&object) else { return };
         h.bound(&r);
-        if let Some(icon) = row.first_child().and_downcast::<gtk::Image>() {
-            icon.set_from_gicon(&entry_icon(&r.entry));
+        if let Some(icon) = row.first_child().and_downcast::<ThumbnailSlot>() {
+            model::show_icon(&icon, &r.entry, ICON);
         }
         if let Some(label) = row.last_child().and_downcast::<gtk::Label>() {
             label.set_text(&r.entry.display_name);
         }
         row.set_opacity(if r.entry.is_hidden { 0.6 } else { 1.0 });
     });
+    model::cancel_on_unbind(&factory);
     let column = gtk::ColumnViewColumn::new(Some(&crate::i18n::tr("Name")), Some(factory));
     column.set_expand(true);
     column.set_resizable(true);

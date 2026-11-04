@@ -115,7 +115,7 @@ pub(in crate::ui) fn entry_filter(
     })
 }
 
-pub(in crate::ui) fn entry_icon(entry: &FileEntry) -> &'static str {
+pub(crate) fn entry_icon(entry: &FileEntry) -> &'static str {
     if entry.is_broken_symbolic_link() {
         return crate::assets::icons::X;
     }

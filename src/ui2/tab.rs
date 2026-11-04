@@ -44,6 +44,8 @@ pub(super) struct Tab {
     context: RefCell<Option<ContextFn>>,
     dropped: RefCell<Option<DropFn>>,
     select_next: RefCell<Option<Location>>,
+    /// Items whose metadata has been asked for, so a rebind doesn't ask again.
+    requested: RefCell<std::collections::HashSet<Location>>,
 }
 
 pub(super) fn home() -> PathBuf {
@@ -84,6 +86,7 @@ impl Tab {
             context: RefCell::new(None),
             dropped: RefCell::new(None),
             select_next: RefCell::new(None),
+            requested: RefCell::default(),
         });
         let weak = Rc::downgrade(&tab);
         tab.browser.observe(move |event| {
@@ -125,6 +128,7 @@ impl Tab {
             let Some(tab) = weak.upgrade() else { return };
             if entry.modified_unix_seconds == MetadataValue::Unknown
                 && let Some(depth) = tab.depth()
+                && tab.requested.borrow_mut().insert(entry.location.clone())
             {
                 tab.browser.request_visible_metadata_fill(depth, position, entry.location.clone(), false);
             }
@@ -188,6 +192,7 @@ impl Tab {
         *column.model.hooks.bind.borrow_mut() = Some(Box::new(move |position, entry| {
             if let Some(tab) = weak.upgrade()
                 && entry.modified_unix_seconds == MetadataValue::Unknown
+                && tab.requested.borrow_mut().insert(entry.location.clone())
             {
                 tab.browser.request_visible_metadata_fill(depth, position, entry.location.clone(), false);
             }
@@ -364,7 +369,14 @@ impl Tab {
             BrowserEvent::ItemRelocated { to, .. } => *self.select_next.borrow_mut() = Some(to.clone()),
             _ => {}
         }
-        if let BrowserEvent::OpenRequested { .. } = event {
+        if matches!(
+            event,
+            BrowserEvent::OpenRequested { .. }
+                | BrowserEvent::SelectionSynced { .. }
+                | BrowserEvent::SelectionSetChanged { .. }
+                | BrowserEvent::FocusChanged { .. }
+                | BrowserEvent::PreviewRequested { .. }
+        ) {
             return;
         }
         if self.refresh_queued.replace(true) {
@@ -402,16 +414,18 @@ impl Tab {
         if let Some(location) = self.select_next.borrow().clone() {
             let model = self.active_model();
             self.syncing.set(!columns);
-            if model.select_location(&location).is_some() {
-                self.select_next.borrow_mut().take();
-            }
+            let found = model.select_location(&location).is_some();
             self.syncing.set(false);
-        }
-        if !columns {
-            self.push_selection();
+            if found {
+                self.select_next.borrow_mut().take();
+                if !columns {
+                    self.push_selection();
+                }
+            }
         }
         *self.shown.borrow_mut() = Some(key);
         if moved {
+            self.requested.borrow_mut().clear();
             if self.model.len() > 0 {
                 self.list.view.scroll_to(0, None, gtk::ListScrollFlags::NONE, None);
                 self.icons.view.scroll_to(0, gtk::ListScrollFlags::NONE, None);

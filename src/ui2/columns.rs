@@ -7,12 +7,10 @@ use std::{cell::RefCell, rc::Rc};
 
 use gtk::{glib, prelude::*};
 
-use super::{
-    list::entry_icon,
-    model::{self, EntryModel},
-};
+use super::model::{self, EntryModel};
 
 const WIDTH: i32 = 248;
+const ICON: i32 = 17;
 
 pub(super) struct Column {
     pub(super) model: Rc<EntryModel>,
@@ -32,8 +30,7 @@ fn column_list(model: &EntryModel) -> gtk::ListView {
     factory.connect_setup(move |_, item| {
         let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let icon = gtk::Image::new();
-        icon.add_css_class("entry-icon");
+        let icon = model::icon_slot(ICON);
         let label = gtk::Label::new(None);
         label.set_xalign(0.0);
         label.set_hexpand(true);
@@ -55,8 +52,8 @@ fn column_list(model: &EntryModel) -> gtk::ListView {
         let Some(r) = model::row_of(&object) else { return };
         hooks.bound(&r);
         let mut child = row.first_child();
-        if let Some(icon) = child.as_ref().and_then(|c| c.downcast_ref::<gtk::Image>()) {
-            icon.set_from_gicon(&entry_icon(&r.entry));
+        if let Some(icon) = child.as_ref().and_then(|c| c.downcast_ref::<crate::ui::thumbnail::ThumbnailSlot>()) {
+            model::show_icon(icon, &r.entry, ICON);
         }
         child = child.and_then(|c| c.next_sibling());
         if let Some(label) = child.as_ref().and_then(|c| c.downcast_ref::<gtk::Label>()) {
@@ -67,6 +64,7 @@ fn column_list(model: &EntryModel) -> gtk::ListView {
         }
         row.set_opacity(if r.entry.is_hidden { 0.6 } else { 1.0 });
     });
+    model::cancel_on_unbind(&factory);
     let view = gtk::ListView::new(Some(model.selection.clone()), Some(factory));
     view.add_css_class("file-column");
     view.set_enable_rubberband(true);

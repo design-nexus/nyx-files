@@ -397,7 +397,7 @@ enum ThumbnailKind {
     Cover(crate::sandbox::CoverFormat),
 }
 
-pub(super) fn set_thumbnail_or_icon(
+pub(crate) fn set_thumbnail_or_icon(
     image: &ThumbnailSlot,
     entry: &FileEntry,
     fallback_icon: &str,
@@ -1333,7 +1333,7 @@ fn show_path_icon_image(
     });
 }
 
-pub(super) fn cancel_list_item_thumbnails(item: &glib::Object) {
+pub(crate) fn cancel_list_item_thumbnails(item: &glib::Object) {
     let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
         return;
     };

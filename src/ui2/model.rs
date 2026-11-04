@@ -61,13 +61,37 @@ impl EntryModel {
         Self { store, selection, hooks: Rc::default() }
     }
 
+    /// Shows `entries`. When the same items are showing in the same order,
+    /// only rows whose details changed are refreshed and the selection stays.
     pub(super) fn set_entries(&self, entries: &[FileEntry], show_hidden: bool) {
+        let shown: Vec<(usize, &FileEntry)> =
+            entries.iter().enumerate().filter(|(_, e)| show_hidden || !e.is_hidden).collect();
+        let same_items = shown.len() as u32 == self.store.n_items()
+            && shown.iter().enumerate().all(|(i, (_, entry))| {
+                self.store.item(i as u32).is_some_and(|item| row_of(&item).is_some_and(|r| r.entry.location == entry.location))
+            });
+        if same_items {
+            let selected = self.selection.selection();
+            for (i, (position, entry)) in shown.iter().enumerate() {
+                let Some(item) = self.store.item(i as u32).and_downcast::<glib::BoxedAnyObject>() else { continue };
+                let changed = {
+                    let row = item.borrow::<Row>();
+                    row.position != *position || row.entry != **entry
+                };
+                if changed {
+                    *item.borrow_mut::<Row>() = Row { position: *position, entry: (*entry).clone() };
+                    self.store.items_changed(i as u32, 1, 1);
+                }
+            }
+            if self.selection.selection() != selected {
+                self.selection.set_selection(&selected, &gtk::Bitset::new_range(0, self.store.n_items()));
+            }
+            return;
+        }
         let selected: Vec<_> = self.selected().into_iter().map(|e| e.location).collect();
-        let items: Vec<glib::BoxedAnyObject> = entries
+        let items: Vec<glib::BoxedAnyObject> = shown
             .iter()
-            .enumerate()
-            .filter(|(_, e)| show_hidden || !e.is_hidden)
-            .map(|(position, entry)| glib::BoxedAnyObject::new(Row { position, entry: entry.clone() }))
+            .map(|(position, entry)| glib::BoxedAnyObject::new(Row { position: *position, entry: (*entry).clone() }))
             .collect();
         self.store.splice(0, self.store.n_items(), &items);
         if !selected.is_empty() {
@@ -184,4 +208,21 @@ pub(super) fn drop_on_view(view: &impl IsA<gtk::Widget>, hooks: &Rc<Hooks>) {
         h.drop.borrow().as_ref().is_some_and(|f| f(None, sources, super::actions::forced_action(t)))
     });
     view.add_controller(target);
+}
+
+/// An icon slot for a row: the thumbnail when there is one, else the item's icon.
+pub(super) fn icon_slot(size: i32) -> crate::ui::thumbnail::ThumbnailSlot {
+    let slot = crate::ui::thumbnail::ThumbnailSlot::new(size);
+    slot.add_css_class("entry-icon");
+    slot
+}
+
+pub(super) fn show_icon(slot: &crate::ui::thumbnail::ThumbnailSlot, entry: &FileEntry, size: i32) {
+    crate::ui::thumbnail::set_thumbnail_or_icon(slot, entry, crate::ui::browser::entry::entry_icon(entry), size, size);
+    slot.set_hidden(entry.is_hidden);
+}
+
+/// Stops a recycled row's pending thumbnail.
+pub(super) fn cancel_on_unbind(factory: &gtk::SignalListItemFactory) {
+    factory.connect_unbind(|_, item| crate::ui::thumbnail::cancel_list_item_thumbnails(item.upcast_ref()));
 }
