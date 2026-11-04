@@ -80,7 +80,7 @@ pub(in crate::ui::preview) fn follow_theme(widget: &impl IsA<gtk::Widget>) {
     });
 }
 
-pub(in crate::ui) fn apply_theme(tokens: &ThemeTokens) {
+pub(crate) fn apply_theme(tokens: &ThemeTokens) {
     if let Some(palette) = from_tokens(tokens) {
         PALETTE.set(Some(palette));
     }

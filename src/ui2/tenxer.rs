@@ -214,8 +214,25 @@ pub(super) fn browse(state: &State, tab: &Rc<Tab>, press: &KeyPress, pins: &[Loc
         tab.move_cursor(cursor.map_or(0, |c| c - 1), anchor);
     } else if press.is_any(&[VIM_LEFT, LEFT]) {
         tab.step_out();
+    } else if press.is_any(&[VIM_RIGHT, RIGHT])
+        && let Some(entry) = selected.last().filter(|e| !e.is_directory())
+    {
+        // A file opens in the drawer, which takes the keys; it never launches.
+        match crate::ui::preview::preview_target(Some(entry.clone())) {
+            Some(target) => {
+                tab.preview.show(target, browser.active_depth());
+                tab.preview.take_keyboard();
+            }
+            None => feedback(tab, "Nothing to preview"),
+        }
     } else if press.is_any(&[VIM_RIGHT, RIGHT, ENTER]) {
         tab.step_in();
+    } else if press.is_any(&[SCROLL_PREVIEW_DOWN, SCROLL_PREVIEW_UP]) {
+        if tab.preview.is_open() {
+            let lines = if press.is(SCROLL_PREVIEW_DOWN) { 1 } else { -1 };
+            tab.preview
+                .scroll_document(crate::ui::preview::DocumentScroll::Line(lines));
+        }
     } else if press.is(TENXER_LAST_ITEM) {
         tab.move_cursor(i64::MAX, anchor);
     } else if press.is(HALF_PAGE_DOWN) {
@@ -399,7 +416,13 @@ fn browse_chord(
     let browser = &tab.browser;
     let selected = tab.selected();
     match chord {
+        Chord::PreviewTop if press.is(GO_FIRST) => {
+            super::preview_keys::to_top(tab);
+        }
         Chord::Go | Chord::PreviewTop => {
+            if chord == Chord::PreviewTop {
+                tab.focus_view();
+            }
             let Some(target) = go_target(press, pins) else {
                 return false;
             };

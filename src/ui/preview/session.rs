@@ -9,7 +9,7 @@ impl PreviewDrawer {
 
 
 
-    pub(in crate::ui) fn clear_target(&self) {
+    pub(crate) fn clear_target(&self) {
         self.state.clear_target();
     }
 }

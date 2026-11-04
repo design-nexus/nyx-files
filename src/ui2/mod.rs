@@ -18,6 +18,7 @@ mod model;
 mod mount;
 mod open_with;
 mod operations;
+mod preview_keys;
 mod properties;
 mod search;
 mod settings;

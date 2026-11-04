@@ -43,8 +43,8 @@ mod ease_in;
 mod find;
 mod keyboard;
 mod layout;
-pub(in crate::ui) use layout::{separator, separator_width};
-pub(in crate::ui) mod media_layout;
+pub(crate) use layout::{separator, separator_width};
+pub(crate) mod media_layout;
 mod model;
 #[cfg(test)]
 mod pdf_ranges_tests;
@@ -55,8 +55,8 @@ mod popup;
 pub(super) mod video;
 mod waveform;
 
-pub(in crate::ui) const DEFAULT_WIDTH: i32 = 520;
-pub(in crate::ui) const MIN_WIDTH: i32 = 240;
+pub(crate) const DEFAULT_WIDTH: i32 = 520;
+pub(crate) const MIN_WIDTH: i32 = 240;
 const MAX_WIDTH: i32 = 3_000;
 const TEXT_BYTE_LIMIT: usize = 1024 * 1024;
 const SOURCE_INSERT_CHUNK_BYTES: usize = 4 * 1024;
@@ -254,10 +254,12 @@ struct PreviewState {
 }
 
 use keyboard::MediaSeek;
-pub(in crate::ui) use keyboard::{
-    MediaCommand, };
+pub(crate) use keyboard::{
+    ArchiveMove, DocumentScroll, MediaCommand, PreviewSurface, media_key_command,
+};
 
-
+#[cfg(test)]
+mod tests;
 
 pub(crate) const PREVIEW_LABEL: &str = "Preview";
 const NEXT_FILE: &[keys::Binding] = &[UP, DOWN];
@@ -628,7 +630,7 @@ impl PreviewDrawer {
 
     /// Remember opens even before render: double-click activation can outrun
     /// the first click's preview load and otherwise autoplay beside the player.
-    pub(in crate::ui) fn prepare_handoff(
+    pub(crate) fn prepare_handoff(
         &self,
         location: &crate::model::Location,
     ) -> Option<Duration> {
@@ -655,11 +657,11 @@ impl PreviewDrawer {
     }
 
     #[cfg(test)]
-    pub(in crate::ui) fn media_for_test(&self) -> Option<gtk::MediaStream> {
+    pub(crate) fn media_for_test(&self) -> Option<gtk::MediaStream> {
         self.state.media.borrow().clone()
     }
 
-    pub(in crate::ui) fn follow_operations(&self, browser: &Rc<Browser>) {
+    pub(crate) fn follow_operations(&self, browser: &Rc<Browser>) {
         let weak_state = Rc::downgrade(&self.state);
         let weak_browser = Rc::downgrade(browser);
         let subscription = file_activity::observe(move |notice| {
@@ -860,6 +862,9 @@ impl PreviewDrawer {
     }
 
 
+    pub(crate) fn archive_key(&self, motion: ArchiveMove) -> bool {
+        self.state.archive_key(motion)
+    }
 
 
 
@@ -1939,7 +1944,43 @@ impl PreviewState {
         self.reassert_keyboard_owner();
     }
 
+    fn archive_key(&self, motion: ArchiveMove) -> bool {
+        let mut browsers = self.archive_browser.borrow_mut();
+        let Some(browser) = browsers.as_mut() else {
+            return false;
+        };
+        match motion {
+            ArchiveMove::Previous => {
+                browser.move_cursor(-1);
+            }
+            ArchiveMove::Next => {
+                browser.move_cursor(1);
+            }
+            ArchiveMove::Parent => {
+                if !browser.go_up() {
+                    return false;
+                }
+            }
+            ArchiveMove::Open => {
+                browser.open_cursor();
+            }
+        }
+        drop(browsers);
+        self.reassert_keyboard_owner();
+        true
+    }
 
+    fn archive_list_has_focus(&self, focused: Option<&gtk::Widget>) -> bool {
+        self.archive_browser
+            .borrow()
+            .as_ref()
+            .is_some_and(|browser| {
+                focused.is_some_and(|focused| {
+                    focused == browser.list().upcast_ref::<gtk::Widget>()
+                        || focused.is_ancestor(browser.list())
+                })
+            })
+    }
 
 
     fn open_archive_row(self: &Rc<Self>, position: u32) {
@@ -4255,6 +4296,3 @@ fn install_preview_drag(widget: &impl IsA<gtk::Widget>, state: &Rc<PreviewState>
     });
     widget.add_controller(drag);
 }
-
-#[cfg(test)]
-mod tests;

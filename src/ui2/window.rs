@@ -49,6 +49,7 @@ pub(super) struct Window {
     /// A folder being made for the selection, and what moves into it.
     pub(super) pending_group: RefCell<Option<(Location, Vec<Location>)>>,
     pub(super) tenxer: super::tenxer::State,
+    presence: Cell<(crate::app::Presence, bool)>,
 }
 
 /// The window with focus, for keys that reach every window.
@@ -178,6 +179,7 @@ impl Window {
             progress,
             pending_group: RefCell::new(None),
             tenxer: Default::default(),
+            presence: Cell::new((crate::app::Presence::Focused, false)),
             filter,
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
@@ -198,6 +200,13 @@ impl Window {
 
         this.wire();
         *holder.borrow_mut() = Rc::downgrade(&this);
+        let weak = Rc::downgrade(&this);
+        crate::ui::presence::follow(&this.window, move |presence, power_saver| {
+            if let Some(w) = weak.upgrade() {
+                w.presence.set((presence, power_saver));
+                w.share_presence();
+            }
+        });
         let weak = Rc::downgrade(&this);
         this.content
             .connect_drop(move |destination, sources, action| {
@@ -368,12 +377,23 @@ impl Window {
             prefs.set_tenxer_mode(!prefs.tenxer_mode());
             return true;
         }
-        if !super::tenxer::enabled() || press.is_modifier() {
+        if press.is_modifier() {
             return false;
         }
         let Some(tab) = self.current() else {
             return false;
         };
+        if super::preview_keys::has_focus(&tab) && !tab.footer.prompt_has_focus() {
+            use super::preview_keys::Outcome;
+            match super::preview_keys::handle(&tab, press, super::tenxer::enabled()) {
+                Outcome::Stop => return true,
+                Outcome::Widget => return false,
+                Outcome::Listing => {}
+            }
+        }
+        if !super::tenxer::enabled() {
+            return false;
+        }
         if tab.footer.prompt_has_focus() {
             if press.is(bindings::ESCAPE_ANY_SHIFT) {
                 super::tenxer::cancel_prompt(&tab);
@@ -481,10 +501,16 @@ impl Window {
                 });
             }
         } else if press.is(bindings::REFRESH) {
+            // A user Reload also retries Trash on mounts that refused it earlier.
+            crate::adapters::trash_support::forget_all();
             tab.iter().for_each(|t| t.browser.reload_active());
         } else if press.is(bindings::NEW_FOLDER) {
             tab.iter().for_each(actions::new_folder);
-        } else if typing(&self.window) {
+        } else if typing(&self.window)
+            || self
+                .current()
+                .is_some_and(|t| super::preview_keys::has_focus(&t))
+        {
             return false;
         } else if self.handle_file_key(press) {
         } else if press.is_any(&[bindings::TAB_NEXT, bindings::TAB_NEXT_PAGE_DOWN]) {
@@ -780,11 +806,25 @@ impl Window {
         self.select(index);
     }
 
+    fn share_presence(&self) {
+        let (presence, power_saver) = self.presence.get();
+        let active = self.active.get();
+        for (i, tab) in self.tabs.borrow().iter().enumerate() {
+            let shown = if i == active {
+                presence
+            } else {
+                crate::app::Presence::Hidden
+            };
+            tab.set_presence(shown, power_saver);
+        }
+    }
+
     fn select(&self, index: usize) {
         let Some(tab) = self.tabs.borrow().get(index).cloned() else {
             return;
         };
         self.active.set(index);
+        self.share_presence();
         self.pages.set_visible_child(&tab.container);
         self.sync();
         tab.focus_view();

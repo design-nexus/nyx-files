@@ -29,7 +29,7 @@ use super::{
 
 const EASE_IN_RAMP: std::time::Duration = std::time::Duration::from_millis(500);
 
-pub(in crate::ui) use palette::apply_theme;
+pub(crate) use palette::apply_theme;
 
 use super::waveform::Waveform;
 

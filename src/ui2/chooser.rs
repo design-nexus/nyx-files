@@ -702,6 +702,12 @@ impl Chooser {
             glib::Propagation::Proceed
         });
         self.content.sidebar.follow_window(&self.window);
+        let tab = Rc::downgrade(&self.tab);
+        crate::ui::presence::follow(&self.window, move |presence, power_saver| {
+            if let Some(tab) = tab.upgrade() {
+                tab.set_presence(presence, power_saver);
+            }
+        });
         let expanded = PreferenceManager::shared().sidebar_expanded();
         self.sidebar_toggle.set_active(expanded);
         self.content.sidebar.set_collapsed(!expanded);
@@ -750,6 +756,14 @@ impl Chooser {
             return true;
         }
         let tab = &self.tab;
+        if super::preview_keys::has_focus(tab) && !tab.footer.prompt_has_focus() {
+            use super::preview_keys::Outcome;
+            match super::preview_keys::handle(tab, press, prefs.tenxer_mode()) {
+                Outcome::Stop => return true,
+                Outcome::Widget => return false,
+                Outcome::Listing => {}
+            }
+        }
         if tab.footer.prompt_has_focus() {
             if press.is(ESCAPE_ANY_SHIFT) {
                 tenxer::cancel_prompt(tab);

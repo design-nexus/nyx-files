@@ -4,7 +4,7 @@
 //! files, List columns, density, text size, icon size) and the stylesheet that
 //! applies density and text size.
 
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use gtk::{gdk, glib, prelude::*};
 
@@ -117,6 +117,96 @@ fn check(
     button
 }
 
+/// The folder showing's sort, as the tab's browser has it.
+fn sort_of(current: &CurrentTab) -> Option<(Rc<Tab>, usize, crate::model::ViewPreferences)> {
+    let tab = current()?;
+    let depth = tab.browser.active_depth()?;
+    let preferences = tab.browser.column_preferences(depth)?;
+    Some((tab, depth, preferences))
+}
+
+fn action(title: &str, run: impl Fn() + 'static) -> gtk::Button {
+    let button = gtk::Button::with_label(&crate::i18n::tr(title));
+    button.add_css_class("flat");
+    button.add_css_class("menu-item");
+    if let Some(label) = button.child().and_downcast::<gtk::Label>() {
+        label.set_xalign(0.0);
+        label.set_margin_start(26);
+    }
+    button.connect_clicked(move |_| run());
+    button
+}
+
+fn append_sort(body: &gtk::Box, current: &CurrentTab) {
+    use crate::model::{SortDirection, SortKey};
+    body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+    body.append(&heading("Sort"));
+    let checks: Rc<RefCell<Vec<gtk::Button>>> = Rc::default();
+    for (key, title) in [
+        (SortKey::Name, "Name"),
+        (SortKey::Modified, "Modified"),
+        (SortKey::Size, "Size"),
+        (SortKey::Type, "Kind"),
+    ] {
+        let (c1, c2, all) = (current.clone(), current.clone(), checks.clone());
+        let button = check(
+            title,
+            move || sort_of(&c1).is_some_and(|(_, _, p)| p.sort_key == key),
+            move || {
+                if let Some((tab, depth, p)) = sort_of(&c2) {
+                    tab.browser.set_sort(depth, key, p.sort_direction);
+                }
+                if let Some(popover) = all
+                    .borrow()
+                    .first()
+                    .and_then(|b| b.ancestor(gtk::Popover::static_type()))
+                    .and_downcast::<gtk::Popover>()
+                {
+                    popover.popdown();
+                }
+            },
+        );
+        checks.borrow_mut().push(button.clone());
+        body.append(&button);
+    }
+    let (c1, c2) = (current.clone(), current.clone());
+    body.append(&check(
+        "Descending",
+        move || sort_of(&c1).is_some_and(|(_, _, p)| p.sort_direction == SortDirection::Descending),
+        move || {
+            if let Some((tab, depth, p)) = sort_of(&c2) {
+                let direction = match p.sort_direction {
+                    SortDirection::Ascending => SortDirection::Descending,
+                    SortDirection::Descending => SortDirection::Ascending,
+                };
+                tab.browser.set_sort(depth, p.sort_key, direction);
+            }
+        },
+    ));
+    let (c1, c2) = (current.clone(), current.clone());
+    body.append(&check(
+        "Folders first",
+        move || sort_of(&c1).is_some_and(|(_, _, p)| p.folders_first),
+        move || {
+            if let Some((tab, depth, p)) = sort_of(&c2) {
+                tab.browser.set_folders_first(depth, !p.folders_first);
+            }
+        },
+    ));
+    let c = current.clone();
+    body.append(&action("Make this the default sort", move || {
+        if let Some((_, _, p)) = sort_of(&c) {
+            PreferenceManager::shared().set_default_sort(p.sort_key, p.sort_direction);
+        }
+    }));
+    let c = current.clone();
+    body.append(&action("Reset to default sort", move || {
+        if let Some(location) = c().and_then(|t| t.location()) {
+            PreferenceManager::shared().reset_folder_sort(&location);
+        }
+    }));
+}
+
 fn heading(text: &str) -> gtk::Label {
     let label = gtk::Label::new(Some(&crate::i18n::tr(text).to_uppercase()));
     label.set_xalign(0.0);
@@ -211,6 +301,7 @@ fn content(current: &CurrentTab) -> gtk::Box {
             },
         ));
     }
+    append_sort(&body, current);
     if mode == BrowserMode::List {
         body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
         body.append(&heading("Columns"));

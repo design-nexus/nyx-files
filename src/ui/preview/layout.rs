@@ -150,7 +150,7 @@ impl Geometry {
     }
 }
 
-pub(in crate::ui) fn separator(split: &gtk::Paned) -> Option<gtk::Widget> {
+pub(crate) fn separator(split: &gtk::Paned) -> Option<gtk::Widget> {
     let mut child = split.first_child();
     while let Some(widget) = child {
         if widget.css_name() == "separator" {
@@ -161,7 +161,7 @@ pub(in crate::ui) fn separator(split: &gtk::Paned) -> Option<gtk::Widget> {
     None
 }
 
-pub(in crate::ui) fn separator_width(split: &gtk::Paned) -> i32 {
+pub(crate) fn separator_width(split: &gtk::Paned) -> i32 {
     separator(split).map_or(0, |handle| {
         handle.measure(gtk::Orientation::Horizontal, -1).0
     })

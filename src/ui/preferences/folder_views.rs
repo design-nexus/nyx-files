@@ -172,6 +172,18 @@ impl FolderViews {
         self.edits
     }
 
+    pub(in crate::ui) fn touch(&mut self, key: &FolderKey) -> bool {
+        if !self.entries.contains_key(key) {
+            return false;
+        }
+        let used = self.tick();
+        if let Some(entry) = self.entries.get_mut(key) {
+            entry.used = used;
+        }
+        self.edits += 1;
+        self.touched.insert(key.clone(), self.edits);
+        true
+    }
 
     pub(in crate::ui) fn update(
         &mut self,
@@ -555,8 +567,6 @@ fn parse_entry(value: &toml::Value) -> Option<(FolderKey, Entry, bool)> {
     }
     Some((key, Entry { view, used }, clean))
 }
-
-
 
 #[cfg(test)]
 mod tests;

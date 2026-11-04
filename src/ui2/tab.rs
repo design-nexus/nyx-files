@@ -65,6 +65,9 @@ pub(super) struct Tab {
     requested: RefCell<std::collections::HashSet<Location>>,
     /// Replaces launching a file, as the chooser does to pick it.
     open_file: RefCell<Option<OpenFileFn>>,
+    /// Folders opened per depth whose listing has not finished yet; a finished
+    /// one is recorded for Jump to Folder.
+    visits: RefCell<Vec<Option<Location>>>,
 }
 
 pub(super) fn home() -> PathBuf {
@@ -167,7 +170,9 @@ impl Tab {
             select_next: RefCell::new(None),
             requested: RefCell::default(),
             open_file: RefCell::new(None),
+            visits: RefCell::default(),
         });
+        tab.bind_preferences();
         let weak = Rc::downgrade(&tab);
         tab.browser.observe(move |event| {
             if let Some(tab) = weak.upgrade() {
@@ -520,10 +525,124 @@ impl Tab {
 
     pub(super) fn set_mode(self: &Rc<Self>, mode: BrowserMode) {
         self.mode.set(mode);
+        self.set_scope(mode);
         self.footer.set_mode(mode);
         self.apply_grouping();
         self.refresh();
         self.show_page();
+    }
+
+    /// Columns keeps every visible column fresh; the other views only the folder showing.
+    fn set_scope(&self, mode: BrowserMode) {
+        let scope = match mode {
+            BrowserMode::Columns => crate::app::VisibleDepths::All,
+            BrowserMode::Icons | BrowserMode::List => crate::app::VisibleDepths::Active,
+        };
+        self.browser.set_freshness(crate::app::FreshnessInput {
+            scope,
+            ..self.browser.freshness_input()
+        });
+    }
+
+    /// Whether the window is focused, visible or hidden; a tab not showing
+    /// counts as hidden. Listings refresh by it.
+    pub(super) fn set_presence(&self, presence: crate::app::Presence, power_saver: bool) {
+        self.browser.set_freshness(crate::app::FreshnessInput {
+            presence,
+            power_saver,
+            ..self.browser.freshness_input()
+        });
+    }
+
+    fn bind_preferences(self: &Rc<Self>) {
+        let prefs = PreferenceManager::shared();
+        self.set_scope(self.mode.get());
+        let weak = Rc::downgrade(self);
+        prefs.bind_preference(
+            &self.page,
+            PreferenceManager::watch_network_folders,
+            move |_, watch| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.browser.set_freshness(crate::app::FreshnessInput {
+                        watch_network_folders: watch,
+                        ..tab.browser.freshness_input()
+                    });
+                }
+            },
+        );
+        let weak = Rc::downgrade(self);
+        prefs.bind_preference(
+            &self.page,
+            PreferenceManager::sort_preferences,
+            move |_, value| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.browser.apply_default_preferences(value);
+                }
+            },
+        );
+        let weak = Rc::downgrade(self);
+        prefs.bind_preference(
+            &self.page,
+            PreferenceManager::remember_folder_views,
+            move |_, remember| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.browser.set_folder_sorts(remember.then(|| {
+                        Rc::new(|location: &Location, opened| {
+                            PreferenceManager::shared().resolve_folder_sort(location, opened)
+                        }) as crate::app::FolderSortResolver
+                    }));
+                }
+            },
+        );
+        let weak = Rc::downgrade(self);
+        prefs.bind_preference(
+            &self.page,
+            PreferenceManager::folder_sorts_revision,
+            move |_, _| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.browser.resync_column_sorts();
+                }
+            },
+        );
+        let weak = Rc::downgrade(self);
+        prefs.bind_preference(
+            &self.page,
+            PreferenceManager::tenxer_mode,
+            move |_, enabled| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.browser.set_preserve_fill_on_removal(enabled);
+                }
+            },
+        );
+    }
+
+    fn record_visit(&self, event: &BrowserEvent) {
+        let mut visits = self.visits.borrow_mut();
+        let finished = match event {
+            BrowserEvent::Reset => {
+                visits.clear();
+                None
+            }
+            BrowserEvent::ColumnsTruncated { len, .. } => {
+                visits.truncate(*len);
+                None
+            }
+            BrowserEvent::ColumnAdded { depth, location } => {
+                if visits.len() <= *depth {
+                    visits.resize(depth + 1, None);
+                }
+                visits[*depth] = Some(location.clone());
+                None
+            }
+            BrowserEvent::LoadFinished { depth, .. } => {
+                visits.get_mut(*depth).and_then(Option::take)
+            }
+            _ => None,
+        };
+        drop(visits);
+        if let Some(path) = finished.as_ref().and_then(Location::native_path) {
+            crate::services::NavigationHistory::shared().record(path);
+        }
     }
 
     /// Steps the Icons size (positive is larger), or resets it with 0, and saves
@@ -828,6 +947,7 @@ impl Tab {
         if let Some(f) = self.events.borrow().as_ref() {
             f(event);
         }
+        self.record_visit(event);
         if !matches!(event, BrowserEvent::MetadataFilled { .. }) {
             self.requested.borrow_mut().clear();
         }

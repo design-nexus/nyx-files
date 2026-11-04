@@ -29,6 +29,8 @@ const FILE_NAME: &str = "folder-views.toml";
 /// Coalesces bursts of changes, such as a thumbnail-size drag, into one write
 /// that stays off the click that made them.
 const SAVE_DELAY: Duration = Duration::from_millis(500);
+/// Opening folders only refreshes use times, which can wait for other changes.
+const USE_SAVE_DELAY: Duration = Duration::from_secs(60);
 /// Another process saves in milliseconds; one stopped mid-save must not hold up exit.
 const EXIT_LOCK_WAIT: Duration = Duration::from_secs(1);
 
@@ -101,7 +103,7 @@ impl FolderViewStore {
     }
 }
 
-pub(in crate::ui) fn folder_views_path() -> PathBuf {
+pub(crate) fn folder_views_path() -> PathBuf {
     crate::storage::state_directory().join(FILE_NAME)
 }
 
@@ -155,6 +157,10 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
+    /// Changes whenever a saved folder sort may have changed, for bindings that resolve one.
+    pub(crate) fn folder_sorts_revision(&self) -> u64 {
+        self.folder_sorts_revision.get()
+    }
 
     fn remembered_key(&self, location: &Location) -> Option<FolderKey> {
         if !self.remember_folder_views() {
@@ -167,6 +173,28 @@ impl PreferenceManager {
         self.remembered_key(location).is_some()
     }
 
+    /// `opened` counts as using the folder for the least-recently-used limit.
+    pub(crate) fn resolve_folder_sort(
+        &self,
+        location: &Location,
+        opened: bool,
+    ) -> FolderSort {
+        let Some(key) = self.remembered_key(location) else {
+            return FolderSort::Unremembered;
+        };
+        let store = self.folder_view_store();
+        let (touched, sort) = {
+            let mut views = store.views.borrow_mut();
+            (opened && views.touch(&key), views.view(&key).sort)
+        };
+        if touched {
+            self.schedule_folder_views_write(store, USE_SAVE_DELAY);
+        }
+        match sort {
+            Some((sort_key, sort_direction)) => FolderSort::Saved(sort_key, sort_direction),
+            None => FolderSort::Default,
+        }
+    }
 
     /// A sort equal to the default is not stored, so the folder follows later defaults.
     pub(crate) fn set_folder_sort(
@@ -187,6 +215,14 @@ impl PreferenceManager {
         });
     }
 
+    pub(crate) fn reset_folder_sort(&self, location: &Location) {
+        let Some(key) = self.remembered_key(location) else {
+            return;
+        };
+        self.change_folder_views(Affects::Sorts, |views| {
+            views.update(&key, |view| view.sort = None)
+        });
+    }
 
     pub(crate) fn default_sort(&self) -> (SortKey, SortDirection) {
         self.sort_preferences().sort()
@@ -376,7 +412,7 @@ impl PreferenceManager {
     }
 
     #[cfg(test)]
-    pub(in crate::ui) fn notice_saves_elsewhere(&self) {
+    pub(crate) fn notice_saves_elsewhere(&self) {
         self.merge_folder_views_saved_elsewhere();
         self.adopt_defaults_saved_elsewhere();
     }
@@ -393,7 +429,7 @@ impl PreferenceManager {
         }
     }
 
-    pub(in crate::ui) fn flush_folder_views(&self) {
+    pub(crate) fn flush_folder_views(&self) {
         if let Some(store) = self.folder_views.get()
             && store.views.borrow().has_unsaved()
         {

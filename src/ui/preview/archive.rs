@@ -281,9 +281,47 @@ impl ArchiveBrowser {
         self.selection.set_selected(gtk::INVALID_LIST_POSITION);
     }
 
+    pub(super) fn at_root(&self) -> bool {
+        self.path.borrow().is_empty()
+    }
 
+    pub(super) fn move_cursor(&self, delta: isize) -> bool {
+        let count = self.model.n_items() as usize;
+        if count == 0 {
+            return false;
+        }
+        self.sync_cursor_to_selection();
+        let current = self.cursor.get().min(count - 1);
+        let next = (current as isize + delta).clamp(0, count as isize - 1) as usize;
+        if next == current {
+            return false;
+        }
+        self.cursor.set(next);
+        self.apply_selection();
+        true
+    }
 
+    pub(super) fn open_cursor(&mut self) -> bool {
+        self.sync_cursor_to_selection();
+        let directory = directory_at(&self.tree.root, &self.path.borrow());
+        if !matches!(
+            directory.children.get(self.cursor.get()),
+            Some(ArchiveNode::Directory(_))
+        ) {
+            return false;
+        }
+        self.open_child(self.cursor.get());
+        true
+    }
 
+    pub(super) fn go_up(&mut self) -> bool {
+        let depth = self.path.borrow().len();
+        if depth == 0 {
+            return false;
+        }
+        self.navigate_to(depth - 1);
+        true
+    }
 
     pub(super) fn open_child(&mut self, index: usize) {
         if matches!(

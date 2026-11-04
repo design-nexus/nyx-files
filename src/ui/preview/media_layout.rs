@@ -2,7 +2,7 @@
 
 use gtk::{gdk, glib, graphene, gsk, prelude::*, subclass::prelude::*};
 
-pub(in crate::ui) const MAX_CONTENT_WIDTH: i32 = 1280;
+pub(crate) const MAX_CONTENT_WIDTH: i32 = 1280;
 const MAX_UPSCALE: f64 = 2.0;
 const MEDIA_MARGIN: i32 = 12;
 
@@ -219,13 +219,13 @@ glib::wrapper! {
 }
 
 impl ContentColumn {
-    pub(in crate::ui) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         glib::Object::new()
     }
 
     /// Unwrapped rows can be wider than the viewport; centring each one in
     /// the widest row's width would scatter them, so they share a left edge.
-    pub(in crate::ui) fn set_start_aligned(&self, start_aligned: bool) {
+    pub(crate) fn set_start_aligned(&self, start_aligned: bool) {
         if self.imp().start_aligned.replace(start_aligned) != start_aligned {
             self.layout_changed();
         }

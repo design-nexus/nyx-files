@@ -35,7 +35,7 @@ pub(crate) mod open_with;
 mod pointer;
 pub(crate) mod portal_preferences;
 pub(crate) mod preferences;
-mod presence;
+pub(crate) mod presence;
 pub(crate) mod preview;
 mod progress_dock;
 pub(crate) mod raw_details;
