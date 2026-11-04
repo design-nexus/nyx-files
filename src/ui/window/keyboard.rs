@@ -24,10 +24,10 @@ use crate::{
 use super::{SidebarState, SidebarView, TypeToSearch, topmost_modal_layer, visible_modal_layer};
 
 mod chooser;
-pub(super) mod chords;
+pub(crate) mod chords;
 mod commands;
 mod escape;
-mod files;
+pub(crate) mod files;
 mod focus;
 mod items;
 mod preview;

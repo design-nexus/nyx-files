@@ -56,7 +56,7 @@ pub(crate) mod device_release;
 pub(crate) mod devices;
 pub(crate) mod drive_dialogs;
 pub(crate) mod drive_ops;
-mod keyboard;
+pub(crate) mod keyboard;
 mod network_location;
 mod open_argument;
 mod pinned_drop;

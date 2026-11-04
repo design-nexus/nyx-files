@@ -48,6 +48,7 @@ pub(super) struct Window {
     pub(super) progress: Rc<super::operations::Progress>,
     /// A folder being made for the selection, and what moves into it.
     pub(super) pending_group: RefCell<Option<(Location, Vec<Location>)>>,
+    pub(super) tenxer: super::tenxer::State,
 }
 
 /// The window with focus, for keys that reach every window.
@@ -123,6 +124,7 @@ impl Window {
         filter.set_placeholder_text(Some(&with_keys("Filter (%{keys})", bindings::FILTER)));
         filter.set_valign(gtk::Align::Center);
         filter.set_width_chars(16);
+        crate::ui::tenxer_mode::hide_while_enabled(&filter);
         let tab_row = TabRow::new(&with_keys("New tab (%{keys})", bindings::TAB_NEW));
         tab_row.set_hide_single(false);
 
@@ -175,6 +177,7 @@ impl Window {
             view_switch: RefCell::new(Vec::new()),
             progress,
             pending_group: RefCell::new(None),
+            tenxer: Default::default(),
             filter,
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
@@ -330,6 +333,20 @@ impl Window {
             },
         );
         let keys = gtk::EventControllerKey::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+        let weak = Rc::downgrade(self);
+        crate::ui::keys::on_press(&keys, move |_, press| {
+            let Some(w) = weak.upgrade() else {
+                return glib::Propagation::Proceed;
+            };
+            if w.handle_tenxer_key(press) {
+                glib::Propagation::Stop
+            } else {
+                glib::Propagation::Proceed
+            }
+        });
+        self.window.add_controller(keys);
+        let keys = gtk::EventControllerKey::new();
         let weak = Rc::downgrade(self);
         crate::ui::keys::on_press(&keys, move |_, press| {
             let Some(w) = weak.upgrade() else {
@@ -342,6 +359,71 @@ impl Window {
             }
         });
         self.window.add_controller(keys);
+    }
+
+    /// 10xer keys run first, ahead of the views, when the mode is on.
+    fn handle_tenxer_key(self: &Rc<Self>, press: &KeyPress) -> bool {
+        if press.is(bindings::TENXER_MODE) {
+            let prefs = PreferenceManager::shared();
+            prefs.set_tenxer_mode(!prefs.tenxer_mode());
+            return true;
+        }
+        if !super::tenxer::enabled() || press.is_modifier() {
+            return false;
+        }
+        let Some(tab) = self.current() else {
+            return false;
+        };
+        if tab.footer.prompt_has_focus() {
+            if press.is(bindings::ESCAPE_ANY_SHIFT) {
+                super::tenxer::cancel_prompt(&tab);
+                return true;
+            }
+            return false;
+        }
+        if typing(&self.window) || tab.footer_key(press) {
+            return false;
+        }
+        super::tenxer::handle(self, &tab, press)
+    }
+
+    pub(super) fn focus_filter(&self) {
+        self.filter.grab_focus();
+    }
+
+    pub(super) fn focus_sidebar(&self) {
+        if !self.sidebar_toggle.is_active() {
+            self.sidebar_toggle.set_active(true);
+        }
+        self.content.focus();
+    }
+
+    pub(super) fn edit_path(&self) {
+        let (_, text) = self.current().map(|t| t.crumbs()).unwrap_or_default();
+        self.path.edit(&text);
+    }
+
+    pub(super) fn show_place_keycaps(&self, shown: bool) {
+        self.content.show_keycaps(shown);
+    }
+
+    pub(super) fn visible_pins(&self) -> Vec<Location> {
+        self.content.visible_pins()
+    }
+
+    /// Selects the tab `delta` places away, wrapping.
+    pub(super) fn step_tab(&self, delta: isize) {
+        let count = self.tabs.borrow().len().max(1) as isize;
+        let next = (self.active.get() as isize + delta).rem_euclid(count);
+        self.select(next as usize);
+    }
+
+    pub(super) fn select_tab(&self, index: usize) {
+        self.select(index);
+    }
+
+    pub(super) fn close_current_tab(&self) {
+        self.close_tab(self.active.get());
     }
 
     fn handle_key(self: &Rc<Self>, press: &KeyPress) -> bool {
@@ -360,14 +442,13 @@ impl Window {
         } else if press.is(QUIT) {
             self.window.close();
         } else if press.is(bindings::FILTER) {
-            self.filter.grab_focus();
+            self.focus_filter();
         } else if press.is(bindings::SEARCH) {
             super::search::open(self, super::search::Mode::Everywhere);
         } else if press.is(bindings::JUMP_TO_FOLDER) {
             super::search::open(self, super::search::Mode::Folders);
         } else if press.is(bindings::LOCATION) {
-            let (_, text) = tab.map(|t| t.crumbs()).unwrap_or_default();
-            self.path.edit(&text);
+            self.edit_path();
         } else if press.is(bindings::SIDEBAR) {
             self.sidebar_toggle
                 .set_active(!self.sidebar_toggle.is_active());
@@ -674,7 +755,7 @@ impl Window {
         tab.preview.show(entry, tab.browser.active_depth());
     }
 
-    fn current(&self) -> Option<Rc<tab::Tab>> {
+    pub(super) fn current(&self) -> Option<Rc<tab::Tab>> {
         self.tabs.borrow().get(self.active.get()).cloned()
     }
 
@@ -726,6 +807,7 @@ impl Window {
                 w.sync();
             }
         });
+        super::tenxer::wire(self, &tab);
         let index = {
             let mut tabs = self.tabs.borrow_mut();
             tabs.push(tab);

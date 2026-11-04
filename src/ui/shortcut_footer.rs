@@ -1106,7 +1106,7 @@ impl ShortcutFooter {
         );
     }
 
-    pub(in crate::ui) fn show_feedback(&self, text: &str) {
+    pub(crate) fn show_feedback(&self, text: &str) {
         let epoch = self.feedback_epoch.get().wrapping_add(1);
         self.feedback_epoch.set(epoch);
         self.feedback.set_text(text);
@@ -1145,23 +1145,23 @@ impl ShortcutFooter {
         self.clear_feedback();
     }
 
-    pub(in crate::ui) fn open_prompt(&self, kind: Prompt) -> bool {
+    pub(crate) fn open_prompt(&self, kind: Prompt) -> bool {
         self.open_prompt_with(kind, "")
     }
 
-    pub(in crate::ui) fn open_prompt_with(&self, kind: Prompt, text: &str) -> bool {
+    pub(crate) fn open_prompt_with(&self, kind: Prompt, text: &str) -> bool {
         // An armed chord must stay visible, and the prompt covers its mark.
         self.chords.clear();
         self.prompt.open(&self.root, kind, text)
     }
 
-    pub(in crate::ui) fn select_prompt_region(&self, start: i32, end: i32) {
+    pub(crate) fn select_prompt_region(&self, start: i32, end: i32) {
         self.prompt.entry.select_region(start, end);
     }
 
     /// Runs `listener` as the open prompt's text is edited, not when a prompt
     /// opens empty or closes, or a [`PromptSink`] replaces the text.
-    pub(in crate::ui) fn connect_prompt_changed(
+    pub(crate) fn connect_prompt_changed(
         &self,
         listener: impl Fn(Prompt, String) + 'static,
     ) {
@@ -1234,11 +1234,11 @@ impl ShortcutFooter {
         &self.prompt.entry
     }
 
-    pub(in crate::ui) fn open_prompt_kind(&self) -> Option<Prompt> {
+    pub(crate) fn open_prompt_kind(&self) -> Option<Prompt> {
         self.prompt.kind.get()
     }
 
-    pub(in crate::ui) fn prompt_text(&self) -> String {
+    pub(crate) fn prompt_text(&self) -> String {
         self.prompt.entry.text().to_string()
     }
 
@@ -1254,7 +1254,7 @@ impl ShortcutFooter {
             .then(|| self.prompt.label.text().to_string())
     }
 
-    pub(in crate::ui) fn dismiss_prompt(&self) {
+    pub(crate) fn dismiss_prompt(&self) {
         self.prompt.close();
     }
 
@@ -1284,7 +1284,7 @@ impl ShortcutFooter {
         self.prompt.candidates.position()
     }
 
-    pub(in crate::ui) fn connect_prompt_activated(&self, listener: impl Fn() + 'static) {
+    pub(crate) fn connect_prompt_activated(&self, listener: impl Fn() + 'static) {
         self.prompt.entry.connect_activate(move |_| listener());
     }
 
@@ -1312,7 +1312,7 @@ impl ShortcutFooter {
         self.prompt.candidates.activate(index);
     }
 
-    pub(in crate::ui) fn arm_chord(&self, chord: Chord) {
+    pub(crate) fn arm_chord(&self, chord: Chord) {
         let chooser = self.reference_scope.get().chooser.is_some();
         let rows = chord
             .options(chooser)
@@ -1322,19 +1322,19 @@ impl ShortcutFooter {
         self.chords.set_with(Some(chord), rows);
     }
 
-    pub(in crate::ui) fn arm_chord_with(&self, chord: Chord, rows: Vec<(String, String)>) {
+    pub(crate) fn arm_chord_with(&self, chord: Chord, rows: Vec<(String, String)>) {
         self.chords.set_with(Some(chord), rows);
     }
 
-    pub(in crate::ui) fn armed_chord(&self) -> Option<Chord> {
+    pub(crate) fn armed_chord(&self) -> Option<Chord> {
         self.chords.armed.get()
     }
 
-    pub(in crate::ui) fn cancel_chord(&self) {
+    pub(crate) fn cancel_chord(&self) {
         self.chords.clear();
     }
 
-    pub(in crate::ui) fn connect_chord_changed(&self, listener: impl Fn(Option<Chord>) + 'static) {
+    pub(crate) fn connect_chord_changed(&self, listener: impl Fn(Option<Chord>) + 'static) {
         self.chords.listeners.borrow_mut().push(Box::new(listener));
     }
 
@@ -1348,11 +1348,11 @@ impl ShortcutFooter {
         self.chords.panel.shown_options()
     }
 
-    pub(in crate::ui) fn prompt_is_visible(&self) -> bool {
+    pub(crate) fn prompt_is_visible(&self) -> bool {
         self.prompt.bar.is_visible()
     }
 
-    pub(in crate::ui) fn prompt_has_focus(&self) -> bool {
+    pub(crate) fn prompt_has_focus(&self) -> bool {
         self.prompt.has_focus()
     }
 

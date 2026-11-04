@@ -21,6 +21,7 @@ mod search;
 mod settings;
 mod sidebar;
 mod tab;
+mod tenxer;
 mod theme;
 mod window;
 

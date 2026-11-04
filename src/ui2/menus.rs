@@ -213,7 +213,12 @@ pub(super) fn new_file(tab: &Rc<Tab>) {
 }
 
 /// Moves or copies the selection into a folder chosen in a dialog.
-fn transfer_to(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>, moving: bool) {
+pub(super) fn transfer_to(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    entries: Vec<FileEntry>,
+    moving: bool,
+) {
     let title = crate::i18n::tr(if moving { "Move to" } else { "Copy to" });
     let dialog = gtk::FileDialog::builder().title(title).modal(true).build();
     if let Some(folder) = tab
@@ -272,6 +277,77 @@ fn send_to(window: &Rc<Window>, tab: &Rc<Tab>, entries: &[FileEntry]) -> Option<
         }
     }
     Some(menu::sub(&crate::i18n::tr("Send to…"), items).icon("document-send-symbolic"))
+}
+
+/// Extracts `entry` into a folder chosen in a dialog.
+pub(super) fn extract_to(window: &Rc<Window>, tab: &Rc<Tab>, entry: FileEntry) {
+    let dialog = gtk::FileDialog::builder()
+        .title(crate::i18n::tr("Extract to"))
+        .modal(true)
+        .build();
+    let (w, t) = (window.clone(), tab.clone());
+    dialog.select_folder(
+        Some(&window.window),
+        gio::Cancellable::NONE,
+        move |result| {
+            if let Some(path) = result.ok().and_then(|f| f.path()) {
+                super::operations::extract(&w, &t, entry.clone(), Some(Location::local(path)));
+            }
+        },
+    );
+}
+
+/// Your own actions for the selection (or this folder when nothing is
+/// selected), in menu order, with what to run them on.
+pub(super) fn numbered_actions(
+    tab: &Rc<Tab>,
+) -> Option<(
+    Vec<crate::services::MatchedAction>,
+    Vec<PathBuf>,
+    PathBuf,
+    bool,
+)> {
+    let parent = tab.location()?.native_path().map(PathBuf::from)?;
+    let selected = tab.selected();
+    let background = selected.is_empty();
+    let (inputs, paths) = if background {
+        let here = tab.location()?;
+        (
+            vec![crate::ui::actions::folder_input(&here)?],
+            vec![parent.clone()],
+        )
+    } else {
+        (
+            crate::ui::actions::inputs_for_entries(&selected)?,
+            crate::ui::actions::native_paths(&selected)?,
+        )
+    };
+    let matched = crate::ui::actions::shared().catalog().matches(&inputs);
+    Some((matched, paths, parent, background))
+}
+
+/// Runs the `slot`th (1-based) of [`numbered_actions`].
+pub(super) fn run_numbered_action(window: &Rc<Window>, tab: &Rc<Tab>, slot: usize) -> bool {
+    let Some((matched, paths, parent, background)) = numbered_actions(tab) else {
+        return false;
+    };
+    let Some(found) = matched.get(slot.wrapping_sub(1)) else {
+        return false;
+    };
+    let source = if background {
+        crate::services::InvocationSource::Background
+    } else {
+        crate::services::InvocationSource::Selection
+    };
+    crate::ui::actions::run_action(
+        &window.window,
+        found.action.clone(),
+        paths,
+        parent,
+        source,
+        None,
+    );
+    true
 }
 
 /// Your own actions that apply to these items (or this folder).
@@ -686,17 +762,7 @@ pub(super) fn item_menu(
         let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
         items.push(
             menu::item(&crate::i18n::tr("Extract to…"), move || {
-                let (w, t, e) = (w.clone(), t.clone(), e.clone());
-                let dialog = gtk::FileDialog::builder()
-                    .title(crate::i18n::tr("Extract to"))
-                    .modal(true)
-                    .build();
-                let window = w.window.clone();
-                dialog.select_folder(Some(&window), gio::Cancellable::NONE, move |result| {
-                    if let Some(path) = result.ok().and_then(|f| f.path()) {
-                        super::operations::extract(&w, &t, e.clone(), Some(Location::local(path)));
-                    }
-                });
+                extract_to(&w, &t, e.clone())
             })
             .icon("folder-open-symbolic"),
         );

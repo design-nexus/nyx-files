@@ -41,7 +41,7 @@ pub(super) struct ArmedActions {
     ids: Vec<String>,
 }
 
-fn sort_choice(press: &KeyPress) -> Option<(SortKey, SortDirection)> {
+pub(crate) fn sort_choice(press: &KeyPress) -> Option<(SortKey, SortDirection)> {
     use SortDirection::{Ascending, Descending};
     [
         (SORT_BY_NAME, (SortKey::Name, Ascending)),
@@ -59,13 +59,13 @@ fn sort_choice(press: &KeyPress) -> Option<(SortKey, SortDirection)> {
 }
 
 /// 0 is slot 10.
-fn action_slot(press: &KeyPress) -> Option<(u8, usize)> {
+pub(crate) fn action_slot(press: &KeyPress) -> Option<(u8, usize)> {
     let digit = press.digit_in(ACTIONS_NUMBERS)?;
     let slot = if digit == 0 { 10 } else { usize::from(digit) };
     Some((digit, slot))
 }
 
-fn slot_key(index: usize) -> String {
+pub(crate) fn slot_key(index: usize) -> String {
     use crate::ui::keys::{self, bindings::ACTIONS_NUMBERS};
     keys::digit_label(ACTIONS_NUMBERS.step(), ((index + 1) % 10) as u8)
 }

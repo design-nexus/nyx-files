@@ -197,6 +197,17 @@ pub(super) fn copy(entries: &[FileEntry], cut: bool) {
     });
 }
 
+/// Drops a pending cut, so pasting copies again.
+pub(super) fn clear_cut() {
+    let had = CUT.with(|c| !std::mem::take(&mut *c.borrow_mut()).is_empty());
+    if had && let Some(display) = gdk::Display::default() {
+        display
+            .clipboard()
+            .set_content(None::<&gdk::ContentProvider>)
+            .ok();
+    }
+}
+
 /// After a cut is pasted, the clipboard no longer offers those files as a cut.
 pub(super) fn finish_cut(moved: &[Location]) {
     let cleared = CUT.with(|c| {
@@ -231,6 +242,16 @@ pub(super) fn copy_paths(entries: &[FileEntry]) {
 
 /// Pastes the clipboard's files into `destination`, asking once if names clash.
 pub(super) fn paste(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location) {
+    paste_with(window, tab, destination, None);
+}
+
+/// Pastes with `preset` answering any name clash instead of asking.
+pub(super) fn paste_with(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    destination: Location,
+    preset: Option<TransferConflict>,
+) {
     let Some(display) = gdk::Display::default() else {
         return;
     };
@@ -251,7 +272,7 @@ pub(super) fn paste(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location) {
             return;
         }
         let moving = CUT.with(|c| *c.borrow() == sources);
-        transfer(&window, &tab, destination, sources, moving);
+        transfer_with(&window, &tab, destination, sources, moving, preset);
         if moving {
             CUT.with(|c| c.borrow_mut().clear());
         }
@@ -265,6 +286,17 @@ pub(super) fn transfer(
     destination: Location,
     sources: Vec<Location>,
     moving: bool,
+) {
+    transfer_with(window, tab, destination, sources, moving, None);
+}
+
+fn transfer_with(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    destination: Location,
+    sources: Vec<Location>,
+    moving: bool,
+    preset: Option<TransferConflict>,
 ) {
     let dest_dir = destination.native_path().map(std::path::PathBuf::from);
     let clashes: Vec<&Location> = sources
@@ -301,6 +333,10 @@ pub(super) fn transfer(
     };
     if clashes.is_empty() {
         start(TransferConflict::FailIfExists);
+        return;
+    }
+    if let Some(preset) = preset {
+        start(preset);
         return;
     }
     let title = if clashes.len() == 1 {

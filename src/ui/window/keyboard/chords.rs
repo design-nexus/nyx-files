@@ -25,7 +25,7 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq, Eq)]
-pub(in crate::ui::window) enum GoTarget {
+pub(crate) enum GoTarget {
     FirstItem,
     /// The folder holding the search hit under the cursor.
     HitFolder,
@@ -45,7 +45,7 @@ pub(in crate::ui::window) enum GoTarget {
 
 /// Resolves the second key of **g**. `pins` are the visible PINNED rows in
 /// sidebar display order.
-pub(in crate::ui::window) fn go_target(press: &KeyPress, pins: &[Location]) -> Option<GoTarget> {
+pub(crate) fn go_target(press: &KeyPress, pins: &[Location]) -> Option<GoTarget> {
     let place = |location, validate| Some(GoTarget::Place { location, validate });
     if press.is(GO_FIRST) {
         Some(GoTarget::FirstItem)

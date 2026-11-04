@@ -42,7 +42,7 @@ pub(super) struct Tab {
 
     /// The paned views and preview, with the shortcut footer under them.
     pub(super) container: gtk::Box,
-    footer: crate::ui::shortcut_footer::ShortcutFooter,
+    pub(super) footer: crate::ui::shortcut_footer::ShortcutFooter,
     pub(super) preview: crate::ui::preview::PreviewDrawer,
     filter: crate::ui::search_session::SearchSession,
     results: gtk::ListBox,
@@ -257,6 +257,116 @@ impl Tab {
         *self.events.borrow_mut() = Some(Box::new(f));
     }
 
+    /// The row the keyboard is on in the active view: the last selected.
+    pub(super) fn cursor(&self) -> Option<u32> {
+        self.active_model()
+            .selected_positions()
+            .last()
+            .map(|(i, _)| *i)
+    }
+
+    /// Moves the keyboard row to `to` (clamped), selecting from `anchor` when
+    /// visual mode is on, and scrolls it into view.
+    pub(super) fn move_cursor(&self, to: i64, anchor: Option<u32>) {
+        let model = self.active_model();
+        let len = model.len();
+        if len == 0 {
+            return;
+        }
+        let to = to.clamp(0, i64::from(len) - 1) as u32;
+        match anchor {
+            Some(anchor) => {
+                let (start, end) = (anchor.min(to), anchor.max(to));
+                model.selection.select_range(start, end - start + 1, true);
+            }
+            None => {
+                model.selection.select_item(to, true);
+            }
+        }
+        self.scroll_to(to);
+    }
+
+    fn scroll_to(&self, index: u32) {
+        match self.mode.get() {
+            BrowserMode::List => {
+                self.list
+                    .view
+                    .scroll_to(index, None, gtk::ListScrollFlags::FOCUS, None)
+            }
+            BrowserMode::Icons => {
+                self.icons
+                    .view
+                    .scroll_to(index, gtk::ListScrollFlags::FOCUS, None)
+            }
+            BrowserMode::Columns => {
+                if let Some(column) = self.depth().and_then(|d| self.columns.column(d)) {
+                    column
+                        .view
+                        .scroll_to(index, gtk::ListScrollFlags::FOCUS, None);
+                }
+            }
+        }
+    }
+
+    /// About how many rows fit in the view.
+    pub(super) fn page_rows(&self) -> i64 {
+        i64::from((self.page.height() / 34).max(1))
+    }
+
+    /// Steps left: the column before in Columns, else the enclosing folder.
+    pub(super) fn step_out(&self) {
+        if self.mode.get() == BrowserMode::Columns
+            && let Some(depth) = self.depth().filter(|d| *d > 0)
+        {
+            self.focus_column(depth - 1);
+        } else {
+            self.browser.parent();
+        }
+    }
+
+    /// Steps right: into the folder on the cursor, or opens a file.
+    pub(super) fn step_in(&self) {
+        let Some(entry) = self.cursor().and_then(|i| self.active_model().entry(i)) else {
+            return;
+        };
+        if !entry.is_directory() {
+            self.open(&entry);
+        } else if self.mode.get() == BrowserMode::Columns
+            && let Some(depth) = self.depth()
+        {
+            self.browser.descend(depth, entry.location.clone());
+        } else {
+            self.browser.navigate(entry.location.clone());
+        }
+    }
+
+    /// The next row (forward or back from the cursor, wrapping) whose name
+    /// contains `text`, ignoring case.
+    pub(super) fn find(&self, text: &str, backward: bool) -> bool {
+        let model = self.active_model();
+        let len = model.len();
+        if len == 0 || text.is_empty() {
+            return false;
+        }
+        let needle = text.to_lowercase();
+        let start = self.cursor().unwrap_or(if backward { 0 } else { len - 1 });
+        for step in 1..=len {
+            let i = if backward {
+                (start + len - step % len) % len
+            } else {
+                (start + step) % len
+            };
+            if model
+                .entry(i)
+                .is_some_and(|e| e.display_name.to_lowercase().contains(&needle))
+            {
+                self.move_cursor(i64::from(i), None);
+                return true;
+            }
+        }
+        false
+    }
+
     /// Keys for the shortcut footer (F1 and the reference while it is open).
     pub(super) fn footer_key(&self, press: &crate::ui::keys::KeyPress) -> bool {
         self.footer.handle_key(press).is_some()
@@ -278,6 +388,14 @@ impl Tab {
     /// Narrows the folder showing to `query` (into subfolders when the setting
     /// says so); an empty query shows the folder again.
     pub(super) fn set_filter(self: &Rc<Self>, query: &str) {
+        self.set_search(
+            query,
+            PreferenceManager::shared().filter_include_subfolders(),
+        );
+    }
+
+    /// Narrows to `query` in this folder, or in its subfolders too.
+    pub(super) fn set_search(self: &Rc<Self>, query: &str, subfolders: bool) {
         use crate::ui::search_session::{SearchInput, SearchScope};
         *self.filter_query.borrow_mut() = query.trim().to_string();
         let Some(root) = self
@@ -292,11 +410,10 @@ impl Tab {
             self.show_page();
             return;
         }
-        let prefs = PreferenceManager::shared();
         let input = SearchInput {
             root,
             show_hidden: self.shows_hidden(),
-            scope: if prefs.filter_include_subfolders() {
+            scope: if subfolders {
                 SearchScope::Subfolders
             } else {
                 SearchScope::Folder

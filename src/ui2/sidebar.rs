@@ -43,6 +43,25 @@ pub(super) struct SidebarContent {
     cloud_watch: Cell<bool>,
     monitor: gio::VolumeMonitor,
     keep: RefCell<Vec<Box<dyn std::any::Any>>>,
+    keycaps: RefCell<Vec<gtk::Label>>,
+    keycaps_shown: Cell<bool>,
+}
+
+/// The key after **g** that opens place `id`.
+fn place_key(id: &str) -> Option<crate::ui::keys::Binding> {
+    use crate::ui::keys::bindings::*;
+    Some(match id {
+        "home" => GO_HOME,
+        "recent" => GO_RECENT,
+        "trash" => GO_TRASH,
+        "network" => GO_NETWORK,
+        "documents" => GO_DOCUMENTS,
+        "downloads" => GO_DOWNLOADS,
+        "music" => GO_MUSIC,
+        "pictures" => GO_PICTURES,
+        "videos" => GO_VIDEOS,
+        _ => return None,
+    })
 }
 
 fn standard(id: &str) -> Option<(&'static str, &'static str, glib::UserDirectory)> {
@@ -182,6 +201,8 @@ impl SidebarContent {
             cloud_watch: Cell::new(false),
             monitor: gio::VolumeMonitor::get(),
             keep: RefCell::default(),
+            keycaps: RefCell::default(),
+            keycaps_shown: Cell::new(false),
         });
         let weak = Rc::downgrade(&content);
         let pins = bookmarks::watch_changes(move |result| {
@@ -347,6 +368,7 @@ impl SidebarContent {
         let scroll = self.sidebar.scroller.vadjustment().value();
         self.sidebar.clear();
         self.rows.borrow_mut().clear();
+        self.keycaps.borrow_mut().clear();
         self.places();
         self.pinned();
         self.devices();
@@ -381,8 +403,57 @@ impl SidebarContent {
                 Some(location.clone()),
                 Target::Place(id, location),
             );
+            if let Some(key) = place_key(id) {
+                self.keycap(
+                    &item,
+                    crate::ui::keys::label(&crate::ui::keys::Keys::One(key)),
+                );
+            }
             self.sidebar.append(&item.button);
         }
+    }
+
+    /// The second key of a **g** chord on `item`, shown while that chord waits.
+    fn keycap(&self, item: &NavItem, text: String) {
+        let Some(content) = item.button.child().and_downcast::<gtk::Box>() else {
+            return;
+        };
+        let keycap = nyx_ui::widgets::label(&text, "keycap");
+        keycap.add_css_class("compact-hide");
+        keycap.set_visible(self.keycaps_shown.get() && !self.sidebar.is_compact());
+        content.append(&keycap);
+        self.keycaps.borrow_mut().push(keycap);
+    }
+
+    pub(super) fn show_keycaps(&self, shown: bool) {
+        self.keycaps_shown.set(shown);
+        let visible = shown && !self.sidebar.is_compact();
+        for keycap in self.keycaps.borrow().iter() {
+            keycap.set_visible(visible);
+        }
+    }
+
+    /// Puts focus on the open place's row, or the first row.
+    pub(super) fn focus(&self) {
+        let current = self.current.borrow().clone();
+        let rows = self.rows.borrow();
+        let row = rows
+            .iter()
+            .find(|(l, _)| Some(l) == current.as_ref())
+            .or_else(|| rows.first());
+        if let Some((_, item)) = row {
+            item.button.grab_focus();
+        }
+    }
+
+    /// The pins in sidebar order, for the g1–g9 keys.
+    pub(super) fn visible_pins(&self) -> Vec<Location> {
+        self.pins
+            .borrow()
+            .iter()
+            .filter(|(l, _)| !is_place(l))
+            .map(|(l, _)| l.clone())
+            .collect()
     }
 
     fn pinned(&self) {
@@ -398,7 +469,7 @@ impl SidebarContent {
         }
         self.sidebar
             .append(&sidebar::group_label(&crate::i18n::tr("Pinned"), false));
-        for (location, name) in pins {
+        for (ordinal, (location, name)) in pins.into_iter().enumerate() {
             let icon = if location.native_path().is_some() {
                 "folder-symbolic"
             } else {
@@ -412,6 +483,18 @@ impl SidebarContent {
                 Target::Pin(location.clone()),
             );
             reorderable(&item.button, &location);
+            if let Some(pin) = u8::try_from(ordinal + 1)
+                .ok()
+                .filter(|n| crate::ui::keys::bindings::PIN_NUMBERS.contains(*n))
+            {
+                self.keycap(
+                    &item,
+                    crate::ui::keys::digit_label(
+                        crate::ui::keys::bindings::PIN_NUMBERS.step(),
+                        pin,
+                    ),
+                );
+            }
             self.sidebar.append(&item.button);
         }
     }
