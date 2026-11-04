@@ -248,7 +248,101 @@ fn labelled(title: &str, control: &impl IsA<gtk::Widget>) -> gtk::Box {
 }
 
 /// The tab the menu acts on: the window's current one, or the chooser's.
-type CurrentTab = Rc<dyn Fn() -> Option<Rc<Tab>>>;
+pub(super) type CurrentTab = Rc<dyn Fn() -> Option<Rc<Tab>>>;
+
+fn append_columns(body: &gtk::Box) {
+    body.append(&heading("Columns"));
+    for id in [
+        ListColumnId::Mode,
+        ListColumnId::Size,
+        ListColumnId::Type,
+        ListColumnId::Modified,
+    ] {
+        let title = match id {
+            ListColumnId::Type => "Kind",
+            other => other.title(),
+        };
+        body.append(&check(
+            title,
+            move || {
+                !PreferenceManager::shared()
+                    .list_hidden_columns()
+                    .contains(&id)
+            },
+            move || {
+                let p = PreferenceManager::shared();
+                let mut hidden = p.list_hidden_columns();
+                if let Some(i) = hidden.iter().position(|h| *h == id) {
+                    hidden.remove(i);
+                } else {
+                    hidden.push(id);
+                }
+                p.set_list_hidden_columns(hidden);
+            },
+        ));
+    }
+}
+
+fn append_icon_size(body: &gtk::Box, current: &CurrentTab) {
+    body.append(&heading("Thumbnail size"));
+    let size = current().map_or(96, |t| t.icons_size());
+    let value = gtk::Label::new(Some(&format!("{size} px")));
+    value.add_css_class("num");
+    let scale = gtk::Scale::with_range(gtk::Orientation::Horizontal, 32.0, 256.0, 8.0);
+    scale.set_value(f64::from(size));
+    scale.set_draw_value(false);
+    scale.set_hexpand(true);
+    scale.set_size_request(200, -1);
+    let c = current.clone();
+    let v = value.clone();
+    scale.connect_value_changed(move |s| {
+        let px = s.value().round() as i32;
+        v.set_text(&format!("{px} px"));
+        if let Some(t) = c() {
+            t.set_icons_size(px);
+        }
+    });
+    let row = labelled("Size", &scale);
+    row.append(&value);
+    body.append(&row);
+    let c = current.clone();
+    body.append(&action("Reset to default size", move || {
+        if let Some(t) = c() {
+            t.resize_icons(0);
+        }
+    }));
+}
+
+fn menu_body() -> gtk::Box {
+    let body = gtk::Box::new(gtk::Orientation::Vertical, 1);
+    body.add_css_class("menu-list");
+    body.add_css_class("appearance-menu");
+    body
+}
+
+/// The sort menu of the header's sort button.
+pub(super) fn sort_menu(current: &CurrentTab) -> gtk::Box {
+    let body = menu_body();
+    append_sort(&body, current);
+    if let Some(first) = body.first_child() {
+        body.remove(&first);
+    }
+    body
+}
+
+/// The thumbnail size of the header's Icons button.
+pub(super) fn thumbnail_menu(current: &CurrentTab) -> gtk::Box {
+    let body = menu_body();
+    append_icon_size(&body, current);
+    body
+}
+
+/// The list columns of the header's List button.
+pub(super) fn columns_menu() -> gtk::Box {
+    let body = menu_body();
+    append_columns(&body);
+    body
+}
 
 fn content(current: &CurrentTab) -> gtk::Box {
     let prefs = PreferenceManager::shared();
@@ -304,52 +398,11 @@ fn content(current: &CurrentTab) -> gtk::Box {
     append_sort(&body, current);
     if mode == BrowserMode::List {
         body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-        body.append(&heading("Columns"));
-        for id in [
-            ListColumnId::Mode,
-            ListColumnId::Size,
-            ListColumnId::Type,
-            ListColumnId::Modified,
-        ] {
-            let title = match id {
-                ListColumnId::Type => "Kind",
-                other => other.title(),
-            };
-            body.append(&check(
-                title,
-                move || {
-                    !PreferenceManager::shared()
-                        .list_hidden_columns()
-                        .contains(&id)
-                },
-                move || {
-                    let p = PreferenceManager::shared();
-                    let mut hidden = p.list_hidden_columns();
-                    if let Some(i) = hidden.iter().position(|h| *h == id) {
-                        hidden.remove(i);
-                    } else {
-                        hidden.push(id);
-                    }
-                    p.set_list_hidden_columns(hidden);
-                },
-            ));
-        }
+        append_columns(&body);
     }
     if mode == BrowserMode::Icons {
         body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-        body.append(&heading("Icon size"));
-        let size = current().map_or(96, |t| t.icons_size());
-        let scale = gtk::Scale::with_range(gtk::Orientation::Horizontal, 32.0, 256.0, 8.0);
-        scale.set_value(f64::from(size));
-        scale.set_draw_value(false);
-        scale.set_hexpand(true);
-        let c = current.clone();
-        scale.connect_value_changed(move |s| {
-            if let Some(t) = c() {
-                t.set_icons_size(s.value().round() as i32);
-            }
-        });
-        body.append(&labelled("Size", &scale));
+        append_icon_size(&body, current);
     }
     body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     body.append(&heading("Density"));
@@ -419,7 +472,7 @@ pub(super) fn button(window: &Rc<Window>) -> gtk::MenuButton {
 /// The header button acting on whichever tab `current` gives.
 pub(super) fn button_for(current: CurrentTab) -> gtk::MenuButton {
     let button = gtk::MenuButton::new();
-    button.set_icon_name("view-more-horizontal-symbolic");
+    button.set_icon_name("preferences-desktop-appearance-symbolic");
     button.add_css_class("bar-button");
     button.set_valign(gtk::Align::Center);
     button.set_tooltip_text(Some(&crate::i18n::tr("Appearance")));

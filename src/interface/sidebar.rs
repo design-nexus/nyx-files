@@ -383,8 +383,10 @@ impl SidebarContent {
     fn places(&self) {
         let prefs = PreferenceManager::shared();
         let home = super::tab::home();
-        self.sidebar
-            .append(&sidebar::group_label(&crate::i18n::tr("Places"), true));
+        self.sidebar.append(&sectioned(
+            sidebar::group_label(&crate::i18n::tr("Places"), true),
+            "places",
+        ));
         for (id, visible) in PLACES {
             if !visible(&prefs) {
                 continue;
@@ -467,8 +469,10 @@ impl SidebarContent {
         if pins.is_empty() {
             return;
         }
-        self.sidebar
-            .append(&sidebar::group_label(&crate::i18n::tr("Pinned"), false));
+        self.sidebar.append(&sectioned(
+            sidebar::group_label(&crate::i18n::tr("Pinned"), false),
+            "pinned",
+        ));
         for (ordinal, (location, name)) in pins.into_iter().enumerate() {
             let icon = if location.native_path().is_some() {
                 "folder-symbolic"
@@ -546,8 +550,10 @@ impl SidebarContent {
         if volumes.is_empty() && mounts.is_empty() && drives.is_empty() {
             return;
         }
-        self.sidebar
-            .append(&sidebar::group_label(&crate::i18n::tr("Devices"), false));
+        self.sidebar.append(&sectioned(
+            sidebar::group_label(&crate::i18n::tr("Devices"), false),
+            "devices",
+        ));
         self.password_drives(&volumes);
         for volume in volumes {
             let mount = volume.get_mount();
@@ -700,6 +706,14 @@ pub(super) fn is_pinned(location: &Location) -> bool {
     is_place(location) || bookmarks::current().iter().any(|(l, _)| l == location)
 }
 
+/// A group heading in its section's colour, as Settings colours its groups.
+fn sectioned(heading: gtk::Box, section: &str) -> gtk::Box {
+    if let Some(label) = heading.first_child() {
+        label.add_css_class(&format!("section-{section}"));
+    }
+    heading
+}
+
 impl SidebarContent {
     /// Cloud accounts from nyx-cloud, when the setting shows them.
     fn cloud(self: &Rc<Self>) {
@@ -707,7 +721,10 @@ impl SidebarContent {
             return;
         }
         let holder = gtk::Box::new(gtk::Orientation::Vertical, 1);
-        let heading = sidebar::group_label(&crate::i18n::tr("Cloud"), false);
+        let heading = sectioned(
+            sidebar::group_label(&crate::i18n::tr("Cloud Storage"), false),
+            "cloud",
+        );
         heading.set_visible(false);
         self.sidebar.append(&heading);
         self.sidebar.append(&holder);
@@ -719,7 +736,16 @@ impl SidebarContent {
             else {
                 return;
             };
-            let Ok(Ok(remotes)) = remotes else { return };
+            let Ok(Ok(remotes)) = remotes else {
+                heading.set_visible(true);
+                let note =
+                    nyx_ui::widgets::label(&crate::i18n::tr("Cloud Storage unavailable"), "dim");
+                note.set_xalign(0.0);
+                note.set_margin_start(10);
+                note.add_css_class("compact-hide");
+                holder.append(&note);
+                return;
+            };
             let remotes: Vec<_> = remotes.into_iter().filter(|r| r.storage_enabled).collect();
             heading.set_visible(!remotes.is_empty());
             for remote in remotes {

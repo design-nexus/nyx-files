@@ -85,6 +85,13 @@ fn keep_arrows(view: &gtk::Widget) {
     });
 }
 
+/// Rows still missing their metadata, or the folder counts, image sizes and
+/// durations the views show.
+fn needs_fill(entry: &FileEntry) -> bool {
+    entry.modified_unix_seconds == MetadataValue::Unknown
+        || crate::ui::browser_modes::icon_details_need_fill(entry)
+}
+
 /// Startup metrics the field harness reads: listings published and the first rows.
 fn published(rows: usize, started: std::time::Instant) {
     crate::metrics::mark_batch_rendered(rows, started);
@@ -243,7 +250,7 @@ impl Tab {
         let weak = Rc::downgrade(&tab);
         *tab.model.hooks.bind.borrow_mut() = Some(Box::new(move |position, entry| {
             let Some(tab) = weak.upgrade() else { return };
-            if entry.modified_unix_seconds == MetadataValue::Unknown
+            if needs_fill(entry)
                 && let Some(depth) = tab.depth()
                 && tab.requested.borrow_mut().insert(entry.location.clone())
             {
@@ -251,12 +258,20 @@ impl Tab {
                     depth,
                     position,
                     entry.location.clone(),
-                    false,
+                    true,
                 );
             }
         }));
         tab.wire_dnd(&tab.model.clone());
         keep_arrows(tab.list.view.upcast_ref());
+        let weak = Rc::downgrade(&tab);
+        tab.list.connect_sort(move |key, direction| {
+            if let Some(tab) = weak.upgrade()
+                && let Some(depth) = tab.depth()
+            {
+                tab.browser.set_sort(depth, key, direction);
+            }
+        });
         keep_arrows(tab.icons.view.upcast_ref());
         tab.apply_grouping();
         let weak = Rc::downgrade(&tab);
@@ -783,14 +798,14 @@ impl Tab {
         let weak = Rc::downgrade(self);
         *column.model.hooks.bind.borrow_mut() = Some(Box::new(move |position, entry| {
             if let Some(tab) = weak.upgrade()
-                && entry.modified_unix_seconds == MetadataValue::Unknown
+                && needs_fill(entry)
                 && tab.requested.borrow_mut().insert(entry.location.clone())
             {
                 tab.browser.request_visible_metadata_fill(
                     depth,
                     position,
                     entry.location.clone(),
-                    false,
+                    true,
                 );
             }
         }));
@@ -1102,6 +1117,9 @@ impl Tab {
                 self.model.set_entries(entries, show_hidden)
             });
             published(self.model.len() as usize, started);
+            if let Some(p) = self.browser.column_preferences(depth) {
+                self.list.show_sort(p.sort_key, p.sort_direction);
+            }
             if self.model.selected().is_empty() {
                 let positions = self.browser.selected_positions(depth);
                 if !positions.is_empty() {

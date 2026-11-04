@@ -1156,6 +1156,15 @@ impl PreferenceManager {
 
 
 
+    pub fn browser_column_width(&self) -> Option<i32> {
+        self.preferences.borrow().browser_column_width
+    }
+
+    pub fn set_browser_column_width(&self, width: Option<i32>) {
+        self.preferences.borrow_mut().browser_column_width = width.filter(|width| *width > 0);
+        self.save_preferences();
+    }
+
     pub fn browser_list_columns(&self) -> Option<ListColumns> {
         self.preferences.borrow().browser_list_columns
     }

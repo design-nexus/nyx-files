@@ -36,4 +36,47 @@ pub(super) fn install() {
             });
         }),
     });
+    install_sections();
+}
+
+/// Each sidebar group's colour, as Settings colours its groups: a theme swatch
+/// per section, following the theme as it changes.
+const SECTIONS: &[(&str, &str)] = &[
+    ("places", "blue"),
+    ("pinned", "amber"),
+    ("devices", "green"),
+    ("cloud", "teal"),
+];
+
+fn sections_css() -> String {
+    let swatches = nyx_theme::swatches();
+    let mut css = String::new();
+    for (section, swatch) in SECTIONS {
+        let colour = nyx_theme::section_accent("files", section);
+        let colour = swatches
+            .iter()
+            .find(|(name, _)| name == swatch)
+            .map(|(_, c)| c.clone())
+            .filter(|_| colour == nyx_theme::app_accent("files"))
+            .unwrap_or(colour);
+        css.push_str(&format!(
+            "window.files-window .section-{section} {{ color: {colour}; }}\n\
+             window.files-window .nav-group.section-{section} {{ border-bottom-color: alpha({colour}, 0.35); }}\n"
+        ));
+    }
+    css
+}
+
+fn install_sections() {
+    let Some(display) = gtk::gdk::Display::default() else {
+        return;
+    };
+    let provider = gtk::CssProvider::new();
+    provider.load_from_string(&sections_css());
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 2,
+    );
+    nyx_theme::on_change(move || provider.load_from_string(&sections_css()));
 }

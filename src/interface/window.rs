@@ -50,6 +50,7 @@ pub(super) struct Window {
     pub(super) pending_group: RefCell<Option<(Location, Vec<Location>)>>,
     pub(super) tenxer: super::tenxer::State,
     presence: Cell<(crate::app::Presence, bool)>,
+    header_actions: RefCell<Option<Rc<super::header::Actions>>>,
 }
 
 /// The window with focus, for keys that reach every window.
@@ -111,13 +112,18 @@ impl Window {
             "go-up-symbolic",
             &with_keys("Enclosing folder (%{keys})", bindings::PARENT_FOLDER),
         );
+        let navigation = super::header::group();
+        navigation.set_margin_start(6);
         for button in [&back, &forward, &up] {
-            header.start.append(button);
+            navigation.append(button);
         }
+        header.start.append(&navigation);
         let path = PathBar::new();
-        let clamp = nyx_ui::clamp::Clamp::new(&path.root, 720);
+        let path_holder = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        let clamp = nyx_ui::clamp::Clamp::new(&path_holder, 720);
         clamp.set_start(true);
         clamp.set_margin_start(8);
+        clamp.set_hexpand(true);
         header.start.append(&clamp);
 
         let filter = gtk::SearchEntry::new();
@@ -180,6 +186,7 @@ impl Window {
             pending_group: RefCell::new(None),
             tenxer: Default::default(),
             presence: Cell::new((crate::app::Presence::Focused, false)),
+            header_actions: RefCell::new(None),
             filter,
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
@@ -192,10 +199,21 @@ impl Window {
                 settings::open(&w);
             }
         });
-        header.end.append(&this.filter);
+        let path_group = super::header::path_group(&this.path, &this);
+        path_group.set_hexpand(true);
+        path_holder.append(&path_group);
+        let header_actions = super::header::Actions::new(&this, &this.filter);
+        header.end.append(&header_actions.root);
+        this.header_actions.replace(Some(header_actions));
+        let search_field = super::header::search_field(&this);
+        search_field.set_margin_start(6);
+        header.end.append(&search_field);
         header.end.append(&this.build_view_switch());
-        header.end.append(&super::appearance::button(&this));
+        let appearance = super::appearance::button(&this);
+        appearance.add_css_class("header-button");
+        header.end.append(&appearance);
         super::appearance::install(&this.window);
+        settings_button.add_css_class("header-button");
         header.end.append(&settings_button);
 
         this.wire();
@@ -256,10 +274,12 @@ impl Window {
             }
         });
         let weak = Rc::downgrade(self);
-        self.filter.connect_stop_search(move |entry| {
-            entry.set_text("");
-            if let Some(tab) = weak.upgrade().and_then(|w| w.current()) {
-                tab.focus_view();
+        self.filter.connect_stop_search(move |_| {
+            if let Some(w) = weak.upgrade() {
+                w.close_filter();
+                if let Some(tab) = w.current() {
+                    tab.focus_view();
+                }
             }
         });
         let weak = Rc::downgrade(self);
@@ -413,7 +433,25 @@ impl Window {
     }
 
     pub(super) fn focus_filter(&self) {
-        self.filter.grab_focus();
+        match self.header_actions.borrow().as_ref() {
+            Some(actions) => actions.open_filter(&self.filter),
+            None => {
+                self.filter.grab_focus();
+            }
+        }
+    }
+
+    fn close_filter(&self) {
+        match self.header_actions.borrow().as_ref() {
+            Some(actions) if actions.filter_toggle.is_active() => {
+                actions.filter_toggle.set_active(false)
+            }
+            _ => self.filter.set_text(""),
+        }
+    }
+
+    pub(super) fn sync_header(&self) {
+        self.sync();
     }
 
     pub(super) fn focus_sidebar(&self) {
@@ -656,10 +694,10 @@ impl Window {
                 _ => return false,
             }
         } else if press.is(bindings::ESCAPE) && tab.filtering() {
-            self.filter.set_text("");
+            self.close_filter();
             tab.focus_view();
         } else if press.is(bindings::FILTER_SLASH) {
-            self.filter.grab_focus();
+            self.focus_filter();
         } else if press.is(bindings::ESCAPE) && tab.preview.is_open() {
             tab.preview.close();
         } else if tab.preview.handle_video_key(press) {
@@ -681,7 +719,7 @@ impl Window {
             && press.modifiers().is_empty()
             && PreferenceManager::shared().type_to_search()
         {
-            self.filter.grab_focus();
+            self.focus_filter();
             self.filter.set_text(&format!("{}{c}", self.filter.text()));
             self.filter.set_position(-1);
         } else {
@@ -912,6 +950,9 @@ impl Window {
         }
         let (crumbs, text) = tab.crumbs();
         self.path.set_crumbs(&crumbs, &text);
+        if let Some(actions) = self.header_actions.borrow().as_ref() {
+            actions.sync(tab);
+        }
         self.back.set_sensitive(tab.browser.can_go_back());
         self.forward.set_sensitive(tab.browser.can_go_forward());
         self.up.set_sensitive(tab.browser.can_go_parent());

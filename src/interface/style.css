@@ -9,14 +9,36 @@ window.files-window columnview.file-list {
   padding: 0 8px 8px 0;
 }
 
+/* The List header: a raised band, its labels readable, the sorted column in
+ * the accent with its arrow. */
+window.files-window columnview.file-list > header {
+  background: @theme_card;
+  border-radius: var(--nyx-radius-small);
+  margin: 4px 0 2px;
+}
+
 window.files-window columnview.file-list > header > button {
   background: transparent;
   border: none;
   box-shadow: none;
-  color: @theme_text_tertiary;
+  color: @theme_dim_text;
   font-size: 0.885em;
-  font-weight: 500;
-  padding: 4px 10px;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+
+window.files-window columnview.file-list > header > button:hover {
+  background: @row_hover;
+  color: @theme_text;
+}
+
+window.files-window columnview.file-list > header > button > box > sort-indicator {
+  color: @theme_accent;
+}
+
+window.files-window columnview.file-list > header > button > box > sort-indicator.ascending,
+window.files-window columnview.file-list > header > button > box > sort-indicator.descending {
+  min-width: 14px;
 }
 
 window.files-window columnview.file-list > listview > row {
@@ -373,4 +395,108 @@ window.files-chooser .chooser-options checkbutton {
 }
 window.files-chooser .chooser-actions label.error {
   color: @theme_danger;
+}
+
+
+/* Header controls sit in groups on a raised fill, as Settings sets its search
+ * field, so they read as buttons against the header. */
+window.files-window .header-group {
+  background: @field;
+  border-radius: var(--nyx-radius-small);
+  padding: 2px;
+}
+
+window.files-window .header-group > button.bar-button,
+window.files-window .header-group > menubutton.bar-button > button,
+window.files-window .header-group > button.bar-button image,
+window.files-window .header-group > menubutton.bar-button > button image {
+  color: @theme_text;
+}
+
+window.files-window .header-group > button.bar-button:hover,
+window.files-window .header-group > menubutton.bar-button > button:hover {
+  background: @row_hover;
+  color: @theme_accent;
+}
+
+window.files-window .header-group > button.bar-button:disabled image {
+  color: @theme_text_tertiary;
+}
+
+window.files-window .header-group > button.bar-button:checked,
+window.files-window .header-group > button.leftovers-button image {
+  color: @theme_accent;
+}
+
+window.files-window .header-group > button.leftovers-button image {
+  color: @theme_warning;
+}
+
+window.files-window .header-group .header-search {
+  margin: 0 0 0 2px;
+  min-height: 28px;
+  background: @theme_bg;
+}
+
+window.files-window .path-group {
+  padding-left: 4px;
+}
+
+window.files-window button.header-button,
+window.files-window menubutton.header-button > button {
+  background: @field;
+  color: @theme_text;
+}
+
+window.files-window button.header-button:hover,
+window.files-window menubutton.header-button > button:hover {
+  background: @row_hover;
+  color: @theme_accent;
+}
+
+window.files-window button.header-search-field {
+  min-height: 30px;
+  min-width: 150px;
+  padding: 0 10px;
+  background: @field;
+  border: none;
+  border-radius: var(--nyx-radius-small);
+  color: @theme_dim_text;
+}
+
+window.files-window button.header-search-field:hover {
+  box-shadow: inset 0 0 0 1px alpha(@theme_accent, 0.5);
+}
+
+/* The sidebar's selected place in the accent, as Settings marks its page. */
+window.files-window .sidebar button.nav-item.active {
+  background: alpha(@theme_accent, 0.14);
+  box-shadow: inset 0 0 0 1px alpha(@theme_accent, 0.45);
+  color: @theme_text;
+}
+
+window.files-window .sidebar button.nav-item.active image {
+  color: @theme_accent;
+}
+
+/* Icons: the item count or size under each name. */
+window.files-window .tile-detail {
+  font-size: 0.8em;
+  color: @theme_text_tertiary;
+}
+
+/* Columns: a folder's item count at the end of its row. */
+window.files-window .column-count {
+  font-size: 0.8em;
+  color: @theme_text_tertiary;
+  margin-right: 2px;
+}
+
+/* The handle on a column's right edge that resizes it. */
+window.files-window .column-resize {
+  background: transparent;
+}
+
+window.files-window .column-resize:hover {
+  background: alpha(@theme_accent, 0.45);
 }

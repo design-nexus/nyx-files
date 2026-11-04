@@ -9,6 +9,7 @@ mod columns;
 mod customize;
 mod devices;
 mod drives;
+mod header;
 mod icons;
 mod icons_theme;
 mod launch;

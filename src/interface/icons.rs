@@ -36,8 +36,11 @@ fn factory(hooks: &Rc<Hooks>, size: i32) -> gtk::SignalListItemFactory {
         label.set_justify(gtk::Justification::Center);
         label.set_max_width_chars(14);
         label.add_css_class("tile-name");
+        let detail = gtk::Label::new(None);
+        detail.add_css_class("tile-detail");
         tile.append(&icon);
         tile.append(&label);
+        tile.append(&detail);
         let weak = item.downgrade();
         model::on_context(&tile, &h, move || weak.upgrade().map(|i| i.position()));
         model::dnd_on(&tile, item, &h);
@@ -61,8 +64,14 @@ fn factory(hooks: &Rc<Hooks>, size: i32) -> gtk::SignalListItemFactory {
         {
             model::show_icon(&icon, &r.entry, size);
         }
-        if let Some(label) = tile.last_child().and_downcast::<gtk::Label>() {
+        let name = tile.first_child().and_then(|c| c.next_sibling());
+        if let Some(label) = name.as_ref().and_then(|c| c.downcast_ref::<gtk::Label>()) {
             label.set_text(&r.entry.display_name);
+        }
+        if let Some(detail) = tile.last_child().and_downcast::<gtk::Label>() {
+            let text = super::list::size_text(&r.entry);
+            detail.set_visible(!text.is_empty());
+            detail.set_text(&text);
         }
         tile.set_tooltip_text(Some(&r.entry.display_name));
         tile.set_opacity(if r.entry.is_hidden { 0.6 } else { 1.0 });

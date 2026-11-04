@@ -412,6 +412,7 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, event: &BrowserEvent) {
             sort_direction,
         } => {
             PreferenceManager::shared().set_folder_sort(location, *sort_key, *sort_direction);
+            window.sync_header();
         }
         BrowserEvent::ItemRelocated { from, to, merged } => {
             customization::relocate_item_customizations(from, to, *merged);

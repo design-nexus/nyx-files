@@ -4,12 +4,15 @@
 //! the widths and hidden columns saved in preferences; grouped by file type
 //! when that is on.
 
-use std::rc::Rc;
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 use gtk::{gio, glib, prelude::*};
 
 use crate::{
-    model::{FileEntry, MetadataValue},
+    model::{FileEntry, MetadataValue, SortDirection, SortKey},
     ui::{
         preferences::{ListColumnId, ListColumns, PreferenceManager},
         thumbnail::ThumbnailSlot,
@@ -20,9 +23,25 @@ use super::model::{self, EntryModel, Hooks};
 
 const ICON: i32 = 18;
 
+type SortFn = Box<dyn Fn(SortKey, SortDirection)>;
+
 pub(super) struct ListView {
     pub(super) root: gtk::ScrolledWindow,
     pub(super) view: gtk::ColumnView,
+    on_sort: Rc<RefCell<Option<SortFn>>>,
+    /// Set while the header shows the folder's sort, so that is not a click.
+    showing: Rc<Cell<bool>>,
+}
+
+/// The browser's sort key a column header sorts by.
+fn sort_key(id: ListColumnId) -> Option<SortKey> {
+    match id {
+        ListColumnId::Name => Some(SortKey::Name),
+        ListColumnId::Size => Some(SortKey::Size),
+        ListColumnId::Type => Some(SortKey::Type),
+        ListColumnId::Modified => Some(SortKey::Modified),
+        ListColumnId::Mode => None,
+    }
 }
 
 /// Lets a row's child report its own position on a right-click.
@@ -223,15 +242,78 @@ impl ListView {
         }
         model::on_context(&view, &model.hooks, || None);
         model::drop_on_view(&view, &model.hooks);
+        // A header click only asks the browser to sort; the rows keep its order.
+        for column in &columns {
+            if id_of(column).and_then(sort_key).is_some() {
+                column.set_sorter(Some(&gtk::CustomSorter::new(|_, _| gtk::Ordering::Equal)));
+            }
+        }
         let root = gtk::ScrolledWindow::builder()
-            .hscrollbar_policy(gtk::PolicyType::Never)
+            .hscrollbar_policy(gtk::PolicyType::Automatic)
             .vexpand(true)
             .hexpand(true)
             .child(&view)
             .build();
-        let list = Self { root, view };
+        let list = Self {
+            root,
+            view,
+            on_sort: Rc::default(),
+            showing: Rc::default(),
+        };
         list.follow_preferences();
+        list.follow_header_sort();
         list
+    }
+
+    pub(super) fn connect_sort(&self, f: impl Fn(SortKey, SortDirection) + 'static) {
+        *self.on_sort.borrow_mut() = Some(Box::new(f));
+    }
+
+    fn follow_header_sort(&self) {
+        let Some(sorter) = self.view.sorter().and_downcast::<gtk::ColumnViewSorter>() else {
+            return;
+        };
+        let (on_sort, showing) = (self.on_sort.clone(), self.showing.clone());
+        sorter.connect_changed(move |sorter, _| {
+            if showing.get() {
+                return;
+            }
+            let Some(key) = sorter
+                .primary_sort_column()
+                .and_then(|c| id_of(&c))
+                .and_then(sort_key)
+            else {
+                return;
+            };
+            let direction = match sorter.primary_sort_order() {
+                gtk::SortType::Descending => SortDirection::Descending,
+                _ => SortDirection::Ascending,
+            };
+            if let Some(f) = on_sort.borrow().as_ref() {
+                f(key, direction);
+            }
+        });
+    }
+
+    /// Marks the column the folder is sorted by, with its direction.
+    pub(super) fn show_sort(&self, key: SortKey, direction: SortDirection) {
+        let columns = self.view.columns();
+        let column = (0..columns.n_items())
+            .filter_map(|i| columns.item(i).and_downcast::<gtk::ColumnViewColumn>())
+            .find(|c| id_of(c).and_then(sort_key) == Some(key));
+        let order = match direction {
+            SortDirection::Ascending => gtk::SortType::Ascending,
+            SortDirection::Descending => gtk::SortType::Descending,
+        };
+        if let Some(sorter) = self.view.sorter().and_downcast::<gtk::ColumnViewSorter>()
+            && sorter.primary_sort_column().as_ref() == column.as_ref()
+            && (column.is_none() || sorter.primary_sort_order() == order)
+        {
+            return;
+        }
+        self.showing.set(true);
+        self.view.sort_by_column(column.as_ref(), order);
+        self.showing.set(false);
     }
 
     /// Hidden columns follow the preference; narrow lists also drop Mode, Kind,

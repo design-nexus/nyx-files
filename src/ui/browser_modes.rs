@@ -739,7 +739,7 @@ fn source_position_for_view(
 }
 
 
-pub(super) fn icon_details_need_fill(entry: &FileEntry) -> bool {
+pub(crate) fn icon_details_need_fill(entry: &FileEntry) -> bool {
     let path = Path::new(&entry.native_name);
     (entry.is_directory() && entry.child_count == MetadataValue::Unknown)
         || (!entry.is_directory()
