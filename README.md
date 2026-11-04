@@ -4,16 +4,22 @@ A Rust/GTK4 file manager for the Nyx desktop, with integrated cloud navigation
 and selectable preview presentation. Its origin and licenses are in
 [UPSTREAM.md](UPSTREAM.md) and [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
+- Tabs, with Columns, Icons and List views; the sidebar holds places, pins,
+  devices and cloud accounts.
+- File and folder icons come from the system icon theme (Umbra in the suite);
+  thumbnails replace them where available.
+- The preview drawer beside the listing shows documents, images, archives,
+  audio and video with sandboxed renderers. Settings → Previews → Preview style
+  selects Popup (default) or Panel; Space toggles the preview.
+- 10xer mode (Ctrl+Shift+M) gives keyboard-first navigation with chords and
+  prompts in the shortcut footer; F1 opens the shortcut reference.
+- Files can serve as the system file chooser for Open, Save and Select Folder
+  dialogs (Settings → Integrations).
 - Cloud Storage lists accounts enabled for Storage in Settings → Online Accounts.
-- Selecting an account mounts it through Cloud and opens the filesystem.
-- Settings → Cloud Storage controls sidebar visibility, connections, login mounting,
+  Selecting an account mounts it through Cloud and opens it.
+- Settings → Sidebar controls cloud visibility, connections, login mounting,
   cache limits and bandwidth, with a link to Online Accounts for authorization.
-- Ordinary file operations use the existing asynchronous operation engine.
 - Files continues to manage local files when Cloud is absent.
-- Settings → General → Browsing → Preview style selects Popup (default) or Panel.
-- Popup previews share one resizable, nonmodal window. Space toggles it, Escape
-  closes it, and Up/Down follows files in the owning browser.
-- Panel retains the embedded preview. Both use existing sandboxed renderers.
 
 ## Install
 
