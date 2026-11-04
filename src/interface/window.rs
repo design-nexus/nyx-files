@@ -120,10 +120,10 @@ impl Window {
         header.start.append(&navigation);
         let path = PathBar::new();
         let path_holder = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        let clamp = nyx_ui::clamp::Clamp::new(&path_holder, 720);
+        let clamp = nyx_ui::clamp::Clamp::new(&path_holder, 380);
         clamp.set_start(true);
         clamp.set_margin_start(8);
-        clamp.set_hexpand(true);
+        clamp.set_hexpand(false);
         header.start.append(&clamp);
 
         let filter = gtk::SearchEntry::new();
@@ -200,7 +200,7 @@ impl Window {
             }
         });
         let path_group = super::header::path_group(&this.path, &this);
-        path_group.set_hexpand(true);
+        path_group.set_hexpand(false);
         path_holder.append(&path_group);
         let header_actions = super::header::Actions::new(&this, &this.filter);
         header.end.append(&header_actions.root);

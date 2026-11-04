@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The header's button groups: navigation, the path with its copy button, the
-//! folder's actions (refresh, sort, thumbnail size, list columns, filter), and
+//! folder's actions (sort, thumbnail size, the filter field), and
 //! the search field. Groups sit on a raised fill so they read as buttons.
 
 use std::rc::Rc;
@@ -54,9 +54,7 @@ pub(super) struct Actions {
     pub(super) root: gtk::Box,
     leftovers: gtk::Button,
     empty_trash: gtk::Button,
-    refresh: gtk::Button,
     thumbnails: gtk::MenuButton,
-    list_columns: gtk::MenuButton,
     sort_direction: gtk::Button,
     sort: gtk::MenuButton,
     pub(super) filter_toggle: gtk::ToggleButton,
@@ -72,19 +70,15 @@ impl Actions {
         );
         leftovers.add_css_class("leftovers-button");
         let empty_trash = button("user-trash-symbolic", &crate::i18n::tr("Empty Trash"));
-        let refresh = button(
-            "view-refresh-symbolic",
-            &with_keys("Refresh (%{keys})", bindings::REFRESH),
-        );
         let (thumbnails, thumbnails_popover) = menu_button(
             "image-x-generic-symbolic",
             &crate::i18n::tr("Thumbnail size"),
         );
-        let (list_columns, columns_popover) =
-            menu_button("view-list-bullet-symbolic", &crate::i18n::tr("Columns"));
         let sort_direction = button("view-sort-ascending-symbolic", "");
-        let (sort, sort_popover) =
-            menu_button("tune-symbolic", &crate::i18n::tr("Choose sort field"));
+        let (sort, sort_popover) = menu_button(
+            "view-list-bullet-symbolic",
+            &crate::i18n::tr("Choose sort field"),
+        );
         let filter_toggle = gtk::ToggleButton::new();
         filter_toggle.set_icon_name("view-filter-symbolic");
         filter_toggle.add_css_class("bar-button");
@@ -95,15 +89,13 @@ impl Actions {
             .transition_type(gtk::RevealerTransitionType::SlideLeft)
             .child(filter)
             .build();
+        // The filter toggle stays off the bar; Ctrl+F, / or typing opens the field.
         for widget in [
             leftovers.upcast_ref::<gtk::Widget>(),
             empty_trash.upcast_ref(),
-            refresh.upcast_ref(),
             thumbnails.upcast_ref(),
-            list_columns.upcast_ref(),
             sort_direction.upcast_ref(),
             sort.upcast_ref(),
-            filter_toggle.upcast_ref(),
             filter_revealer.upcast_ref(),
         ] {
             root.append(widget);
@@ -113,21 +105,13 @@ impl Actions {
             root,
             leftovers,
             empty_trash,
-            refresh,
             thumbnails,
-            list_columns,
             sort_direction,
             sort,
             filter_toggle,
             filter_revealer,
         });
-        actions.wire(
-            window,
-            filter,
-            &thumbnails_popover,
-            &columns_popover,
-            &sort_popover,
-        );
+        actions.wire(window, filter, &thumbnails_popover, &sort_popover);
         actions
     }
 
@@ -136,7 +120,6 @@ impl Actions {
         window: &Rc<Window>,
         filter: &gtk::SearchEntry,
         thumbnails: &gtk::Popover,
-        columns: &gtk::Popover,
         sort: &gtk::Popover,
     ) {
         let current = {
@@ -144,13 +127,6 @@ impl Actions {
             Rc::new(move || weak.upgrade().and_then(|w| w.current()))
                 as Rc<dyn Fn() -> Option<Rc<Tab>>>
         };
-        let c = current.clone();
-        self.refresh.connect_clicked(move |_| {
-            crate::adapters::trash_support::forget_all();
-            if let Some(tab) = c() {
-                tab.browser.reload_active();
-            }
-        });
         let c = current.clone();
         self.leftovers.connect_clicked(move |_| {
             if let Some(tab) = c()
@@ -187,7 +163,6 @@ impl Actions {
         sort.connect_show(move |p| p.set_child(Some(&super::appearance::sort_menu(&c))));
         let c = current.clone();
         thumbnails.connect_show(move |p| p.set_child(Some(&super::appearance::thumbnail_menu(&c))));
-        columns.connect_show(|p| p.set_child(Some(&super::appearance::columns_menu())));
         let (revealer, entry) = (self.filter_revealer.clone(), filter.clone());
         let c = current.clone();
         self.filter_toggle.connect_toggled(move |toggle| {
@@ -218,7 +193,6 @@ impl Actions {
             .is_some_and(|d| !tab.browser.column_leftovers(d).is_empty());
         self.leftovers.set_visible(leftovers);
         self.thumbnails.set_visible(mode == BrowserMode::Icons);
-        self.list_columns.set_visible(mode == BrowserMode::List);
         let sorts = mode != BrowserMode::List;
         self.sort.set_visible(sorts);
         self.sort_direction.set_visible(sorts);
@@ -304,10 +278,6 @@ pub(super) fn search_field(window: &Rc<Window>) -> gtk::Button {
     label.set_hexpand(true);
     label.set_xalign(0.0);
     row.append(&label);
-    row.append(&widgets::label(
-        &crate::ui::keys::label(&Keys::One(bindings::SEARCH)),
-        "keycap",
-    ));
     field.set_child(Some(&row));
     let w = Rc::downgrade(window);
     field.connect_clicked(move |_| {

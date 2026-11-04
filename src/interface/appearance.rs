@@ -337,13 +337,6 @@ pub(super) fn thumbnail_menu(current: &CurrentTab) -> gtk::Box {
     body
 }
 
-/// The list columns of the header's List button.
-pub(super) fn columns_menu() -> gtk::Box {
-    let body = menu_body();
-    append_columns(&body);
-    body
-}
-
 fn content(current: &CurrentTab) -> gtk::Box {
     let prefs = PreferenceManager::shared();
     let mode = prefs.browser_mode();
@@ -472,7 +465,7 @@ pub(super) fn button(window: &Rc<Window>) -> gtk::MenuButton {
 /// The header button acting on whichever tab `current` gives.
 pub(super) fn button_for(current: CurrentTab) -> gtk::MenuButton {
     let button = gtk::MenuButton::new();
-    button.set_icon_name("preferences-desktop-appearance-symbolic");
+    button.set_icon_name("tune-symbolic");
     button.add_css_class("bar-button");
     button.set_valign(gtk::Align::Center);
     button.set_tooltip_text(Some(&crate::i18n::tr("Appearance")));
