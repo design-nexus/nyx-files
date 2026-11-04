@@ -2,7 +2,7 @@
 
 use std::cell::RefCell;
 
-use gtk::{glib, prelude::*};
+use gtk::glib;
 
 
 

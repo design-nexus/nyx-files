@@ -1,20 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use crate::adapters::directory_summary::{DirectorySummary, summarize_directory_with_progress};
-use crate::adapters::gio_file_for_location;
-use crate::model::{FileEntry, Location};
-use crate::ui::browser::entry::{entry_icon, format_file_size};
-use crate::ui::browser::{PinStatus, ViewState};
-use crate::ui::controls::{ModalTone, form_check_button, modal_layout};
-use crate::ui::modal::{
-    ModalHost, close_on_escape, dismiss_modal_layer, modal_layer, remember_modal_focus,
-    show_error_dialog,
-};
+use crate::adapters::directory_summary::DirectorySummary;
+use crate::ui::browser::ViewState;
 use gtk::prelude::*;
-use gtk::{gio, glib};
-use std::cell::Cell;
-use std::rc::Rc;
-use std::time::{Duration, Instant};
 
 pub(crate) mod media;
 

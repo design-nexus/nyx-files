@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use crate::model::Location;
 

@@ -28,9 +28,7 @@ mod theme;
 mod wrap;
 
 use super::{
-    blur::BlurBin,
     keys::{self, bindings::SELECT_ALL},
-    modal::close_on_escape,
     preferences::PreferenceManager,
 };
 

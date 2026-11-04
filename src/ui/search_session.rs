@@ -5,8 +5,7 @@
 //! drops the worker handle/receiver. Delivery runs without session borrows and may restart it.
 
 use crate::{
-    adapters::probes::{self, Presence},
-    model::Location,
+    adapters::probes::{self},
     services::{
         NavigationHistory, RefusedFolders, SearchCoverage, SearchEvent, SearchHandle, SearchItem,
         SearchLimits, index_filter, index_folder_paths, index_paths, index_trees_with_exclusions,
@@ -15,7 +14,6 @@ use crate::{
 use gtk::{gio, glib, prelude::*};
 use std::{
     cell::{Cell, RefCell},
-    collections::HashSet,
     path::PathBuf,
     rc::Rc,
     sync::mpsc::{Receiver, TryRecvError},

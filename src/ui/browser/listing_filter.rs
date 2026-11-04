@@ -6,13 +6,13 @@
 
 use std::{
     cell::{Cell, RefCell},
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::{Rc, Weak},
 };
 
-use gtk::{glib, prelude::*};
+use gtk::prelude::*;
 
-use super::{BrowserView, FilterQueryBinding, ViewState, columns::ColumnView};
+use super::{BrowserView, ViewState, columns::ColumnView};
 use crate::{
     app::VisualKind,
     services::SearchItem,

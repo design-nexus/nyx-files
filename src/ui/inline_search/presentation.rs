@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-use super::collection::{NameHighlights, ResultKind};
-use crate::{
-    model::Location,
-    services::SearchItem,
-    ui::{accessibility, browser, collection_edit::EditWidgets, icons_cell, thumbnail},
-};
+use crate::ui::{collection_edit::EditWidgets, thumbnail};
 use gtk::prelude::*;
-use std::path::Path;
 
 #[derive(Clone)]
 enum Labels {

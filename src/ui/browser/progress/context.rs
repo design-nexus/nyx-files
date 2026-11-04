@@ -5,16 +5,9 @@ use std::{
     rc::Rc,
 };
 
-use gtk::{gio::prelude::CancellableExt, glib};
+use gtk::glib;
 
-use crate::{
-    app::BrowserEvent,
-    services::OperationRequestId,
-    ui::{
-        browser::{ViewState, transfer::PendingSendToCompletion},
-        modal::show_error_dialog,
-    },
-};
+use crate::ui::browser::{ViewState, transfer::PendingSendToCompletion};
 
 use super::{FileProgressView, TransferProgressSnapshot};
 

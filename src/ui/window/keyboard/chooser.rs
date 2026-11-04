@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use gtk::glib::Propagation;
-use crate::{
-    app::Browser,
-    model::Location,
-    ui::keys::{KeyPress, bindings::*},
-};
+use crate::ui::keys::{KeyPress, bindings::*};
 
 pub(crate) const UNAVAILABLE: &str = "Not available in the file chooser";
 const SINGLE: &str = "Only one item can be chosen";

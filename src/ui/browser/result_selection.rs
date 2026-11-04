@@ -13,7 +13,7 @@ use gtk::{glib, prelude::*};
 
 use super::{
     BrowserView, ViewState,
-    listing_filter::{Hits, Target, results_step_target, scroll_results_to, selected_cursor},
+    listing_filter::{Hits, Target, results_step_target, scroll_results_to},
 };
 use crate::app::VisualKind;
 

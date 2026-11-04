@@ -1,30 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-use crate::adapters::gio_file_for_location;
 use crate::model::Location;
-use crate::services::{
-    LocationValidationError, UriCredentials, backend_unavailable_message, sanitize_failure_message,
-    sanitize_uri_credentials,
-};
 use crate::ui::blur::BlurBin;
 use crate::ui::browser::{BrowserView, ViewState};
-use crate::ui::controls::{
-    ModalTone, dialog_text, focus_button, form_entry, form_password_entry,
-    keep_words_whole, message_dialog_description, message_dialog_layout, modal_layout,
-    segmented_control,
-};
-use crate::ui::modal::{
-    ModalHost, close_on_escape, dismiss_modal_layer, modal_layer, show_error_dialog,
-    submit_on_enter,
-};
-use crate::ui::window::{crypto_password_uuid_for_volume, gio_volume_is_encrypted};
-use futures_channel::oneshot;
 use gtk::prelude::*;
 use gtk::{gio, glib};
-use std::cell::{Cell, RefCell};
-use std::path::Path;
-use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::cell::RefCell;
 
 
 // Long crumbs middle-elide past this cap; the scroller handles deeper paths.

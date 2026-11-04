@@ -2,22 +2,14 @@
 
 use gtk::prelude::*;
 
-use crate::{
-    model::Location,
-    ui::{
-        keys::{
+use crate::ui::keys::{
             KeyPress,
             bindings::{
-                TENXER_THUMBNAILS_LARGER, TENXER_THUMBNAILS_LARGER_EQUAL,
-                TENXER_THUMBNAILS_SMALLER, THUMBNAILS_LARGER, THUMBNAILS_LARGER_EQUAL,
+                THUMBNAILS_LARGER, THUMBNAILS_LARGER_EQUAL,
                 THUMBNAILS_RESET, THUMBNAILS_SMALLER,
             },
-        },
-        preferences::PreferenceManager,
-    },
-};
+        };
 
-use super::DEFAULT_ICONS_THUMBNAIL_SIZE;
 
 #[cfg(test)]
 mod tests;

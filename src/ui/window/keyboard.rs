@@ -1,26 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
 
-use gtk::{gdk::ModifierType as Modifiers, glib::Propagation, prelude::*};
 
-use crate::{
-    app::Browser,
-    services::NavigationHistory,
-    ui::{
-        browser::BrowserView,
-        browser_modes::ThumbnailResize,
-        keys::{self, Binding, KeyPress, SHORTCUT_MODIFIERS, bindings::*},
-        modal::is_closing_layer,
-        preview::PreviewDrawer,
-        shortcut_footer::ShortcutFooter,
-        },
-};
 
-use super::{SidebarState, topmost_modal_layer, visible_modal_layer};
 
 pub(crate) mod chooser;
 pub(crate) mod chords;

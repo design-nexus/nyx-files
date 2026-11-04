@@ -8,13 +8,6 @@ use std::{cell::RefCell, rc::Rc};
 
 use gtk::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{
-    assets::{self, icons},
-    ui::keys::{
-        Keys,
-        bindings::{SIDEBAR, TENXER_SIDEBAR},
-    },
-};
 
 mod imp {
     use super::*;

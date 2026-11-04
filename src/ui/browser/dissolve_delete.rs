@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-use crate::model::FileEntry;
-use crate::ui::modal::window_overlay;
 use gtk::glib;
-use gtk::gsk::prelude::IsRenderNode;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use std::cell::{Cell, RefCell};
-use std::time::Duration;
 
 
 pub(super) struct PreparedDissolve {

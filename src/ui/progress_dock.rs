@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: MIT
 
 use gtk::prelude::*;
-use std::{rc::Rc, time::Duration};
+use std::rc::Rc;
 
 mod completion;
 
 
-use crate::{
-    assets,
-    ui::{accessibility},
-};
 
 
 pub(super) struct CompactProgress {

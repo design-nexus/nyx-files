@@ -2,13 +2,7 @@
 
 use crate::model::{FileEntry, Location};
 use crate::ui::browser::ViewState;
-use crate::ui::browser::collection::cancel_source;
-use crate::ui::browser::entry::{
-    entry_icon, icon_for_name, model_display_name, };
 use crate::ui::browser::presentation::LoadPresentation;
-use crate::ui::browser_modes::BrowserMode;
-use gtk::glib;
-use gtk::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;

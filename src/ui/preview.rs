@@ -43,7 +43,6 @@ mod ease_in;
 mod find;
 mod keyboard;
 mod layout;
-pub(crate) use layout::{separator, separator_width};
 pub(crate) mod media_layout;
 mod model;
 #[cfg(test)]

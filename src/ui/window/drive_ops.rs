@@ -10,7 +10,6 @@ use std::{
 
 use gtk::{gio, glib, prelude::*};
 
-use crate::ui::browser::show_error_dialog;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FilesystemType {

@@ -1,20 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use std::{path::PathBuf, rc::Rc};
 
-use gtk::{glib, prelude::*};
 
-use super::{
-    BrowserView, PinStatus,
-    clipboard::{self},
-    desktop::{launch_terminal},
-    paths::{is_trash_location},
-};
-use crate::{
-    adapters::gio_file_for_location,
-    model::{FileEntry, Location, SortDirection, SortKey},
-    services::{ActionHandle, ArchiveFormat, InvocationSource},
-};
+use super::BrowserView;
 
 
 

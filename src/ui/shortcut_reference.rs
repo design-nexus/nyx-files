@@ -5,7 +5,7 @@ use gtk::gdk::ModifierType as Modifiers;
 use super::{
     browser_modes::BrowserMode,
     keys::{
-        self, Binding, Keys,
+        self, Keys,
         Keys::{Any, Chord, Mixed, One},
         bindings::*,
     },

@@ -1,19 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use crate::model::{FolderColor, FolderColorValue, Location};
+use crate::model::Location;
 use crate::services::ItemIdentity;
-use crate::ui::controls::{focus_button, modal_layout};
-use crate::ui::keys::{self, bindings::ESCAPE_ANY};
-use crate::ui::modal::{
-    ModalHost, dismiss_modal_layer, dismiss_modal_layer_then, modal_layer,
-    modal_layer_with_backdrop, remember_modal_focus,
-};
 use crate::ui::preferences::PreferenceManager;
-use gtk::prelude::*;
-use gtk::{gdk, glib};
-use std::cell::RefCell;
-use std::path::PathBuf;
-use std::rc::Rc;
 
 /// Item customizations are keyed by native path; remote locations carry none.
 pub(crate) fn relocate_item_customizations(from: &Location, to: &Location, merged: bool) {

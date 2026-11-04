@@ -4,15 +4,10 @@
 //! status (empty or unreadable) or loading page, because the hidden collection view
 //! would accept focus that nothing can see or move.
 
-use std::{
-    cell::Cell,
-    rc::{Rc, Weak},
-};
 
-use gtk::{glib, prelude::*};
+use gtk::prelude::*;
 
 use super::{CONTENT_PAGE};
-use crate::app::Browser;
 
 
 

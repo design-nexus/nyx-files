@@ -4,12 +4,9 @@
 //! keyboard cursor. GTK's `ListTabBehavior::Item` makes List and Icons leave in one
 //! press; the Columns strip spans several lists, so its Tab moves are routed here.
 
-use std::rc::Rc;
 
-use gtk::{glib, prelude::*};
 
 use super::{BrowserView, ViewState};
-use crate::ui::browser_modes::BrowserMode;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(super) enum TabCrossing {

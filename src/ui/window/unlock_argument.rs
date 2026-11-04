@@ -1,18 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-use std::{
-    cell::{Cell, RefCell},
-    path::PathBuf,
-    rc::Rc,
-    time::Duration,
-};
+use std::path::PathBuf;
 
-use gtk::{gio, glib, prelude::*};
+use gtk::{gio, prelude::*};
 
-use super::{
-    BrowserView,
-    
-    };
 
 const INVALID_UNLOCK_VOLUME_OPERAND: &str = "invalid --unlock-volume operand";
 

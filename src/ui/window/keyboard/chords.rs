@@ -6,18 +6,15 @@
 //! are earlier capture handlers: they drop the mark first, then run, the same
 //! way Ctrl+, opens Settings over a canceled chord.
 
-use std::rc::Rc;
 
 use gtk::{
     gdk::ModifierType as Modifiers,
-    glib::{self, Propagation},
+    glib::{self},
 };
 use crate::{
-    app::Browser,
     model::Location,
     ui::{
         keys::{KeyPress, bindings::*},
-        tenxer_mode::{Chord, Prompt},
         window::home_directory,
     },
 };

@@ -8,7 +8,7 @@
 
 use super::*;
 use crate::ui::{
-    browser::{BrowserView, WeakBrowserView},
+    browser::WeakBrowserView,
     keys::{
         Binding,
         bindings::{

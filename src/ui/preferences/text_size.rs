@@ -2,10 +2,6 @@
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::ui::keys::{
-    KeyPress,
-    bindings::{TEXT_LARGER, TEXT_LARGER_EQUAL, TEXT_RESET, TEXT_SMALLER},
-};
 
 /// Interface size in logical pixels; monitor scaling remains GTK's responsibility.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

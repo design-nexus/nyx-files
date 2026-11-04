@@ -1,22 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
 
-use gtk::{
-    glib::{self, Propagation},
-    prelude::*,
-};
+use gtk::prelude::*;
 use crate::{
-    model::{Location, SortDirection, SortKey},
-    ui::{
-        
-        keys::{KeyPress, bindings::*},
-        tenxer_mode::{Chord, Prompt},
-        window::visible_modal_layer,
-    },
+    model::{SortDirection, SortKey},
+    ui::keys::{KeyPress, bindings::*},
 };
 
 

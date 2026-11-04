@@ -3,24 +3,12 @@
 //! Exhaustive browser event dispatch. Shared effects and column publication run before alternate
 //! presentations consume the event; preserve that order when adding a feature handler.
 
-use crate::app::{BrowserEvent, SelectionUpdate};
-use crate::model::{FileEntry, Location};
-use crate::services::LocationValidationError;
 use crate::ui::browser::ViewState;
-use crate::ui::browser::columns::{
-    scroll_column_to,
-    };
-use crate::ui::browser::customization;
-use crate::ui::browser::listing_filter::Target;
-use crate::ui::browser::transfer::FinishedSendToCompletion;
 use crate::ui::browser_modes::BrowserMode;
-use crate::ui::modal::{show_error_dialog};
 use crate::ui::preview::{FOCUS_PREVIEW_DELAY, preview_target};
 use gtk::prelude::*;
-use gtk::{gio, glib};
-use std::collections::HashMap;
+use gtk::glib;
 use std::rc::Rc;
-use std::time::Instant;
 
 
 impl ViewState {

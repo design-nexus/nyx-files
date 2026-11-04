@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-use crate::model::FileEntry;
-use crate::ui::browser::entry::entry_icon;
-use crate::ui::modal::window_overlay;
-use gtk::glib;
 use gtk::prelude::*;
 use std::time::Duration;
 

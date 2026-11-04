@@ -8,23 +8,20 @@
 
 use std::{
     cell::{Cell, RefCell},
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     path::Path,
     rc::{Rc, Weak},
 };
 
 use gtk::{gio, glib, prelude::*};
 
-pub(super) use super::icons_cell::{
-    MAX_ICONS_THUMBNAIL_SIZE, MIN_ICONS_THUMBNAIL_SIZE, };
 use crate::{
-    app::{Browser, BrowserColumnSnapshot},
+    app::Browser,
     model::{FileEntry, Location, MetadataValue, SortDirection, SortKey},
     services::DropCommit,
-    ui::browser::{ClipboardMark, ClipboardMarks, paths::is_trash_location},
+    ui::browser::ClipboardMarks,
 };
 
-use crate::ui::preferences::ListColumnId;
 
 mod column_options;
 mod events;

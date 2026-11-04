@@ -7,17 +7,13 @@ use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     ops::Range,
-    path::{Path, PathBuf},
-    rc::{Rc, Weak},
+    path::PathBuf,
+    rc::Weak,
 };
 
 use gtk::prelude::*;
 
 use super::{BrowserView, ViewState};
-use crate::{
-    services::{PathMatcher, PathQuery, SearchItem},
-    ui::browser_modes::BrowserMode,
-};
 
 /// The last committed find of a window. `n` repeats it after its highlights are
 /// dismissed; leaving 10xer mode forgets it.

@@ -2,21 +2,14 @@
 
 use std::{
     cell::{Cell, RefCell},
-    path::{Path, PathBuf},
     rc::Rc,
 };
 
 use gtk::{
-    gdk::{self, ModifierType as Modifiers},
     glib,
     prelude::*,
 };
 
-use crate::ui::keys::{
-    self, Keys,
-    bindings::{COMPLETE, DOWN, ENTER, ENTER_ANY_SHIFT, ESCAPE_ANY_SHIFT, PAGE_DOWN, PAGE_UP, UP},
-};
-use crate::{adapters::probes, app::Browser};
 
 
 #[derive(Clone, Debug, Eq, PartialEq)]

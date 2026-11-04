@@ -1,23 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-use crate::adapters::{
-    DropVolumeQuery, DropVolumes, gio_file_for_location, location_for_file, lookup_drop_volumes,
-};
+use crate::adapters::gio_file_for_location;
 use crate::model::{FileEntry, Location};
-use crate::services::{
-    CrossVolumeDropStrategy, DropActionInput, DropCommit, DropOverride, TransferKind,
-    VolumeRelation, drop_commit, transferable_drop_sources,
-};
 use crate::ui::browser::ViewState;
-use crate::ui::browser::paths::{is_trash_location};
 use gtk::prelude::*;
 use gtk::{glib, graphene};
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
-use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-use std::time::Duration;
 
 const DRAG_PROXY_PADDING: f64 = 3.0;
 const DRAG_PROXY_STACK_OFFSET: f64 = 5.0;

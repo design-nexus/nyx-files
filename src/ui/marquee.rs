@@ -3,7 +3,6 @@
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::time::Duration;
 
 use gtk::glib;
 use gtk::graphene;

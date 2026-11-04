@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::ui::keys::bindings::{
-    ENTER, ESCAPE, FIND_IN_PREVIEW, PREVIOUS_MATCH, TENXER_FIND_IN_PREVIEW,
+    FIND_IN_PREVIEW, TENXER_FIND_IN_PREVIEW,
 };
 
 #[derive(Clone)]

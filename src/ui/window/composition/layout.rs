@@ -1,27 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
 
-use gtk::{gdk, glib, prelude::*};
+use gtk::prelude::*;
 
-use crate::{
-    adapters::LocalPreviewProvider,
-    assets::{self, icons},
-    ui::{
-        browser::BrowserView,
-        preferences::PreferenceManager,
-        preview::PreviewDrawer,
-        shortcut_footer::ShortcutFooter,
-        sidebar_toggle::{SidebarToggle},
-    },
-};
+use crate::assets::{self, icons};
 
-use super::super::{
-    MIN_SIDEBAR_WIDTH, SIDEBAR_WIDTH, sidebar_rail_width,
-};
 
 
 

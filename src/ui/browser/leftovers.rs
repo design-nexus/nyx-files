@@ -1,26 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-use std::{
-    cell::{Cell, RefCell},
-    collections::HashMap,
-    ffi::OsString,
-    rc::Rc,
-    time::Duration,
-};
+use std::cell::RefCell;
 
 use gtk::prelude::*;
 
 use crate::{
-    app::Browser,
-    model::{FileEntry, Location, hidden_names::Leftover},
-    services::{LeftoverInside, LoadHandle, ReviewedLeftover},
-    ui::{
-        accessibility,
-        browser::{ViewState, entry_icon},
-        controls::{ModalTone, focus_button, message_dialog_description, message_dialog_layout},
-        modal::{ModalHost, close_on_escape, dismiss_modal_layer_then, modal_layer},
-        progress_dock::{CompactProgress},
-    },
+    model::{Location, hidden_names::Leftover},
+    services::LoadHandle,
+    ui::browser::ViewState,
 };
 
 

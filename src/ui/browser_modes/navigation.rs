@@ -3,7 +3,6 @@
 use std::collections::VecDeque;
 
 use super::*;
-use crate::ui::keys::{self, SHORTCUT_MODIFIERS, bindings::FOCUS_NEXT};
 
 
 #[derive(Clone, Copy)]

@@ -1,24 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-use std::{
-    cell::{Cell, RefCell},
-    collections::HashMap,
-    path::PathBuf,
-    rc::{Rc, Weak},
-};
-
-use gtk::{gio, prelude::*};
 
 
 
-use crate::{
-    assets::{self, icons},
-    model::{FileEntry, Location, MenuPlacement},
-    services::{InvocationSource, MatchedAction},
-    ui::actions::{action_icon, folder_input, inputs_for_entries, native_paths, run_action},
-};
 
-use super::super::{ViewState};
+
 
 
 

@@ -3,11 +3,7 @@
 //! Scrolling shared by collection views: middle-click autoscroll, page-sized
 //! keyboard navigation, and wheel routing for transient browser panels.
 
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
-use std::time::Duration;
 
-use gtk::glib;
 use gtk::prelude::*;
 
 pub(super) mod popover;

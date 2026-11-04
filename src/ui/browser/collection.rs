@@ -1,21 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-use crate::app::Browser;
 use crate::model::Location;
-use crate::services::{filter_query_allows_typos, fold_for_search};
 use crate::ui::browser::entry::entry_matches;
 use crate::ui::entry_list_model::EntryListModel;
-use crate::ui::keys::{
-    KeyPress,
-    bindings::{ENTER, RIGHT},
-};
-use crate::ui::preferences::PreferenceManager;
 use crate::ui::search_session::SearchScope;
 use gtk::prelude::*;
-use gtk::{gio, glib};
+use gtk::glib;
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
-use std::time::Duration;
 
 
 thread_local! {

@@ -2,7 +2,7 @@
 
 use crate::ui::blur::BlurBin;
 use crate::ui::controls::{
-    ModalTone, focus_button, message_dialog_description, message_dialog_layout,
+    ModalTone, message_dialog_description, message_dialog_layout,
 };
 use crate::ui::keys::{self, bindings::ESCAPE_ANY};
 use gtk::glib;

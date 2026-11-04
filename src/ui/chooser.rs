@@ -8,59 +8,25 @@ mod image_conversion;
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    ffi::{OsStr, OsString},
     path::{Component, Path, PathBuf},
     rc::Rc,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-        mpsc::TryRecvError,
-    },
-    time::Duration,
 };
 
 use ashpd::{
-    PortalError, WindowIdentifierType,
-    desktop::file_chooser::{Choice, FileFilter, SelectedFiles},
+    WindowIdentifierType,
+    desktop::file_chooser::FileFilter,
 };
-use gtk::{gdk::ModifierType, gio, glib, prelude::*};
+use gtk::{gio, glib, prelude::*};
 
 use crate::{
-    adapters::{LocalFileSource, LocalOperationProvider, LocalPreviewProvider, probes},
-    app::BrowserEvent,
-    model::{EntryKind, FileEntry, Location, MetadataValue},
-    portal::{
-        ChooserKind, ChooserRequest, check_destinations, local_uri, open_selection, safe_filename,
-        writable_from_read_only,
-    },
+    adapters::{LocalFileSource, probes},
+    model::{FileEntry, Location},
     services::{
         DirectoryChange, DirectoryEvent, DirectoryRequest, FileSource, ItemIdentity, LoadHandle,
-        LocationValidationError, MetadataRequest, RemoteDownload, StampAnswer, Watching,
-        download_remote, remote_file_url,
+        LocationValidationError, MetadataRequest, StampAnswer, Watching,
     },
 };
 
-use super::{
-    blur::BlurBin,
-    browser::{BrowserView, dismiss_modal_layer, modal_layer},
-    browser_modes::{BrowserMode, ThumbnailResize},
-    controls::{
-        ModalTone, focus_button, form_check_button, form_entry, message_dialog_layout,
-    },
-    modal::close_on_escape,
-    preferences::PreferenceManager,
-    preview::{PreviewDrawer, preview_target},
-    shortcut_footer::ShortcutFooter,
-    window::{
-        MIN_SIDEBAR_WIDTH, SIDEBAR_WIDTH, home_directory,
-        visible_modal_layer,
-    },
-};
-use super::{
-    focus_navigation::{
-        arrow_direction, },
-    keys::{self, KeyPress, SHORTCUT_MODIFIERS, bindings::*},
-};
 
 
 thread_local! {

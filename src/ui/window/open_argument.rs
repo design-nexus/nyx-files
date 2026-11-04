@@ -1,19 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-    time::Duration,
-};
 
 use gtk::{gio, glib, prelude::*};
 
-use crate::{
-    adapters::{gio_file_for_location, location_for_file, reveal_target_for_file},
-    model::Location,
-};
 
-use super::{BrowserView, WeakBrowserView};
 
 
 

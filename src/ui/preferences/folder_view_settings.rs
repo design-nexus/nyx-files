@@ -11,7 +11,7 @@ use std::{
 use gtk::glib;
 
 use crate::{
-    adapters::{Watched, probes},
+    adapters::Watched,
     model::{FolderSort, Location, SortDirection, SortKey},
     services::{ItemIdentity, LoadHandle},
 };

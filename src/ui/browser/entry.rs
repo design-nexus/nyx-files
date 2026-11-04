@@ -1,18 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-use crate::adapters::directory_summary::{DirectorySummary, summarize_directory};
-use crate::adapters::gio_file_for_location;
 use crate::assets::icons;
-use crate::model::{EntryKind, FileEntry, MetadataValue};
+use crate::model::FileEntry;
 use crate::services::{
-    PathMatcher, PathQuery, PreviewContent, content_family, filter_name_matches, fold_for_search,
-    has_plain_text_extension, is_extensionless_dotfile,
+    PathMatcher, PathQuery, filter_name_matches, fold_for_search,
 };
 use gtk::prelude::*;
-use gtk::{gio, glib};
-use std::cell::{Cell, RefCell};
-use std::path::Path;
-use std::rc::Rc;
+use std::cell::RefCell;
 
 thread_local! {
     static FILTER_TERMS: RefCell<Option<(String, PathMatcher)>> = const { RefCell::new(None) };

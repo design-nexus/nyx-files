@@ -9,26 +9,20 @@
 
 use std::{
     cell::{Cell, RefCell},
-    path::{Path, PathBuf},
     rc::Rc,
 };
 
 use gtk::{glib, prelude::*};
 
-use super::keys::{
-    self,
-    bindings::{DOWN, ENTER, UP},
-};
 use crate::{
-    app::Browser,
-    model::{FileEntry, Location},
+    model::FileEntry,
     services::SearchItem,
 };
 
 mod collection;
 mod presentation;
 use collection::{
-    CollectionBehavior, ResultCollection, ResultKind, collection_entry,
+    ResultCollection, collection_entry,
 };
 
 pub(super) type SearchSelectionChanged = Rc<dyn Fn(Vec<FileEntry>)>;

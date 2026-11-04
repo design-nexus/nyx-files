@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 //! Cloud accounts use the existing local navigation/operation stack through FUSE.
 use super::*;
-use nyx_cloud::{Client, Remote};
 
 
 /// Cloud mounts each account as an rclone FUSE folder directly in the home directory.

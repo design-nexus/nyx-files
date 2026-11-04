@@ -3,11 +3,10 @@
 //! An Appearance menu density slider: any px value in range, with clickable
 //! Compact and Airy labels under their tick marks that snap to those presets.
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use gtk::{glib, graphene, gsk, prelude::*, subclass::prelude::*};
 
-use crate::ui::{browser_modes::DensityScale, preferences::PreferenceManager};
 
 mod imp {
     use super::*;

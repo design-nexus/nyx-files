@@ -3,14 +3,14 @@
 //! Stable identity and displayed-order lookup. The rank map is only a sorter input; all
 //! behavior resolves entries through the sorted GTK model, never a parallel result vector.
 use crate::{
-    model::{FileEntry, Location},
+    model::FileEntry,
     services::SearchItem,
     ui::browser::find::{HitRanges, highlight_hit_name},
 };
 use gtk::{gio, glib, prelude::*};
 use std::{
     cell::{Cell, RefCell},
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
 };

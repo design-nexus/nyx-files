@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use crate::model::{FileEntry, Location};
-use crate::ui::browser::PinStatus;
-use gtk::glib;
-use std::path::Path;
+use crate::model::Location;
 
 
 

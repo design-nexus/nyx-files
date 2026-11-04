@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use gtk::{glib, prelude::*};
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
-use crate::ui::keys::{self, bindings::ESCAPE_ANY};
 
 struct Target {
     id: &'static str,

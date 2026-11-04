@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-use super::{page_content, scrollable_page, settings_group};
-use crate::{assets::icons, services};
 use gtk::prelude::*;
 
 

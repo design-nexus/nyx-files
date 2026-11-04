@@ -3,10 +3,9 @@
 use gtk::{gdk, glib, prelude::*};
 
 use super::keys::{
-    self, Binding, KeyPress,
+    self, KeyPress,
     bindings::{
-        DOWN, ENTER, FOCUS_NEXT, FOCUS_PREVIOUS, LEFT, RIGHT, UP, VIM_DOWN, VIM_LEFT, VIM_RIGHT,
-        VIM_UP,
+        DOWN, ENTER, LEFT, RIGHT, UP,
     },
 };
 

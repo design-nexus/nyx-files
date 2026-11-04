@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 
 use crate::ui::browser::ViewState;
-use crate::ui::scrolling::advance;
-use gtk::prelude::*;
-use gtk::{gdk, glib};
+use gtk::glib;
 use std::cell::{Cell, RefCell};
-use std::rc::{Rc, Weak};
-use std::time::{Duration, Instant};
+use std::rc::Weak;
+use std::time::Instant;
 
 
 

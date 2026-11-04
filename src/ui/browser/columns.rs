@@ -1,28 +1,20 @@
 // SPDX-License-Identifier: MIT
 
-use crate::model::{FileEntry, Location};
-use crate::services::fold_for_search;
+use crate::model::Location;
 use crate::ui::browser::ViewState;
 use crate::ui::browser::collection::{
-    ViewMap, cancel_source,
+    ViewMap,
     scroll_collection_when_allocated,
     };
 use crate::ui::browser::find::{
     HitRanges, highlight_hit_name, highlight_listing_name, };
 use crate::ui::browser::presentation::LoadPresentation;
-use crate::ui::browser_modes::{ClickActivation, ClickCount};
 use crate::ui::entry_list_model::EntryListModel;
-use crate::ui::keys::{
-    self,
-    bindings::{DOWN, UP},
-};
-use crate::ui::motion::{animations_enabled, emphasized_deceleration};
 use gtk::prelude::*;
-use gtk::{gio, glib};
+use gtk::glib;
 use std::cell::{Cell, RefCell};
-use std::path::Path;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub(in crate::ui) const COLUMN_WIDTH: i32 = 300;
 

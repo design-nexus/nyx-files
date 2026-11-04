@@ -8,10 +8,9 @@
 
 use std::cell::{Cell, RefCell};
 
-use gtk::{glib, prelude::*};
+use gtk::glib;
 
-use super::{BrowserView, listing_filter::Target};
-use crate::{model::Location, ui::browser_modes::BrowserMode};
+use super::BrowserView;
 
 #[derive(Default)]
 pub(super) struct SearchState {

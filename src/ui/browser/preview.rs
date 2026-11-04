@@ -2,8 +2,6 @@
 
 use super::columns::{ColumnSpan};
 use super::*;
-use crate::ui::motion::{animations_enabled, emphasized_deceleration};
-use std::time::Instant;
 
 impl ViewState {
     pub(super) fn column_span(&self, depth: usize) -> Option<ColumnSpan> {

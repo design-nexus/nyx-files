@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use crate::model::{FileEntry, Location};
-use crate::services::{OperationRequestId, RequestId, validate_basename};
+use crate::model::Location;
+use crate::services::{OperationRequestId, RequestId};
 use crate::ui::browser::ViewState;
-use crate::ui::browser::paths::is_trash_location;
-use crate::ui::browser_modes::BrowserMode;
-use gtk::prelude::*;
-use std::rc::Rc;
 
 
 enum PendingRenameState {
