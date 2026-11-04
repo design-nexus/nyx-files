@@ -13,14 +13,14 @@ use zbus::zvariant::OwnedObjectPath;
 mod tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum ForgetCachedPasswordError {
+pub(crate) enum ForgetCachedPasswordError {
     NeedsConfirmation,
     ItemLocked,
     Failed(String),
 }
 
 impl ForgetCachedPasswordError {
-    pub(super) fn user_message(&self) -> String {
+    pub(crate) fn user_message(&self) -> String {
         match self {
             Self::NeedsConfirmation => crate::i18n::tr(
                 "Files cannot display the password manager's deletion confirmation. Remove this volume's saved password in your password manager, then try Lock again.",
@@ -79,7 +79,7 @@ const SECRET_SERVICE_INTERFACE: &str = "org.freedesktop.Secret.Service";
 const SECRET_ITEM_INTERFACE: &str = "org.freedesktop.Secret.Item";
 const SECRET_METHOD_TIMEOUT: Duration = Duration::from_secs(2);
 
-pub(super) fn volume_password_is_cached(uuid: &str) -> bool {
+pub(crate) fn volume_password_is_cached(uuid: &str) -> bool {
     match async_io::block_on(search_cached_luks_items(uuid)) {
         Ok(items) => !items.is_empty(),
         Err(error) => {
@@ -89,7 +89,7 @@ pub(super) fn volume_password_is_cached(uuid: &str) -> bool {
     }
 }
 
-pub(super) fn forget_cached_volume_password(uuid: &str) -> Result<(), ForgetCachedPasswordError> {
+pub(crate) fn forget_cached_volume_password(uuid: &str) -> Result<(), ForgetCachedPasswordError> {
     async_io::block_on(delete_cached_luks_items(uuid))
 }
 

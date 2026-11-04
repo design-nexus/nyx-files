@@ -24,6 +24,7 @@ pub(super) enum Target {
     Pin(Location),
     Volume(gio::Volume),
     Mount(gio::Mount),
+    Drive(gio::Drive),
 }
 
 type OpenFn = Rc<dyn Fn(Location)>;
@@ -76,6 +77,10 @@ fn standard(id: &str) -> Option<(&'static str, &'static str, glib::UserDirectory
     })
 }
 
+thread_local! {
+    static TRASH_FULL: Cell<bool> = const { Cell::new(false) };
+}
+
 type Shown = fn(&PreferenceManager) -> bool;
 
 const PLACES: [(&str, Shown); 10] = [
@@ -102,7 +107,15 @@ fn place(
             "Recent",
             Location::uri("recent:///"),
         ),
-        "trash" => ("user-trash-symbolic", "Trash", Location::uri("trash:///")),
+        "trash" => (
+            if TRASH_FULL.with(Cell::get) {
+                "user-trash-full-symbolic"
+            } else {
+                "user-trash-symbolic"
+            },
+            "Trash",
+            Location::uri("trash:///"),
+        ),
         "network" => (
             "network-workgroup-symbolic",
             "Network",
@@ -231,6 +244,7 @@ impl SidebarContent {
             },
         );
         content.pin_on_drop();
+        content.watch_trash();
         content.rebuild();
         content
     }
@@ -353,6 +367,9 @@ impl SidebarContent {
             if !visible(&prefs) {
                 continue;
             }
+            if id == "recent" && !recent_available() {
+                continue;
+            }
             let Some((icon, name, location)) = place(id, &home) else {
                 continue;
             };
@@ -441,11 +458,14 @@ impl SidebarContent {
             .filter(|m| !m.is_shadowed() && !is_cloud(Some(m.clone())))
             .filter(|m| !m.volume().is_some_and(|v| volumes.contains(&v)))
             .collect();
-        if volumes.is_empty() && mounts.is_empty() {
+        let drives =
+            crate::ui::window::orphaned_password_drives(&volumes, &self.monitor.connected_drives());
+        if volumes.is_empty() && mounts.is_empty() && drives.is_empty() {
             return;
         }
         self.sidebar
             .append(&sidebar::group_label(&crate::i18n::tr("Devices"), false));
+        self.password_drives(&volumes);
         for volume in volumes {
             let mount = volume.get_mount();
             let system_name = volume.name().to_string();
@@ -746,4 +766,121 @@ fn reorderable(button: &gtk::Button, location: &Location) {
         true
     });
     button.add_controller(target);
+}
+
+impl SidebarContent {
+    /// Keeps Trash's icon full or empty as items come and go.
+    fn watch_trash(self: &Rc<Self>) {
+        let trash = gio::File::for_uri("trash:///");
+        let check = {
+            let (weak, trash) = (Rc::downgrade(self), trash.clone());
+            move || {
+                let (weak, trash) = (weak.clone(), trash.clone());
+                glib::MainContext::default().spawn_local(async move {
+                    let full = trash
+                        .query_info_future(
+                            "trash::item-count",
+                            gio::FileQueryInfoFlags::NONE,
+                            glib::Priority::LOW,
+                        )
+                        .await
+                        .is_ok_and(|info| info.attribute_uint32("trash::item-count") > 0);
+                    if TRASH_FULL.with(|t| t.replace(full)) != full
+                        && let Some(c) = weak.upgrade()
+                    {
+                        c.queue_rebuild();
+                    }
+                });
+            }
+        };
+        check();
+        if let Ok(monitor) =
+            trash.monitor_directory(gio::FileMonitorFlags::NONE, gio::Cancellable::NONE)
+        {
+            monitor.connect_changed(move |_, _, _, _| check());
+            self.keep.borrow_mut().push(Box::new(monitor));
+        }
+    }
+
+    /// Locked encrypted drives that show no volume yet: a click unlocks them.
+    fn password_drives(self: &Rc<Self>, volumes: &[gio::Volume]) -> bool {
+        let drives =
+            crate::ui::window::orphaned_password_drives(volumes, &self.monitor.connected_drives());
+        for drive in &drives {
+            let name = drive.name().to_string();
+            let item = self.add_row(
+                "drive-harddisk-symbolic",
+                &name,
+                &name,
+                None,
+                Target::Drive(drive.clone()),
+            );
+            let (weak, d) = (Rc::downgrade(self), drive.clone());
+            item.button.connect_clicked(move |_| {
+                if let Some(c) = weak.upgrade() {
+                    c.start_drive(&d);
+                }
+            });
+            let pending = device_release::is_pending(&device_release::ids_for_drive(drive));
+            self.append_device(
+                &item,
+                pending,
+                drive.can_eject().then(|| Target::Drive(drive.clone())),
+            );
+        }
+        !drives.is_empty()
+    }
+
+    fn start_drive(self: &Rc<Self>, drive: &gio::Drive) {
+        let open = self.open.clone();
+        start_drive(drive, move |l| open(l));
+    }
+}
+
+/// Starts (unlocks) a drive, then mounts and opens the volume it brings up.
+pub(super) fn start_drive(drive: &gio::Drive, open: impl Fn(Location) + 'static) {
+    {
+        let drive = drive.clone();
+        glib::MainContext::default().spawn_local(async move {
+            let op = super::mount::operation();
+            if let Err(error) = drive
+                .start_future(gio::DriveStartFlags::NONE, Some(&op))
+                .await
+            {
+                if !error.matches(gio::IOErrorEnum::FailedHandled) {
+                    super::devices::toast(error.message());
+                }
+                return;
+            }
+            for _ in 0..50 {
+                if let Some(volume) = drive.volumes().into_iter().next() {
+                    if volume.get_mount().is_none() {
+                        let _ = volume
+                            .mount_future(
+                                gio::MountMountFlags::NONE,
+                                Some(&super::mount::operation()),
+                            )
+                            .await;
+                    }
+                    if let Some(mount) = volume.get_mount() {
+                        open(location_of_file(&mount.root()));
+                    }
+                    return;
+                }
+                glib::timeout_future(std::time::Duration::from_millis(100)).await;
+            }
+            super::devices::toast(&crate::i18n::tr(
+                "The device started, but no mountable volume appeared.",
+            ));
+        });
+    }
+}
+
+/// Recent needs GTK's recent-files tracking and a `recent:` backend.
+fn recent_available() -> bool {
+    gtk::Settings::default().is_some_and(|s| s.is_gtk_recent_files_enabled())
+        && gio::Vfs::default()
+            .supported_uri_schemes()
+            .iter()
+            .any(|scheme| scheme.eq_ignore_ascii_case("recent"))
 }

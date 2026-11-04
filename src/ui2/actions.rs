@@ -699,6 +699,7 @@ pub(super) fn sidebar_menu(
         Target::Place(_, l) | Target::Pin(l) => Some(l.clone()),
         Target::Volume(v) => v.get_mount().map(|m| location_of(&m.root())),
         Target::Mount(m) => Some(location_of(&m.root())),
+        Target::Drive(_) => None,
     };
     let mut items = Vec::new();
     if let Some(location) = location.clone() {
@@ -764,6 +765,26 @@ pub(super) fn sidebar_menu(
                     menu::item(&crate::i18n::tr("Empty Trash…"), move || empty_trash(&w))
                         .icon("user-trash-full-symbolic")
                         .danger(),
+                );
+            }
+        }
+        Target::Drive(drive) => {
+            let (d, w) = (drive.clone(), window.clone());
+            items.push(
+                menu::item(&crate::i18n::tr("Unlock"), move || {
+                    let w = w.clone();
+                    super::sidebar::start_drive(&d, move |l| w.navigate_to(l));
+                })
+                .icon("changes-allow-symbolic"),
+            );
+            if let Some(label) = super::devices::release_label(&target) {
+                let (t, w) = (target.clone(), window.clone());
+                items.push(menu::separator());
+                items.push(
+                    menu::item(&crate::i18n::tr(label), move || {
+                        super::devices::release(&t, w.window.upcast_ref())
+                    })
+                    .icon("media-eject-symbolic"),
                 );
             }
         }
@@ -856,6 +877,41 @@ pub(super) fn sidebar_menu(
                     })
                     .icon("system-lock-screen-symbolic"),
                 );
+            }
+            if encrypted {
+                let uuid = match &target {
+                    Target::Volume(v) => crate::ui::window::crypto_password_uuid_for_volume(v),
+                    Target::Mount(m) => crate::ui::window::crypto_password_uuid_for_mount(m),
+                    _ => None,
+                };
+                if let Some(uuid) = uuid {
+                    let w = window.clone();
+                    items.push(
+                        menu::item(&crate::i18n::tr("Forget saved password"), move || {
+                            let (w, uuid) = (w.clone(), uuid.clone());
+                            glib::MainContext::default().spawn_local(async move {
+                                let result = gio::spawn_blocking(move || {
+                                    use crate::ui::window::volume_password as vp;
+                                    if !vp::volume_password_is_cached(&uuid) {
+                                        return Ok(false);
+                                    }
+                                    vp::forget_cached_volume_password(&uuid).map(|()| true)
+                                })
+                                .await;
+                                let message = match result {
+                                    Ok(Ok(true)) => crate::i18n::tr("Saved password forgotten"),
+                                    Ok(Ok(false)) => {
+                                        crate::i18n::tr("No password is saved for this volume")
+                                    }
+                                    Ok(Err(error)) => error.user_message(),
+                                    Err(_) => crate::i18n::tr("Unable to forget the password"),
+                                };
+                                toast::show(&w.overlay, &message);
+                            });
+                        })
+                        .icon("dialog-password-symbolic"),
+                    );
+                }
             }
             if super::drives::can_format(&target) {
                 let (t, w) = (target.clone(), window.clone());

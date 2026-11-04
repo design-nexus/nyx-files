@@ -63,7 +63,7 @@ mod pinned_drop;
 mod sidebar;
 mod sidebar_drop_feedback;
 mod unlock_argument;
-mod volume_password;
+pub(crate) mod volume_password;
 
 #[cfg(test)]
 pub(super) use devices::offer_removable_destinations_for_test;
@@ -3507,7 +3507,7 @@ pub(crate) fn crypto_password_uuid_for_volume(volume: &gio::Volume) -> Option<St
     )
 }
 
-fn crypto_password_uuid_for_mount(mount: &gio::Mount) -> Option<String> {
+pub(crate) fn crypto_password_uuid_for_mount(mount: &gio::Mount) -> Option<String> {
     if let Some(volume) = mount.volume() {
         return crypto_password_uuid_for_volume(&volume);
     }
@@ -3928,7 +3928,7 @@ fn gio_drive_identity(drive: &gio::Drive) -> Option<String> {
     )
 }
 
-fn orphaned_password_drives(volumes: &[gio::Volume], drives: &[gio::Drive]) -> Vec<gio::Drive> {
+pub(crate) fn orphaned_password_drives(volumes: &[gio::Volume], drives: &[gio::Drive]) -> Vec<gio::Drive> {
     let identities: Vec<_> = volumes.iter().filter_map(gio_volume_identity).collect();
     drives
         .iter()

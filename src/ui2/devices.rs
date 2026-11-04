@@ -36,6 +36,7 @@ pub(super) fn release_label(target: &Target) -> Option<&'static str> {
     let action = match target {
         Target::Volume(v) => choose(Some(v), v.get_mount().as_ref()),
         Target::Mount(m) => choose(None, Some(m)),
+        Target::Drive(d) => d.can_eject().then_some(Action::EjectVolume),
         _ => None,
     }?;
     Some(match action {
@@ -44,7 +45,34 @@ pub(super) fn release_label(target: &Target) -> Option<&'static str> {
     })
 }
 
+pub(super) fn toast(message: &str) {
+    if let Some(w) = super::window::focused() {
+        nyx_ui::toast::show(&w.overlay, message);
+    }
+}
+
 pub(super) fn release(target: &Target, anchor: &gtk::Widget) {
+    if let Target::Drive(drive) = target {
+        let key = device_release::key_for_drive(drive);
+        let drive = drive.clone();
+        device_release::start_release(
+            anchor,
+            None,
+            None,
+            key,
+            ReleaseKind::Eject,
+            true,
+            None,
+            None,
+            || {},
+            move |operation| async move {
+                drive
+                    .eject_with_operation_future(gio::MountUnmountFlags::NONE, Some(&operation))
+                    .await
+            },
+        );
+        return;
+    }
     let (volume, mount) = match target {
         Target::Volume(v) => (Some(v.clone()), v.get_mount()),
         Target::Mount(m) => (None, Some(m.clone())),

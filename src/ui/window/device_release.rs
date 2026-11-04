@@ -319,7 +319,7 @@ pub(crate) fn ids_for_mount(mount: &gio::Mount) -> DeviceIds {
     key_for_mount(mount).ids()
 }
 
-pub(super) fn key_for_drive(drive: &gio::Drive) -> ReleaseKey {
+pub(crate) fn key_for_drive(drive: &gio::Drive) -> ReleaseKey {
     ReleaseKey {
         unix_device: unix_device_identifier(drive),
         uuid: drive
@@ -330,7 +330,7 @@ pub(super) fn key_for_drive(drive: &gio::Drive) -> ReleaseKey {
     }
 }
 
-pub(super) fn ids_for_drive(drive: &gio::Drive) -> DeviceIds {
+pub(crate) fn ids_for_drive(drive: &gio::Drive) -> DeviceIds {
     key_for_drive(drive).ids()
 }
 
