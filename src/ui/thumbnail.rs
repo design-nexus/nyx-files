@@ -1424,7 +1424,6 @@ fn theme_icon_texture(name: &str, size: i32, scale: i32) -> Option<gdk::Texture>
         let path = icon.file()?.path()?;
         let px = size * scale.max(1);
         let pixbuf = gdk_pixbuf::Pixbuf::from_file_at_size(path, px, px).ok()?;
-        #[expect(deprecated, reason = "the slot keeps a texture; pixbuf loading sizes SVGs")]
         let texture = gdk::Texture::for_pixbuf(&pixbuf);
         Some(texture)
     });
