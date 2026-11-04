@@ -1,4 +1,4 @@
-/* Files' own parts that ui2 reuses (the preview, the shortcut footer and
+/* Files' own parts that the interface reuses (the preview, the shortcut footer and
  * reference, background jobs, path completion, 10xer), on the 2.0 colours. */
 
 @define-color files_bg @theme_bg;

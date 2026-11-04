@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+//! What the interface builds on: preferences, key bindings, the preview
+//! drawer, thumbnails, the shortcut footer and reference, custom actions,
+//! device and drive helpers, and the theme colours the previews use.
+
 mod accessibility;
 pub(crate) mod actions;
 mod blur;

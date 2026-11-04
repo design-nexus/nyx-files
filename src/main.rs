@@ -12,6 +12,7 @@ mod app;
 mod assets;
 mod build_info;
 mod i18n;
+mod interface;
 mod logging;
 mod media;
 mod metrics;
@@ -31,7 +32,6 @@ mod storage;
 mod test_support;
 mod trusted_command;
 mod ui;
-mod ui2;
 mod util;
 
 use std::{
@@ -209,7 +209,7 @@ fn main() -> gtk::glib::ExitCode {
             leave_launch_folder();
             util::ui_thread::mark();
             return portal::run(
-                &ui2::CHOOSER_UI,
+                &interface::CHOOSER_UI,
                 #[cfg(feature = "qa")]
                 None,
             );
@@ -259,7 +259,7 @@ fn main() -> gtk::glib::ExitCode {
         ui::read_install_facts();
         leave_launch_folder();
         util::ui_thread::mark();
-        return portal::run(&ui2::CHOOSER_UI, qa_session);
+        return portal::run(&interface::CHOOSER_UI, qa_session);
     }
     #[cfg(feature = "qa")]
     let application_arguments = qa_session.as_ref().map_or_else(
@@ -351,7 +351,7 @@ fn main() -> gtk::glib::ExitCode {
     });
     application.connect_activate(|application| {
         if let Err(error) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            ui2::present(application);
+            interface::present(application);
         })) {
             tracing::error!("panic during application activation: {error:?}");
         }
@@ -359,10 +359,10 @@ fn main() -> gtk::glib::ExitCode {
     application.connect_open(|application, files, _| {
         if let Err(error) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             if files.is_empty() {
-                ui2::present(application);
+                interface::present(application);
             }
             for file in files {
-                ui2::present_open(application, file);
+                interface::present_open(application, file);
             }
         })) {
             tracing::error!("panic during application open: {error:?}");
@@ -451,7 +451,7 @@ fn handle_command_line(
         cmdline.is_remote(),
     ) {
         CommandLineAction::Unlock(target) => {
-            ui2::present_unlock(application, target);
+            interface::present_unlock(application, target);
             glib::ExitCode::SUCCESS
         }
         CommandLineAction::Open(files) => {
@@ -526,7 +526,7 @@ fn export_file_manager_interface(application: &gtk::Application) {
     };
     let target = application.clone();
     if let Err(error) = adapters::export_file_manager(&connection, move |request| {
-        ui2::present_reveal(&target, request);
+        interface::present_reveal(&target, request);
     }) {
         tracing::warn!(%error, "unable to export the file manager interface");
     }

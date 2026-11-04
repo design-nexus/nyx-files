@@ -56,7 +56,7 @@ pub(crate) fn present_unlock(application: &gtk::Application, target: crate::ui::
     launch::present_unlock(application, target);
 }
 
-/// The portal's chooser on the 2.0 interface.
+/// The portal's file chooser.
 pub(crate) static CHOOSER_UI: crate::portal::ChooserUi = crate::portal::ChooserUi {
     prepare: chooser::prepare,
     present: |request, cancelled, completion| chooser::present(request, cancelled, completion),
