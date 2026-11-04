@@ -27,6 +27,7 @@ use crate::ui::{browser_modes::BrowserMode, preferences::PreferenceManager};
 type Changed = Box<dyn Fn()>;
 type ContextFn = Box<dyn Fn(Option<FileEntry>, &gtk::Widget, f64, f64)>;
 type RejectedFn = Box<dyn Fn(crate::services::LocationValidationError)>;
+type ResultFn = Box<dyn Fn(crate::services::SearchItem)>;
 type DropFn = Box<dyn Fn(Location, Vec<Location>, gtk::gdk::DragAction)>;
 
 pub(super) struct Tab {
@@ -43,7 +44,7 @@ pub(super) struct Tab {
     results: gtk::ListBox,
     results_items: RefCell<Vec<crate::services::SearchItem>>,
     filter_query: RefCell<String>,
-    result_open: RefCell<Option<Box<dyn Fn(crate::services::SearchItem)>>>,
+    result_open: RefCell<Option<ResultFn>>,
     status: gtk::Label,
     mode: Cell<BrowserMode>,
     refresh_queued: Cell<bool>,
