@@ -1274,6 +1274,23 @@ impl ShortcutFooter {
     }
 
 
+    /// Opens the shortcut reference, or closes it, as F1 does.
+    pub(crate) fn toggle_reference(&self) {
+        if self.session.is_open() {
+            self.session.close();
+        } else {
+            self.session.open(&self.root);
+        }
+    }
+
+    /// Takes the Shortcuts button out of the footer, for a window that shows
+    /// its own elsewhere.
+    pub(crate) fn remove_shortcuts_button(&self) {
+        if let Some(parent) = self.more.parent().and_downcast::<gtk::Box>() {
+            parent.remove(&self.more);
+        }
+    }
+
     pub(crate) fn handle_key(&self, press: &KeyPress) -> Option<glib::Propagation> {
         const SHIFT: gdk::ModifierType = gdk::ModifierType::SHIFT_MASK;
         let reference_open = self.session.is_open();

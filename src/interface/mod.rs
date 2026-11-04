@@ -52,6 +52,12 @@ pub(crate) fn present_reveal(
     launch::present_reveal(application, request);
 }
 
+/// Lets go of the windows while the app is still running; left to thread-local
+/// teardown at exit, their watchers would reach state already gone and abort.
+pub(crate) fn shutdown() {
+    window::release_all();
+}
+
 pub(crate) fn present_unlock(application: &gtk::Application, target: crate::ui::UnlockTarget) {
     theme::install();
     launch::present_unlock(application, target);

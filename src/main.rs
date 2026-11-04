@@ -346,6 +346,7 @@ fn main() -> gtk::glib::ExitCode {
     application.connect_startup(|_| install_x11_program_class());
     application.connect_startup(export_file_manager_interface);
     application.connect_shutdown(|_| {
+        interface::shutdown();
         ui::preferences::flush_pending_folder_views();
         storage::writer::flush_at_exit();
     });

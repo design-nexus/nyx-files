@@ -53,6 +53,12 @@ pub(super) struct Window {
     header_actions: RefCell<Option<Rc<super::header::Actions>>>,
 }
 
+/// Drops every window; the app is shutting down.
+pub(super) fn release_all() {
+    let windows = WINDOWS.with(|w| std::mem::take(&mut *w.borrow_mut()));
+    drop(windows);
+}
+
 /// The window with focus, for keys that reach every window.
 pub(super) fn focused() -> Option<Rc<Window>> {
     WINDOWS.with(|windows| {
@@ -259,6 +265,7 @@ impl Window {
                 }
             });
         this.sidebar.follow_window(&this.window);
+        this.sidebar.append_foot(&this.shortcuts_button());
         let expanded = PreferenceManager::shared().sidebar_expanded();
         this.sidebar_toggle.set_active(expanded);
         this.sidebar.set_collapsed(!expanded);
@@ -468,6 +475,35 @@ impl Window {
             _ => return false,
         }
         true
+    }
+
+    /// "F1 Shortcuts" at the foot of the sidebar: the current tab's shortcut
+    /// reference, shown when the setting shows the button.
+    fn shortcuts_button(self: &Rc<Self>) -> gtk::Button {
+        let label = crate::ui::shortcut_reference::with_keys(
+            "%{keys} Shortcuts",
+            Keys::One(bindings::REFERENCE),
+        );
+        let button = gtk::Button::with_label(&label);
+        button.add_css_class("sidebar-shortcuts");
+        button.add_css_class("compact-hide");
+        button.set_halign(gtk::Align::Start);
+        button.set_tooltip_text(Some(&crate::ui::shortcut_reference::with_keys(
+            "Show all file-view shortcuts (%{keys})",
+            Keys::One(bindings::REFERENCE),
+        )));
+        let weak = Rc::downgrade(self);
+        button.connect_clicked(move |_| {
+            if let Some(tab) = weak.upgrade().and_then(|w| w.current()) {
+                tab.footer.toggle_reference();
+            }
+        });
+        PreferenceManager::shared().bind_preference(
+            &button,
+            PreferenceManager::show_keybinding_hints,
+            |button, shown| button.set_visible(shown),
+        );
+        button
     }
 
     pub(super) fn focus_filter(&self) {
@@ -827,6 +863,8 @@ impl Window {
 
     fn add_tab(self: &Rc<Self>, location: Location) {
         let tab = tab::Tab::new(location);
+        // The window shows the Shortcuts button once, under the sidebar.
+        tab.footer.remove_shortcuts_button();
         self.pages.add_child(&tab.container);
         let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
         tab.connect_context(move |entry, widget, x, y| {
