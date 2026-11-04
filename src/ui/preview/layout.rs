@@ -7,7 +7,7 @@ use crate::ui::{
     browser::{BrowserView, COLUMN_WIDTH, WeakBrowserView},
     browser_modes::BrowserMode,
     window::{
-        MIN_SIDEBAR_WIDTH, SidebarFit, SidebarState, SidebarView, preferred_sidebar_width,
+        MIN_SIDEBAR_WIDTH, SidebarFit, SidebarState, preferred_sidebar_width,
         sidebar_fits_without_preview, sidebar_rail_width,
     },
 };
@@ -179,66 +179,6 @@ fn sidebar_width(content: &gtk::Paned) -> i32 {
 }
 
 impl PreviewDrawer {
-    pub(in crate::ui) fn attach_split(
-        &self,
-        split: &gtk::Paned,
-        content: &gtk::Paned,
-        browser: &BrowserView,
-        sidebar: Option<&SidebarView>,
-    ) {
-        self.state.split.replace(Some(split.clone()));
-        self.state.panel_split.replace(Some(split.clone()));
-        self.state.sizing.binding.replace(Some(BrowserBinding {
-            content: content.downgrade(),
-            browser: browser.downgrade(),
-            sidebar: sidebar.map(|sidebar| Rc::downgrade(&sidebar.state)),
-        }));
-        self.state.refresh_panel_action();
-        browser.bind_preview_scrolling(&self.state.revealer);
-        let weak = Rc::downgrade(&self.state);
-        browser.connect_view_mode_changed(move |_| {
-            if let Some(state) = weak.upgrade() {
-                state.refresh_panel_action();
-                if !state.is_enabled() && !state.reserves_column_space() {
-                    state.hide_panel();
-                }
-            }
-        });
-        let weak = Rc::downgrade(&self.state);
-        let weak_browser = browser.downgrade();
-        browser.connect_search_selection_changed(Rc::new(move || {
-            let request_at_selection = weak.upgrade().and_then(|state| state.current_request.get());
-            let weak = weak.clone();
-            let weak_browser = weak_browser.clone();
-            glib::idle_add_local_once(move || {
-                let Some(state) = weak.upgrade().filter(|state| {
-                    state.is_enabled() && state.current_request.get() == request_at_selection
-                }) else {
-                    return;
-                };
-                let Some(browser) = weak_browser.upgrade() else {
-                    return;
-                };
-                if browser.selected_search_results().is_none() {
-                    return;
-                }
-                let entry = if browser.results_replace_listing() {
-                    browser
-                        .browser()
-                        .active_depth()
-                        .and_then(|depth| browser.displayed_cursor_entry(depth))
-                } else {
-                    browser.selected_search_result()
-                };
-                if let Some(entry) = preview_target(entry) {
-                    state.show_after_focus_change(entry, browser.browser().active_depth());
-                } else {
-                    state.clear_target();
-                }
-            });
-        }));
-        self.attach_split_only(split);
-    }
 
     /// Hosts the preview at the end of `split`, without an old browser view:
     /// sizing, the resize grip and the preview style follow the split alone.
@@ -493,23 +433,6 @@ impl PreviewState {
         }
     }
 
-    pub(super) fn sidebar_fit(&self, content: &gtk::Paned) -> Option<SidebarFit> {
-        if !self.preview_present() {
-            return sidebar_fits_without_preview(content).map(|fits| SidebarFit {
-                fits,
-                preview: false,
-            });
-        }
-        let split = self.split.borrow().clone()?;
-        let binding = self.sizing.binding.borrow();
-        let sidebar = binding
-            .as_ref()
-            .and_then(|binding| binding.sidebar.as_ref())
-            .and_then(Weak::upgrade);
-        let geometry = self.geometry(&split);
-        self.assess_sidebar(&split, content, sidebar.as_ref(), geometry)
-            .fit
-    }
 
     fn assess_sidebar(
         &self,

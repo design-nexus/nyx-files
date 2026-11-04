@@ -4,8 +4,7 @@ use std::cell::{Cell, RefCell};
 
 use gtk::{gdk, gdk::prelude::*, glib, graphene, prelude::*, subclass::prelude::*};
 
-#[cfg(test)]
-mod tests;
+
 
 mod imp {
     use super::*;
@@ -271,12 +270,6 @@ impl ThumbnailSlot {
         self.imp().icon_context.get()
     }
 
-    pub(crate) fn set_icon_context(&self, context: crate::assets::IconContext) {
-        if self.imp().icon_context.replace(context) != context {
-            super::refresh_slot_icon(self);
-            self.queue_draw();
-        }
-    }
 
     pub(crate) fn icon_pixel_size(&self) -> i32 {
         (self.imp().slot.get() - 2 * self.imp().content_inset.get()).max(1)
@@ -286,17 +279,7 @@ impl ThumbnailSlot {
         self.imp().fallback_icon.borrow().clone()
     }
 
-    pub(crate) fn set_content_inset(&self, inset: i32) {
-        let inset = inset.max(0);
-        if self.imp().content_inset.replace(inset) != inset {
-            super::refresh_slot_icon(self);
-            self.queue_draw();
-        }
-    }
 
-    pub(crate) fn limit_fallback_height_to_folder(&self) {
-        self.imp().limit_fallback_height.set(true);
-    }
 
     pub(crate) fn set_texture(&self, texture: &gdk::Texture) {
         if same_texture(self.imp().texture.borrow().as_ref(), Some(texture)) {
@@ -332,12 +315,6 @@ impl ThumbnailSlot {
         self.imp().texture.borrow().clone()
     }
 
-    pub(crate) fn set_mark(&self, mark: crate::ui::browser::ClipboardMark) {
-        if self.imp().mark.replace(mark) != mark {
-            self.update_state_opacity();
-            self.queue_draw();
-        }
-    }
 
     pub(crate) fn set_hidden(&self, hidden: bool) {
         if self.imp().hidden.replace(hidden) != hidden {
@@ -345,14 +322,6 @@ impl ThumbnailSlot {
         }
     }
 
-    pub(crate) fn set_base_opacity(&self, opacity: f64) {
-        let opacity = opacity.clamp(0.0, 1.0);
-        let current = self.imp().base_opacity.get();
-        if (current - opacity).abs() > 1e-4 {
-            self.imp().base_opacity.set(opacity);
-            self.update_state_opacity();
-        }
-    }
 
     fn update_state_opacity(&self) {
         let opacity = if self.imp().hidden.get() {
@@ -367,3 +336,6 @@ impl ThumbnailSlot {
         self.set_opacity(opacity);
     }
 }
+
+#[cfg(test)]
+mod tests;

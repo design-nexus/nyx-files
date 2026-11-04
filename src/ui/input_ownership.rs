@@ -18,25 +18,8 @@ impl InputOwnership {
         self.last_navigation = NavigationInput::Keyboard;
     }
 
-    /// Surface coordinates stay stable when columns scroll underneath a parked pointer.
-    pub fn pointer_motion(&mut self, position: (f64, f64)) -> bool {
-        if self.pointer_position == Some(position) {
-            return false;
-        }
-        self.pointer_position = Some(position);
-        self.pointer_action();
-        true
-    }
 
-    /// GTK re-reports a parked pointer after a popup grab ends or the layout
-    /// changes, possibly after newer keys; that report is not movement.
-    pub fn pointer_resynced(&mut self, position: (f64, f64)) {
-        self.pointer_position = Some(position);
-    }
 
-    pub fn pointer_action(&mut self) {
-        self.last_navigation = NavigationInput::Pointer;
-    }
 
     pub fn destination(
         &self,
@@ -56,6 +39,8 @@ impl InputOwnership {
             .or_else(|| pane_count.checked_sub(1))
     }
 }
+
+
 
 #[cfg(test)]
 mod tests;

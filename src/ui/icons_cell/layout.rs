@@ -85,11 +85,6 @@ fn caption_extent(label: &gtk::Inscription, width: i32) -> (i32, i32) {
     (text_width + horizontal, text_height + vertical)
 }
 
-pub(super) fn caption_truncated(label: &gtk::Inscription) -> bool {
-    label
-        .parent()
-        .is_some_and(|caption| caption_layout(label, caption.width()).is_ellipsized())
-}
 
 fn sample_caption_height(label: &gtk::Inscription) -> i32 {
     // Measure independently of visibility so entering rename cannot shrink the row.
@@ -337,14 +332,3 @@ glib::wrapper! {
         @extends gtk::LayoutManager;
 }
 
-pub(super) fn install(card: &gtk::Box, label: &gtk::Inscription) {
-    card.set_layout_manager(Some(glib::Object::new::<IconCellLayout>()));
-    if let Some(caption) = label.parent() {
-        caption.set_layout_manager(Some(glib::Object::new::<CaptionLayout>()));
-    }
-    label.connect_text_notify(|label| {
-        if let Some(caption) = label.parent() {
-            caption.queue_resize();
-        }
-    });
-}

@@ -109,10 +109,6 @@ fn written_out(locale: &str, keys: &Keys) -> String {
     alternatives.join(" / ")
 }
 
-/// Held modifiers alone, such as **Ctrl+Shift** in "hold Ctrl+Shift for numbers".
-pub(crate) fn modifiers_label(modifiers: Modifiers) -> String {
-    modifiers_label_in(&rust_i18n::locale(), modifiers)
-}
 
 pub(crate) fn modifiers_label_in(locale: &str, modifiers: Modifiers) -> String {
     modifier_names(locale, modifiers).join("+")

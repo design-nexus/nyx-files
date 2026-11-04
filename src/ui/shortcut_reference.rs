@@ -175,37 +175,6 @@ pub(crate) fn legend_markup(hints: &[(Keys, &str)]) -> String {
 
 const IN_ANY_PREVIEW: &str = "%{keys} in any preview";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ContextHint {
-    None,
-    Preview,
-    /// The file chooser previews with Space only; it has no 10xer `i` preview.
-    ChooserPreview,
-    CopyPath,
-    CopyPaths,
-    Rename,
-    Cut,
-    Copy,
-    Duplicate,
-    Paste,
-    Pin,
-    MoveTo,
-    CopyTo,
-    Restore,
-    RemoveFromRecent,
-    Terminal,
-    Trash,
-    PermanentDelete,
-    Open,
-    OpenInNewTab,
-    OpenInNewWindow,
-    Properties,
-    ContainingFolder,
-    NewFolder,
-    SelectAll,
-    Refresh,
-    HiddenFiles,
-}
 
 /// Only the 10xer map honors `scope.chooser`: portal choosers show the footer
 /// and dispatch F1 only in 10xer mode, so the default map has no chooser view.
@@ -217,25 +186,7 @@ pub(crate) fn reference_sections(scope: ReferenceScope) -> Vec<ReferenceSection>
     }
 }
 
-pub(crate) fn context_hint_for(
-    hint: ContextHint,
-    preferences: &super::preferences::PreferenceManager,
-) -> Option<Keys> {
-    if preferences.tenxer_mode() {
-        tenxer_hint(hint)
-    } else {
-        default_hint(hint, preferences.type_to_search_active())
-    }
-}
 
-/// The binding a menu row's `accel` carries; only the first alternative fits.
-pub(crate) fn menu_accelerator(keys: Keys) -> Option<Binding> {
-    match keys {
-        One(binding) => Some(binding),
-        Any(bindings) => bindings.first().copied(),
-        Chord(_) | Keys::Digits(_) | Mixed(_) => None,
-    }
-}
 
 fn default_sections(mode: BrowserMode) -> Vec<ReferenceSection> {
     vec![
@@ -1132,61 +1083,7 @@ const MEDIA: &[Shortcut] = &[
     ),
 ];
 
-fn default_hint(hint: ContextHint, type_to_search: bool) -> Option<Keys> {
-    Some(One(match hint {
-        ContextHint::None
-        | ContextHint::MoveTo
-        | ContextHint::CopyTo
-        | ContextHint::Restore
-        | ContextHint::RemoveFromRecent => return None,
-        ContextHint::CopyPath | ContextHint::CopyPaths | ContextHint::Pin if type_to_search => {
-            return None;
-        }
-        ContextHint::Preview | ContextHint::ChooserPreview => SPACE,
-        ContextHint::CopyPath | ContextHint::CopyPaths => COPY_PATH,
-        ContextHint::Pin => PIN,
-        ContextHint::Rename => return Some(Any(&[RENAME, RENAME_R])),
-        ContextHint::Cut => CUT,
-        ContextHint::Copy => COPY,
-        ContextHint::Duplicate => DUPLICATE,
-        ContextHint::Paste => PASTE,
-        ContextHint::Terminal => TERMINAL,
-        ContextHint::Trash => DELETE,
-        ContextHint::PermanentDelete => DELETE_PERMANENTLY,
-        ContextHint::Open => ENTER,
-        ContextHint::OpenInNewTab => OPEN_IN_NEW_TAB,
-        ContextHint::OpenInNewWindow => OPEN_IN_NEW_WINDOW,
-        ContextHint::Properties => PROPERTIES,
-        ContextHint::ContainingFolder => OPEN_CONTAINING_FOLDER,
-        ContextHint::NewFolder => NEW_FOLDER,
-        ContextHint::SelectAll => SELECT_ALL,
-        ContextHint::Refresh => REFRESH,
-        ContextHint::HiddenFiles => HIDDEN_FILES,
-    }))
-}
 
-fn tenxer_hint(hint: ContextHint) -> Option<Keys> {
-    Some(One(match hint {
-        ContextHint::Preview => PEEK,
-        ContextHint::Cut => YANK_CUT,
-        ContextHint::Copy => YANK,
-        ContextHint::Paste => PASTE_KEEP_BOTH,
-        ContextHint::Trash => TENXER_DELETE,
-        ContextHint::PermanentDelete => TENXER_DELETE_PERMANENTLY,
-        ContextHint::MoveTo => MOVE_TO,
-        ContextHint::CopyTo => COPY_TO,
-        ContextHint::Restore => RESTORE,
-        ContextHint::Rename => TENXER_RENAME,
-        ContextHint::None
-        | ContextHint::ChooserPreview
-        | ContextHint::CopyPath
-        | ContextHint::CopyPaths
-        | ContextHint::Duplicate
-        | ContextHint::Pin
-        | ContextHint::Terminal => return None,
-        other => return default_hint(other, false),
-    }))
-}
 
 /// The distinct rows of one map across all its scopes, each as the keys it
 /// shows: its own and those its action names.

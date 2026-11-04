@@ -103,17 +103,8 @@ impl Drop for State {
 pub(crate) struct SearchSession(Rc<State>);
 
 impl SearchSession {
-    pub(crate) fn is_active(&self) -> bool {
-        self.0.worker.borrow().is_some() || self.0.admission.borrow().is_some()
-    }
 
-    pub(crate) fn awaiting_results(&self) -> bool {
-        self.0.awaiting.get()
-    }
 
-    pub(super) fn searches(&self, input: &SearchInput) -> bool {
-        self.started_with(|current, _| current == input)
-    }
 
     fn started_with(&self, matches: impl Fn(&SearchInput, SearchLimits) -> bool) -> bool {
         if let Some(worker) = self.0.worker.borrow().as_ref() {
@@ -145,67 +136,7 @@ impl SearchSession {
         self.0.query.borrow_mut().clear();
     }
 
-    pub(super) fn prune_missing(
-        &self,
-        paths: Vec<PathBuf>,
-        apply: impl FnOnce(HashSet<PathBuf>) + 'static,
-    ) {
-        if paths.is_empty() {
-            return;
-        }
-        let cancellable = gio::Cancellable::new();
-        if let Some(previous) = self.0.pruning.replace(Some(cancellable.clone())) {
-            previous.cancel();
-        }
-        let generation = self.0.generation.get();
-        let weak = Rc::downgrade(&self.0);
-        glib::MainContext::default().spawn_local(async move {
-            let locations: Vec<_> = paths.iter().map(Location::local).collect();
-            let found = probes::presence(&locations, &cancellable).await;
-            let Some(state) = weak.upgrade() else {
-                return;
-            };
-            if cancellable.is_cancelled() || state.generation.get() != generation {
-                return;
-            }
-            state.pruning.take();
-            let gone: HashSet<PathBuf> = paths
-                .into_iter()
-                .zip(found)
-                .filter(|(_, presence)| matches!(presence, Presence::Absent))
-                .map(|(path, _)| path)
-                .collect();
-            if !gone.is_empty() {
-                apply(gone);
-            }
-        });
-    }
 
-    pub(crate) fn set_show_hidden(&self, show_hidden: bool) {
-        let input = self
-            .0
-            .worker
-            .borrow()
-            .as_ref()
-            .map(|worker| worker.input.clone())
-            .or_else(|| {
-                self.0
-                    .admission
-                    .borrow()
-                    .as_ref()
-                    .map(|admission| admission.input.clone())
-            });
-        let deliver = self.0.deliver.borrow().clone();
-        let (Some(mut input), Some(deliver)) = (input, deliver) else {
-            return;
-        };
-        if input.show_hidden == show_hidden {
-            return;
-        }
-        input.show_hidden = show_hidden;
-        let query = self.0.query.borrow().clone();
-        self.update(input, &query, false, deliver);
-    }
 
     pub(super) fn expect_query(&self, query: &str) {
         self.0.query.replace(query.trim().to_owned());
@@ -219,13 +150,6 @@ impl SearchSession {
         }
     }
 
-    pub(super) fn query_candidates(&self, query: &str, count: usize) {
-        if *self.0.query.borrow() == query
-            && let Some(worker) = self.0.worker.borrow().as_ref()
-        {
-            worker.handle.query_candidates(query, count);
-        }
-    }
 
     /// Only folder pickers accept empty queries; other empty queries cancel.
     pub(crate) fn update(&self, input: SearchInput, query: &str, restart: bool, deliver: Deliver) {
@@ -381,6 +305,8 @@ fn drain(
     }
     (latest, disconnected)
 }
+
+
 
 #[cfg(test)]
 mod tests;

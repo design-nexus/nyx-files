@@ -48,39 +48,7 @@ impl ThumbnailResize {
         }
     }
 
-    pub(in crate::ui) fn for_tenxer_key(press: &KeyPress) -> Option<Self> {
-        if press.is_any(&[TENXER_THUMBNAILS_LARGER, TENXER_THUMBNAILS_LARGER_EQUAL]) {
-            Some(Self::Step(1))
-        } else if press.is(TENXER_THUMBNAILS_SMALLER) {
-            Some(Self::Step(-1))
-        } else {
-            None
-        }
-    }
 
-    /// Moves the slider, which saves the size the way dragging it does, and
-    /// returns the size it lands on.
-    pub(in crate::ui) fn apply(self, scale: &gtk::Scale, location: Option<&Location>) -> i32 {
-        let size = match self {
-            Self::Step(steps) => stepped(scale.value().round() as i32, steps),
-            Self::Reset => {
-                let preferences = PreferenceManager::shared();
-                if let Some(location) = location.filter(|location| preferences.remembers(location))
-                {
-                    // Preferences move the slider to the size the folder now follows.
-                    preferences.reset_folder_icons_size(location);
-                    return preferences.icons_size_for(Some(location));
-                }
-                if preferences.remember_folder_views() {
-                    preferences.icons_thumbnail_size()
-                } else {
-                    DEFAULT_ICONS_THUMBNAIL_SIZE
-                }
-            }
-        };
-        scale.set_value(f64::from(size));
-        size
-    }
 }
 
 /// `size` moved `steps` along [`STEPS`]. From a size between two steps, the

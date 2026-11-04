@@ -71,11 +71,6 @@ glib::wrapper! {
 }
 
 impl BlurBin {
-    pub(super) fn new(child: &impl IsA<gtk::Widget>) -> Self {
-        let blur: Self = glib::Object::new();
-        child.set_parent(&blur);
-        blur
-    }
 
     pub(super) fn set_blurred(&self, blurred: bool) {
         if self.imp().blurred.replace(blurred) != blurred {
@@ -83,23 +78,6 @@ impl BlurBin {
         }
     }
 
-    pub(super) fn freeze(&self) -> bool {
-        if self.imp().frozen.get() {
-            return true;
-        }
-        let Some(child) = self.first_child() else {
-            return false;
-        };
-        let snapshot = gtk::Snapshot::new();
-        self.snapshot_child(&child, &snapshot);
-        let Some(node) = snapshot.to_node() else {
-            return false;
-        };
-        self.imp().frozen_node.replace(Some(node));
-        self.imp().frozen.set(true);
-        self.queue_draw();
-        true
-    }
 
     pub(super) fn thaw(&self) {
         if self.imp().frozen.replace(false) {

@@ -58,16 +58,6 @@ pub(in crate::ui) fn apply_theme(accent: &str, background: &str) {
     }
 }
 
-pub(super) fn register_highlight_view(state: &Rc<ViewState>) {
-    HIGHLIGHT_VIEWS.with_borrow_mut(|views| {
-        if !views
-            .iter()
-            .any(|view| std::ptr::eq(view.as_ptr(), Rc::as_ptr(state)))
-        {
-            views.push(Rc::downgrade(state));
-        }
-    });
-}
 
 pub(in crate::ui) fn match_ranges(name: &str, query: &str) -> Vec<Range<usize>> {
     let needle: Vec<char> = query.chars().flat_map(char::to_lowercase).collect();
@@ -161,13 +151,6 @@ pub(in crate::ui) fn highlight_name(widget: &gtk::Widget, query: Option<&str>) {
 /// Ranges index the displayed filename, not the full path.
 pub(in crate::ui) type HitRanges = HashMap<PathBuf, Vec<Range<usize>>>;
 
-pub(in crate::ui) fn search_hit_ranges(query: &str, root: &Path, hits: &[SearchItem]) -> HitRanges {
-    let mut matcher = PathMatcher::new(&PathQuery::parse(query));
-    hits.iter()
-        .map(|hit| (hit.path.clone(), matcher.name_highlight(root, &hit.path)))
-        .filter(|(_, ranges)| !ranges.is_empty())
-        .collect()
-}
 
 pub(in crate::ui) fn highlight_listing_name(
     widget: &gtk::Widget,
@@ -218,196 +201,19 @@ impl ViewState {
 }
 
 impl BrowserView {
-    /// Commits `query` and moves the cursor to its next match (previous when
-    /// `backward`). A miss leaves the cursor where it is. Returns whether a match
-    /// was found.
-    pub(in crate::ui) fn find(&self, query: &str, backward: bool, listing_focused: bool) -> bool {
-        if query.is_empty() {
-            return false;
-        }
-        self.state.find.replace(FindState {
-            query: query.to_owned(),
-            backward,
-            highlighted: true,
-        });
-        self.state.refresh_name_highlights();
-        self.find_next(query, backward, listing_focused)
-    }
 
-    /// Repeats the last committed find, reversed for **N**. `None` when there is
-    /// no query to repeat.
-    pub(in crate::ui) fn repeat_find(&self, reverse: bool, listing_focused: bool) -> Option<bool> {
-        let (query, backward) = {
-            let mut find = self.state.find.borrow_mut();
-            if find.query.is_empty() {
-                return None;
-            }
-            find.highlighted = true;
-            (find.query.clone(), find.backward != reverse)
-        };
-        self.state.refresh_name_highlights();
-        Some(self.find_next(&query, backward, listing_focused))
-    }
 
     #[cfg(test)]
     pub(in crate::ui) fn find_highlighted(&self) -> bool {
         self.state.find_highlight().is_some()
     }
 
-    pub(in crate::ui) fn find_query(&self) -> Option<String> {
-        let find = self.state.find.borrow();
-        (!find.query.is_empty()).then(|| find.query.clone())
-    }
 
-    /// Dismisses retained highlights; the query stays repeatable. Returns whether
-    /// any were showing.
-    pub(in crate::ui) fn dismiss_find_highlight(&self) -> bool {
-        let dismissed = std::mem::replace(&mut self.state.find.borrow_mut().highlighted, false);
-        if dismissed {
-            self.state.refresh_name_highlights();
-        }
-        dismissed
-    }
 
-    pub(in crate::ui) fn clear_find(&self) {
-        let had_highlight = self.state.find.replace(FindState::default()).highlighted;
-        if had_highlight {
-            self.state.refresh_name_highlights();
-        }
-    }
 
-    /// Moves the cursor by `direction` in the displayed listing without taking
-    /// keyboard focus, for **Up** / **Down** in a footer prompt.
-    pub(in crate::ui) fn step_cursor_unfocused(&self, direction: i32) {
-        if self.step_filter_results(direction, 1, false) {
-            return;
-        }
-        let Some(depth) = self.focused_listing_depth() else {
-            return;
-        };
-        let Some(order) = self.displayed_order(depth) else {
-            return;
-        };
-        let current = self.cursor_index(depth, &order);
-        let index = match current {
-            Some(index) => index
-                .saturating_add_signed(direction as isize)
-                .min(order.len() - 1),
-            None if direction < 0 => order.len() - 1,
-            None => 0,
-        };
-        if Some(index) != current {
-            self.place_found_cursor(depth, order[index], &order, false);
-        }
-    }
 
-    fn find_next(&self, query: &str, backward: bool, listing_focused: bool) -> bool {
-        if let Some(target) = self.filter_target()
-            && target.results_view().is_some()
-        {
-            let Some(results) = target.results() else {
-                return false;
-            };
-            let Some(hits) = target.hits() else {
-                return false;
-            };
-            let len = results.len();
-            if len == 0 {
-                return false;
-            }
-            let current = hits.cursor.map(|position| position as usize);
-            let found = (1..=len)
-                .map(|step| match (current, backward) {
-                    (Some(index), false) => (index + step) % len,
-                    (Some(index), true) => (index + len - step % len) % len,
-                    (None, false) => step - 1,
-                    (None, true) => len - step,
-                })
-                .find(|&index| !match_ranges(&results[index].name, query).is_empty());
-            let Some(index) = found else {
-                return false;
-            };
-            self.place_found_result(index as u32, listing_focused);
-            return true;
-        }
-        let Some(depth) = self.focused_listing_depth() else {
-            return false;
-        };
-        let Some(order) = self.displayed_order(depth) else {
-            return false;
-        };
-        let len = order.len();
-        let current = self.cursor_index(depth, &order);
-        let found = (1..=len)
-            .map(|step| match (current, backward) {
-                (Some(index), false) => (index + step) % len,
-                (Some(index), true) => (index + len - step % len) % len,
-                (None, false) => step - 1,
-                (None, true) => len - step,
-            })
-            .map(|index| order[index])
-            .find(|&position| {
-                self.state
-                    .browser
-                    .entry_at(depth, position)
-                    .is_some_and(|entry| !match_ranges(&entry.display_name, query).is_empty())
-            });
-        let Some(position) = found else {
-            return false;
-        };
-        self.place_found_cursor(depth, position, &order, listing_focused);
-        true
-    }
 
-    fn cursor_index(&self, depth: usize, order: &[usize]) -> Option<usize> {
-        let (_, position, _) = self
-            .state
-            .browser
-            .focused_item()
-            .filter(|(focused_depth, _, _)| *focused_depth == depth)?;
-        order.iter().position(|&candidate| candidate == position)
-    }
 
-    /// `take_focus` lets the listing's keyboard focus follow the cursor; a footer
-    /// prompt keeps it otherwise.
-    fn place_found_cursor(&self, depth: usize, position: usize, order: &[usize], take_focus: bool) {
-        self.keyboard_navigation();
-        let keep_focus = !take_focus;
-        self.state.cursor_keeps_focus.set(keep_focus);
-        self.state
-            .mode_views
-            .borrow()
-            .set_cursor_keeps_focus(keep_focus);
-        self.state
-            .browser
-            .place_cursor(depth, position, Some(order));
-        self.state.cursor_keeps_focus.set(false);
-        self.state.mode_views.borrow().set_cursor_keeps_focus(false);
-        let target = if self.view_mode() == BrowserMode::Columns {
-            let columns = self.state.columns.borrow();
-            columns.get(depth).and_then(|column| {
-                Some((
-                    column.list.clone().upcast::<gtk::Widget>(),
-                    column.map.view_position(position)?,
-                ))
-            })
-        } else {
-            self.state.mode_views.borrow().cursor_view(depth, position)
-        };
-        let Some((view, view_position)) = target else {
-            return;
-        };
-        let flags = if take_focus {
-            gtk::ListScrollFlags::FOCUS
-        } else {
-            gtk::ListScrollFlags::NONE
-        };
-        if let Some(list) = view.downcast_ref::<gtk::ListView>() {
-            list.scroll_to(view_position, flags, None);
-        } else if let Some(grid) = view.downcast_ref::<gtk::GridView>() {
-            grid.scroll_to(view_position, flags, None);
-        }
-    }
 }
 
 #[cfg(test)]

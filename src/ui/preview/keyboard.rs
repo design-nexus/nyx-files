@@ -23,31 +23,8 @@ use crate::ui::{
 const OWNER_CLASS: &str = "preview-keyboard-owner";
 const MAX_CLAIM_FRAMES: u32 = 30;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::ui) enum PreviewSurface {
-    Document,
-    Archive,
-    Media,
-    Text,
-    Control,
-}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::ui) enum DocumentScroll {
-    Line(i32),
-    HalfPage(i32),
-    Page(i32),
-    Start,
-    End,
-}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::ui) enum ArchiveMove {
-    Previous,
-    Next,
-    Parent,
-    Open,
-}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(in crate::ui) enum MediaCommand {
@@ -116,24 +93,11 @@ const SEEK_AND_VOLUME: [(Binding, MediaCommand); 13] = [
     (MEDIA_VOLUME_STEP_DOWN, MediaCommand::VolumeDown),
 ];
 
-const PLAYBACK: [(Binding, MediaCommand); 6] = [
-    (SPACE, MediaCommand::PlayPause),
-    (UP, MediaCommand::VolumeUp),
-    (DOWN, MediaCommand::VolumeDown),
-    (TENXER_MEDIA_MUTE, MediaCommand::Mute),
-    (TENXER_MEDIA_PREVIOUS, MediaCommand::Previous),
-    (TENXER_MEDIA_NEXT, MediaCommand::Next),
-];
 
 pub(super) fn seek_or_volume(press: &KeyPress) -> Option<MediaCommand> {
     command_for(&SEEK_AND_VOLUME, press)
 }
 
-/// Keys a keyboard-owned media preview claims, even when the stream cannot
-/// act on them.
-pub(in crate::ui) fn media_key_command(press: &KeyPress) -> Option<MediaCommand> {
-    command_for(&PLAYBACK, press).or_else(|| seek_or_volume(press))
-}
 
 fn command_for(commands: &[(Binding, MediaCommand)], press: &KeyPress) -> Option<MediaCommand> {
     commands
@@ -156,40 +120,9 @@ pub(super) fn step_preview_volume(delta: f64) {
 }
 
 impl PreviewDrawer {
-    pub(in crate::ui) fn reset_pdf_zoom(&self, press: &KeyPress) -> bool {
-        press.is(PDF_ZOOM_RESET)
-            && self
-                .state
-                .pane
-                .root()
-                .and_then(|root| root.focus())
-                .is_some_and(|focused| {
-                    self.owns_focus(Some(&focused))
-                        && focused.activate_action("pdf.reset-zoom", None).is_ok()
-                })
-    }
 
-    /// The browser whose Miller columns yield their keyboard-destination bar
-    /// while the drawer owns the keys.
-    pub(in crate::ui) fn bind_keyboard_view(&self, view: &BrowserView) {
-        self.state.keyboard_view.replace(Some(view.downgrade()));
-        let weak = Rc::downgrade(&self.state);
-        view.set_playback_handoff(Rc::new(move |location| {
-            weak.upgrade()
-                .map(|state| PreviewDrawer { state })
-                .and_then(|drawer| drawer.prepare_handoff(location))
-        }));
-    }
 
-    /// Whether keyboard focus is anywhere inside the drawer.
-    pub(in crate::ui) fn owns_focus(&self, focused: Option<&gtk::Widget>) -> bool {
-        let pane = self.state.pane.upcast_ref::<gtk::Widget>();
-        focused.is_some_and(|focused| focused == pane || focused.is_ancestor(pane))
-    }
 
-    pub(in crate::ui) fn surface(&self, focused: &gtk::Widget) -> PreviewSurface {
-        self.state.surface(focused)
-    }
 
     /// Moves keys into the open drawer. A drawer suspended for lack of room
     /// takes them when it is shown again for the same file.
@@ -197,37 +130,9 @@ impl PreviewDrawer {
         self.state.take_keyboard()
     }
 
-    pub(in crate::ui) fn scroll_document(&self, motion: DocumentScroll) -> bool {
-        self.state.scroll_document(motion)
-    }
 
-    /// Plain media keys for a keyboard-owned media preview, plus `<` / `>` from
-    /// the 10xer listing while an audio preview is open.
-    pub(in crate::ui) fn media_key(&self, command: MediaCommand) -> bool {
-        self.has_video() && self.state.media_command(command)
-    }
 
-    pub(in crate::ui) fn archive_at_root(&self) -> bool {
-        self.state
-            .archive_browser
-            .borrow()
-            .as_ref()
-            .is_none_or(archive::ArchiveBrowser::at_root)
-    }
 
-    pub(in crate::ui) fn archive_edge(&self, last: bool) -> bool {
-        self.state
-            .archive_browser
-            .borrow()
-            .as_ref()
-            .is_some_and(|browser| {
-                browser.move_cursor(if last {
-                    isize::MAX / 2
-                } else {
-                    -isize::MAX / 2
-                })
-            })
-    }
 
     #[cfg(test)]
     pub(in crate::ui) fn document_scroll_value(&self) -> Option<f64> {
@@ -419,84 +324,6 @@ impl PreviewState {
         }
     }
 
-    fn surface(&self, focused: &gtk::Widget) -> PreviewSurface {
-        if self.archive_list_has_focus(Some(focused)) {
-            return PreviewSurface::Archive;
-        }
-        if crate::ui::focus_navigation::accepts_typing(focused) {
-            return PreviewSurface::Text;
-        }
-        let media_view = self.has_media_view()
-            && (focused == self.content.upcast_ref::<gtk::Widget>()
-                || focused.is::<gtk::Overlay>()
-                || focused.is::<super::waveform::Waveform>());
-        if media_view {
-            return PreviewSurface::Media;
-        }
-        let control = focused.is::<gtk::Button>()
-            || focused.is::<gtk::Range>()
-            || focused.is::<gtk::Switch>()
-            || focused.is::<gtk::DropDown>()
-            || focused.ancestor(gtk::Button::static_type()).is_some()
-            || focused.ancestor(gtk::Range::static_type()).is_some();
-        if control {
-            PreviewSurface::Control
-        } else {
-            PreviewSurface::Document
-        }
-    }
 
-    /// The tallest scrollable view in the content, which is the document body
-    /// rather than a breadcrumb strip or metadata scroller.
-    fn primary_scroll(&self) -> Option<gtk::ScrolledWindow> {
-        fn visit(widget: &gtk::Widget, best: &mut Option<gtk::ScrolledWindow>) {
-            if !widget.is_visible() {
-                return;
-            }
-            if let Some(scroll) = widget.downcast_ref::<gtk::ScrolledWindow>()
-                && scroll.vscrollbar_policy() != gtk::PolicyType::Never
-                && best
-                    .as_ref()
-                    .is_none_or(|best| scroll.height() > best.height())
-            {
-                best.replace(scroll.clone());
-            }
-            let mut child = widget.first_child();
-            while let Some(widget) = child {
-                visit(&widget, best);
-                child = widget.next_sibling();
-            }
-        }
-        let mut best = None;
-        visit(self.content.upcast_ref(), &mut best);
-        best
-    }
 
-    fn scroll_document(&self, motion: DocumentScroll) -> bool {
-        let Some(scroll) = self.primary_scroll() else {
-            return false;
-        };
-        let adjustment = scroll.vadjustment();
-        let page = adjustment.page_size().max(1.0);
-        let lower = adjustment.lower();
-        let limit = (adjustment.upper() - adjustment.page_size()).max(lower);
-        let target = match motion {
-            DocumentScroll::Line(direction) => {
-                let step = if adjustment.step_increment() >= 1.0 {
-                    adjustment.step_increment()
-                } else {
-                    page / 10.0
-                };
-                adjustment.value() + f64::from(direction) * step
-            }
-            DocumentScroll::HalfPage(direction) => {
-                adjustment.value() + f64::from(direction) * page / 2.0
-            }
-            DocumentScroll::Page(direction) => adjustment.value() + f64::from(direction) * page,
-            DocumentScroll::Start => lower,
-            DocumentScroll::End => limit,
-        };
-        adjustment.set_value(target.clamp(lower, limit));
-        true
-    }
 }

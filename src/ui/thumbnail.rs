@@ -22,7 +22,6 @@ mod slot;
 mod tests;
 mod viewport;
 pub(crate) use slot::ThumbnailSlot;
-pub(super) use viewport::{near_viewport, request_metadata};
 
 static NEXT_REQUEST: AtomicU64 = AtomicU64::new(1);
 const MAX_CACHE_ENTRIES: usize = 256;
@@ -319,38 +318,6 @@ pub(in crate::ui) fn remember_thumbnail_for_test(entry: &FileEntry, texture: gdk
     THUMBNAIL_CACHE.with(|cache| cache.borrow_mut().insert(key, texture));
 }
 
-pub(super) fn preserve_renamed_thumbnail(from: &crate::model::Location, entry: &FileEntry) {
-    let Some((from, to)) = from.native_path().zip(entry.location.native_path()) else {
-        return;
-    };
-    if from == to || from.extension() != to.extension() {
-        return;
-    }
-    let (Some(modified), Some(file_size)) = (
-        known_metadata(&entry.modified_unix_seconds),
-        known_metadata(&entry.size),
-    ) else {
-        return;
-    };
-    THUMBNAIL_CACHE.with_borrow_mut(|cache| {
-        let key = ThumbnailKey {
-            path: from.to_path_buf(),
-            modified: Some(modified),
-            file_size: Some(file_size),
-            thumbnail_size: crate::services::thumbnail_cache::CANONICAL_MAX_EDGE,
-        };
-        if let Some(CacheHit::Ready(texture)) = cache.get(&key) {
-            cache.remove(&key);
-            cache.insert(
-                ThumbnailKey {
-                    path: to.to_path_buf(),
-                    ..key
-                },
-                texture,
-            );
-        }
-    });
-}
 
 #[derive(Default)]
 struct ThumbnailQueue {
@@ -463,25 +430,6 @@ fn remote_mirror_thumbnail(entry: &FileEntry) -> Option<(PathBuf, ThumbnailKind)
     Some((path, kind))
 }
 
-pub(super) fn set_thumbnail_or_icon_for_path(
-    image: &ThumbnailSlot,
-    path: &Path,
-    fallback_icon: &str,
-    icon_size: i32,
-    thumbnail_size: i32,
-) {
-    super::file_providers::bind(image, Some(path));
-    set_thumbnail_for_path(ThumbnailRequest {
-        image,
-        path,
-        kind: thumbnail_kind(path),
-        modified: None,
-        file_size: None,
-        fallback_icon,
-        icon_size,
-        thumbnail_size,
-    });
-}
 
 /// Bundled to stay under the argument-count lint.
 struct ThumbnailRequest<'a> {
@@ -967,10 +915,6 @@ fn heavy(kind: ThumbnailKind) -> bool {
     )
 }
 
-pub(in crate::ui) fn set_worker_limit(workers: usize) {
-    crate::sandbox::browser::set_worker_limit(workers);
-    start_render_jobs();
-}
 
 fn start_render_jobs() {
     let limit = crate::sandbox::browser::worker_limit();
@@ -1276,16 +1220,6 @@ pub(super) fn show_fallback_icon(image: &ThumbnailSlot, icon: &str, size: i32) {
     set_fallback_icon(image, None, icon, size);
 }
 
-pub(super) fn show_customized_icon(
-    image: &ThumbnailSlot,
-    path: &Path,
-    fallback_icon: &str,
-    size: i32,
-) {
-    viewport::cancel_metadata(image.as_ptr() as usize);
-    image.set_thumbnail_source(None);
-    set_fallback_icon(image, Some(path), fallback_icon, size);
-}
 
 pub(crate) fn show_customized_icon_image(
     image: &gtk::Image,
@@ -1296,14 +1230,6 @@ pub(crate) fn show_customized_icon_image(
     show_path_icon_image(image, path, fallback_icon, size, ImageIconKind::Default);
 }
 
-pub(super) fn show_customized_folder_image(
-    image: &gtk::Image,
-    path: &Path,
-    default_icon: &str,
-    size: i32,
-) {
-    show_path_icon_image(image, path, default_icon, size, ImageIconKind::Folder);
-}
 
 fn show_path_icon_image(
     image: &gtk::Image,
@@ -1637,27 +1563,7 @@ pub(super) fn sidebar_icon_muted(image: &gtk::Image) -> bool {
         && !super::preferences::PreferenceManager::shared().colored_sidebar_icons()
 }
 
-/// Recolors a sidebar icon after its row or the setting changed.
-pub(super) fn refresh_sidebar_icon(image: &gtk::Image) {
-    if !refresh_customized_image(image) {
-        crate::assets::set_icon_accented(image, !sidebar_icon_muted(image));
-    }
-}
 
-/// Redraws `image` if it shows a customized folder; false when it doesn't.
-pub(super) fn refresh_customized_image(image: &gtk::Image) -> bool {
-    let tracked = TRACKED_CUSTOMIZED_IMAGES.with_borrow(|images| {
-        images
-            .get(&(image.as_ptr() as usize))
-            .filter(|tracked| tracked.image.upgrade().as_ref() == Some(image))
-            .map(|tracked| (tracked.path.clone(), tracked.default_icon.clone(), tracked.kind))
-    });
-    let Some((path, default_icon, kind)) = tracked else {
-        return false;
-    };
-    apply_path_customization_image(image, &path, &default_icon, kind);
-    true
-}
 
 pub(super) fn refresh_all_customized_icons() {
     refresh_tracked_icons(|_| true);

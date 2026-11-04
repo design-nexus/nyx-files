@@ -15,19 +15,7 @@ pub(super) fn show_notice(
     show(overlay, true, true, heading, text, duration);
 }
 
-pub(super) fn add_notice(
-    overlay: &gtk::Overlay,
-    heading: Option<&str>,
-    text: &str,
-    duration: Duration,
-) {
-    show(overlay, true, false, heading, text, duration);
-}
 
-/// A notice without the success check, for reporting a value as it changes.
-pub(super) fn show_status(overlay: &gtk::Overlay, text: &str, duration: Duration) {
-    show(overlay, false, true, None, text, duration);
-}
 
 fn show(
     overlay: &gtk::Overlay,

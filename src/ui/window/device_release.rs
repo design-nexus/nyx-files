@@ -29,7 +29,6 @@ const RELEASE_PROGRESS_DELAY: Duration = Duration::from_millis(350);
 pub(super) const RELEASE_BODY: &str =
     "Writing data to the drive. Do not unplug it. You can hide this and keep working.";
 
-pub(super) const RELEASE_ROW_TOOLTIP: &str = "Writing data to the drive. Do not unplug it.";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ReleaseKind {
@@ -213,9 +212,6 @@ fn with_releases<T>(update: impl FnOnce(&mut Vec<PendingRelease>) -> T) -> T {
     RELEASES.with(|releases| update(&mut releases.borrow_mut()))
 }
 
-pub(super) fn any_pending() -> bool {
-    RELEASES.with(|releases| !releases.borrow().is_empty())
-}
 
 #[cfg(test)]
 pub(super) fn reset_releases() {
@@ -231,43 +227,7 @@ pub(crate) fn is_pending(device: &DeviceIds) -> bool {
     })
 }
 
-pub(super) fn unmatched_pending(live: &[DeviceIds]) -> Vec<ReleaseKey> {
-    RELEASES.with(|releases| {
-        releases
-            .borrow()
-            .iter()
-            .filter(|entry| !live.iter().any(|device| device_matches(&entry.key, device)))
-            .map(|entry| entry.key.clone())
-            .collect()
-    })
-}
 
-pub(super) fn pending_device_shell(row: &gtk::Button) -> gtk::Box {
-    row.set_sensitive(false);
-    let busy_label = crate::i18n::tr(RELEASE_ROW_TOOLTIP);
-    crate::ui::accessibility::set_own_label(row, &busy_label);
-    let spinner = gtk::Spinner::new();
-    spinner.add_css_class("sidebar-device-spinner");
-    spinner.update_property(&[gtk::accessible::Property::Label(&busy_label)]);
-    spinner.set_hexpand(false);
-    spinner.set_halign(gtk::Align::Center);
-    spinner.set_valign(gtk::Align::Center);
-    spinner.set_size_request(14, 14);
-    spinner.start();
-    let slot = gtk::CenterBox::new();
-    slot.add_css_class("sidebar-device-action");
-    slot.set_width_request(24);
-    slot.set_center_widget(Some(&spinner));
-    let shell = super::sidebar_device_row(row, None, None);
-    let actions = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    actions.add_css_class("sidebar-device-actions");
-    actions.set_hexpand(false);
-    actions.set_halign(gtk::Align::End);
-    actions.set_valign(gtk::Align::Center);
-    actions.append(&slot);
-    shell.append(&actions);
-    shell
-}
 
 pub(crate) fn key_for_volume(volume: &gio::Volume) -> ReleaseKey {
     let mount = volume.get_mount();
@@ -1014,6 +974,8 @@ pub(super) fn mount_operation(parent: &gtk::Widget, key: &ReleaseKey) -> gtk::Mo
     });
     operation
 }
+
+
 
 #[cfg(test)]
 mod tests;

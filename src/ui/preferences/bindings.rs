@@ -82,25 +82,6 @@ impl PreferenceChanges {
         (listener.refresh)(anchor.as_ref(), manager);
     }
 
-    pub(super) fn release_within(&self, root: &gtk::Widget) {
-        let released: Vec<_> = {
-            let mut listeners = self.listeners.borrow_mut();
-            let (released, kept) =
-                std::mem::take(&mut *listeners)
-                    .into_iter()
-                    .partition(|listener| {
-                        listener
-                            .anchor
-                            .upgrade()
-                            .is_some_and(|anchor| &anchor == root || anchor.is_ancestor(root))
-                    });
-            *listeners = kept;
-            released
-        };
-        for listener in &released {
-            listener.active.set(false);
-        }
-    }
 
     /// Publishes a change kept outside `Preferences`, such as folder settings,
     /// so that a notification already running repeats for it.

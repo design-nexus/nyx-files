@@ -29,8 +29,6 @@ const FILE_NAME: &str = "folder-views.toml";
 /// Coalesces bursts of changes, such as a thumbnail-size drag, into one write
 /// that stays off the click that made them.
 const SAVE_DELAY: Duration = Duration::from_millis(500);
-/// Opening folders only refreshes use times, which can wait for other changes.
-const USE_SAVE_DELAY: Duration = Duration::from_secs(60);
 /// Another process saves in milliseconds; one stopped mid-save must not hold up exit.
 const EXIT_LOCK_WAIT: Duration = Duration::from_secs(1);
 
@@ -157,10 +155,6 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    /// Changes whenever a saved folder sort may have changed, for bindings that resolve one.
-    pub(in crate::ui) fn folder_sorts_revision(&self) -> u64 {
-        self.folder_sorts_revision.get()
-    }
 
     fn remembered_key(&self, location: &Location) -> Option<FolderKey> {
         if !self.remember_folder_views() {
@@ -173,28 +167,6 @@ impl PreferenceManager {
         self.remembered_key(location).is_some()
     }
 
-    /// `opened` counts as using the folder for the least-recently-used limit.
-    pub(in crate::ui) fn resolve_folder_sort(
-        &self,
-        location: &Location,
-        opened: bool,
-    ) -> FolderSort {
-        let Some(key) = self.remembered_key(location) else {
-            return FolderSort::Unremembered;
-        };
-        let store = self.folder_view_store();
-        let (touched, sort) = {
-            let mut views = store.views.borrow_mut();
-            (opened && views.touch(&key), views.view(&key).sort)
-        };
-        if touched {
-            self.schedule_folder_views_write(store, USE_SAVE_DELAY);
-        }
-        match sort {
-            Some((sort_key, sort_direction)) => FolderSort::Saved(sort_key, sort_direction),
-            None => FolderSort::Default,
-        }
-    }
 
     /// A sort equal to the default is not stored, so the folder follows later defaults.
     pub(crate) fn set_folder_sort(
@@ -215,14 +187,6 @@ impl PreferenceManager {
         });
     }
 
-    pub(in crate::ui) fn reset_folder_sort(&self, location: &Location) {
-        let Some(key) = self.remembered_key(location) else {
-            return;
-        };
-        self.change_folder_views(Affects::Sorts, |views| {
-            views.update(&key, |view| view.sort = None)
-        });
-    }
 
     pub(crate) fn default_sort(&self) -> (SortKey, SortDirection) {
         self.sort_preferences().sort()
@@ -281,15 +245,6 @@ impl PreferenceManager {
         });
     }
 
-    pub(in crate::ui) fn set_default_icons_size(&self, size: i32) {
-        let size = size.clamp(MIN_ICONS_THUMBNAIL_SIZE, MAX_ICONS_THUMBNAIL_SIZE);
-        self.set_icons_thumbnail_size(size);
-        if self.remember_folder_views() {
-            self.change_folder_views(Affects::IconsSizesOnly, |views| {
-                views.prune_default_icons_size(size)
-            });
-        }
-    }
 
     pub(crate) fn has_folder_views(&self) -> bool {
         !self.folder_view_store().views.borrow().is_empty()
@@ -366,26 +321,6 @@ impl PreferenceManager {
         }
     }
 
-    /// A local folder that failed to open because it was deleted forgets its
-    /// saved values and those of the folders inside it.
-    pub(in crate::ui) fn forget_missing_folder(&self, location: &Location) {
-        let (Some(path), Some(key)) = (location.native_path(), key_for_location(location)) else {
-            return;
-        };
-        if !self.folder_view_store().views.borrow().may_forget(&key) {
-            return;
-        }
-        let path = path.to_owned();
-        glib::MainContext::default().spawn_local(async move {
-            if !probes::folder_was_deleted(&path).await {
-                return;
-            }
-            if let Some(manager) = SHARED_MANAGER.with(|shared| shared.borrow().upgrade()) {
-                manager
-                    .change_folder_views(Affects::Sorts, |views| views.relocate(&key, None, false));
-            }
-        });
-    }
 
     /// Another Files process, such as the portal chooser, can change the
     /// defaults that folder values are stored relative to.

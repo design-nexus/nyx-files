@@ -27,93 +27,20 @@ pub(in crate::ui) fn metadata_needs_fill(entry: &FileEntry) -> bool {
         || (!entry.is_directory() && entry.size == crate::model::MetadataValue::Unknown)
 }
 
-pub(super) fn entry_responds_to_preview_click(entry: &FileEntry, previews_enabled: bool) -> bool {
-    previews_enabled
-        && !entry.is_directory()
-        && crate::ui::preview::entry_supports_quick_preview(entry)
-}
 
-pub(super) fn entry_supports_printing(entry: &FileEntry) -> bool {
-    if !matches!(entry.kind, EntryKind::File | EntryKind::FileSymbolicLink) {
-        return false;
-    }
 
-    let native_path = entry.location.native_path();
-    let (content_type, uncertain) =
-        gio::content_type_guess(Some(Path::new(&entry.native_name)), None::<&[u8]>);
-    // An uncertain name guess defers to the loader, which resolves the file's content type.
-    matches!(content_family(&content_type), PreviewContent::Text { .. })
-        || (uncertain && matches!(content_family(&content_type), PreviewContent::Unsupported))
-        || (native_path.is_some()
-            && matches!(
-                content_family(&content_type),
-                PreviewContent::Image | PreviewContent::Pdf { .. }
-            ))
-        || gio::content_type_is_a(&content_type, "text/plain")
-        || has_plain_text_extension(&entry.native_name)
-        || is_extensionless_dotfile(&entry.native_name)
-}
-
-pub(in crate::ui) fn entry_model_value(entry: &FileEntry) -> String {
-    let kind = if entry.is_broken_symbolic_link() {
-        'x'
-    } else if entry.is_directory() {
-        'd'
-    } else if entry.is_symbolic_link() {
-        's'
-    } else if entry.kind == EntryKind::Other {
-        'o'
-    } else {
-        'f'
-    };
-    let hidden = if entry.is_hidden { 'h' } else { 'v' };
-    let entry_type = crate::services::entry_type(entry);
-    let group = entry_type.description();
-    let name = entry.display_name.as_str();
-    let mut value = String::with_capacity(group.len() + name.len() + 3);
-    value.push(kind);
-    value.push(hidden);
-    value.push_str(group);
-    value.push('\t');
-    value.push_str(name);
-    value
-}
 
 pub(super) fn model_display_name(value: &str) -> &str {
     value.split_once('\t').map_or(value, |(_, name)| name)
 }
 
-pub(super) fn model_is_directory(value: &str) -> bool {
-    value.starts_with("d")
-}
 
 pub(in crate::ui) fn model_is_hidden(value: &str) -> bool {
     value.as_bytes().get(1) == Some(&b'h')
 }
 
-pub(in crate::ui) const FOLDER_TYPE_GROUP: &str = crate::services::FOLDER_TYPE_NAME;
-pub(in crate::ui) const OTHER_TYPE_GROUP: &str = crate::services::OTHER_TYPE_NAME;
 
-/// Empty for a value without a group, such as an empty model value.
-pub(in crate::ui) fn model_type_group(value: &str) -> &str {
-    value
-        .get(2..)
-        .and_then(|rest| rest.split_once('\t'))
-        .map_or("", |(group, _)| group)
-}
 
-pub(in crate::ui) fn entry_filter(
-    show_hidden: Rc<Cell<bool>>,
-    filter_query: Rc<RefCell<String>>,
-) -> gtk::CustomFilter {
-    gtk::CustomFilter::new(move |item| {
-        let Some(item) = item.downcast_ref::<gtk::StringObject>() else {
-            return false;
-        };
-        let value = item.string();
-        entry_matches(&value, show_hidden.get(), &filter_query.borrow())
-    })
-}
 
 pub(crate) fn entry_icon(entry: &FileEntry) -> &'static str {
     if entry.is_broken_symbolic_link() {
@@ -334,66 +261,8 @@ pub(in crate::ui) fn icon_for_name(name: &str) -> &'static str {
     }
 }
 
-pub(super) fn item_count_label(count: usize) -> String {
-    crate::i18n::count("items", count)
-}
 
-pub(super) fn entry_kind_summary(entries: &[FileEntry]) -> String {
-    let directories = entries
-        .iter()
-        .filter(|entry| entry.kind == EntryKind::Directory)
-        .count();
-    let files = entries.iter().filter(|entry| entry.is_file()).count();
-    match (files, directories) {
-        (files, 0) if files == entries.len() => crate::i18n::count("files", files),
-        (0, directories) if directories == entries.len() => {
-            crate::i18n::count("folders", directories)
-        }
-        _ => item_count_label(entries.len()),
-    }
-}
 
-pub(super) async fn aggregate_directory_summary(entries: &[FileEntry]) -> DirectorySummary {
-    let mut total = DirectorySummary::default();
-    for (index, entry) in entries.iter().enumerate() {
-        if index > 0 && index % 256 == 0 {
-            glib::timeout_future(std::time::Duration::ZERO).await;
-        }
-        if entry.kind == EntryKind::Directory {
-            let directory = gio_file_for_location(&entry.location);
-            match summarize_directory(&directory).await {
-                Ok(summary) => {
-                    total.item_count = total.item_count.saturating_add(summary.item_count);
-                    total.total_size = total.total_size.saturating_add(summary.total_size);
-                    total.visible_file_count = total
-                        .visible_file_count
-                        .saturating_add(summary.visible_file_count);
-                    total.visible_folder_count = total
-                        .visible_folder_count
-                        .saturating_add(summary.visible_folder_count);
-                    total.issues.unreadable |= summary.issues.unreadable;
-                    total.issues.timed_out |= summary.issues.timed_out;
-                    total.issues.depth_limited |= summary.issues.depth_limited;
-                }
-                Err(_) => total.issues.unreadable = true,
-            }
-        } else {
-            total.item_count = total.item_count.saturating_add(1);
-            total.visible_file_count = total.visible_file_count.saturating_add(1);
-            match entry.size {
-                MetadataValue::Known(size) => {
-                    total.total_size = total.total_size.saturating_add(size);
-                }
-                MetadataValue::Unknown | MetadataValue::Unavailable => {
-                    if !entry.is_symbolic_link() {
-                        total.issues.unreadable = true;
-                    }
-                }
-            }
-        }
-    }
-    total
-}
 
 pub(in crate::ui) mod catppuccin;
 

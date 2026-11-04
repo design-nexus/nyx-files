@@ -65,25 +65,13 @@ pub(crate) use accessibility::qa as accessibility_qa;
 #[cfg(test)]
 pub(in crate::ui) use window::offer_removable_destinations_for_test;
 pub(in crate::ui) use window::{
-    RemovableDestination, RemovableWatch, removable_destination_root, removable_destinations,
-    send_to_recent_folders, watch_removable_destinations,
-};
-pub use window::{UnlockTarget, present, present_open, present_reveal, present_unlock};
+    RemovableDestination, removable_destinations,
+    send_to_recent_folders, };
+pub use window::{UnlockTarget};
 #[cfg(feature = "qa")]
 pub(crate) use {inline_search::SEARCH_RESULTS_LABEL, preview::PREVIEW_LABEL};
 
-pub(crate) fn prepare_portal_ui() {
-    let _theme = theme::ThemeManager::shared();
-}
 
-pub(crate) static CHOOSER_UI: crate::portal::ChooserUi = crate::portal::ChooserUi {
-    prepare: prepare_portal_ui,
-    present: |request, cancelled, completion| {
-        chooser::present_chooser(request, cancelled, completion);
-    },
-    cancel: chooser::cancel_chooser,
-    flush: preferences::flush_pending_folder_views,
-};
 
 pub(crate) fn read_install_facts() {
     let _startup = crate::util::ui_thread::allow(crate::util::ui_thread::Exception::Startup);

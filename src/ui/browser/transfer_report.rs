@@ -8,28 +8,10 @@ use crate::services::{
 };
 use crate::ui::browser::ViewState;
 
-#[cfg(test)]
-mod tests;
 
-const NOTICE_DURATION: Duration = Duration::from_secs(6);
+
 const LISTED_ITEMS: usize = 8;
-const NOTICE_CHARS: usize = 120;
 
-#[derive(Debug, Eq, PartialEq)]
-enum Presentation {
-    Notice {
-        heading: String,
-        text: String,
-    },
-    Information {
-        message: String,
-        summary: String,
-        detail: String,
-    },
-    Warning {
-        detail: String,
-    },
-}
 
 fn display_name(location: &Location) -> String {
     shown_name(&location.file_name().unwrap_or_default())
@@ -298,59 +280,9 @@ pub(crate) fn outcome_detail(outcome: String, report: &TransferReport) -> String
     format!("{outcome}\n\n{}", sections(reported))
 }
 
-fn presentation(report: &TransferReport) -> Option<Presentation> {
-    let mut renamed = renamed_sections(&report.renamed);
-    let left = left_sections(report);
-    if !left.is_empty() {
-        renamed.extend(left);
-        return Some(Presentation::Warning {
-            detail: sections(renamed),
-        });
-    }
-    let message = crate::i18n::count("items_renamed", report.renamed.len());
-    if renamed.len() > 1 {
-        return Some(Presentation::Information {
-            message,
-            summary: crate::i18n::tr("Names changed for different reasons"),
-            detail: sections(renamed),
-        });
-    }
-    let (heading, lines) = renamed.pop()?;
-    if let [line] = lines.listed.as_slice()
-        && line.chars().count() <= NOTICE_CHARS
-    {
-        return Some(Presentation::Notice {
-            heading,
-            text: line.clone(),
-        });
-    }
-    Some(Presentation::Information {
-        message,
-        summary: heading,
-        detail: bullets(&lines),
-    })
-}
 
 impl ViewState {
-    pub(super) fn show_transfer_report(&self, report: &TransferReport) {
-        match presentation(report) {
-            Some(Presentation::Notice { heading, text }) => {
-                crate::ui::notice::add_notice(&self.overlay, Some(&heading), &text, NOTICE_DURATION)
-            }
-            Some(Presentation::Information {
-                message,
-                summary,
-                detail,
-            }) => crate::ui::modal::show_information_dialog_with_summary(
-                &self.overlay,
-                &message,
-                &summary,
-                &detail,
-            ),
-            Some(Presentation::Warning { detail }) => {
-                crate::ui::modal::show_partial_failure_dialog(&self.overlay, &detail);
-            }
-            None => {}
-        }
-    }
 }
+
+#[cfg(test)]
+mod tests;

@@ -303,9 +303,6 @@ impl ThemeManager {
         manager
     }
 
-    pub fn themes(&self) -> Vec<Theme> {
-        self.themes.borrow().clone()
-    }
 
     pub fn is_omarchy_available(&self) -> bool {
         self.omarchy_available.get()
@@ -427,28 +424,7 @@ impl ThemeManager {
         });
     }
 
-    pub fn select_theme(&self, id: &str) {
-        if !self.themes.borrow().iter().any(|theme| theme.id == id) {
-            return;
-        }
-        self.preview.take();
-        nyx_theme::update_suite(|suite| {
-            suite.mode = nyx_theme::ThemeMode::Theme;
-            suite.theme = id.to_owned();
-        });
-        self.suite_changed();
-    }
 
-    pub fn set_follow_omarchy(&self, enabled: bool) {
-        if enabled && !self.is_omarchy_available() {
-            return;
-        }
-        self.preview.take();
-        nyx_theme::update_suite(|suite| {
-            suite.mode = if enabled { nyx_theme::ThemeMode::Omarchy } else { nyx_theme::ThemeMode::Theme };
-        });
-        self.suite_changed();
-    }
 
     #[cfg(test)]
     pub(crate) fn is_previewing(&self) -> bool {
@@ -1738,8 +1714,7 @@ pub(in crate::ui) fn omarchy_state_dir() -> PathBuf {
     gtk::glib::home_dir().join(".local/state/omarchy/current")
 }
 
-#[cfg(test)]
-mod tests;
+
 
 #[cfg(test)]
 fn azure_tokens() -> ThemeTokens {
@@ -1804,3 +1779,6 @@ fn slugify(name: &str) -> String {
 
 #[cfg(test)]
 const FALLBACK_CUSTOM_THEME_ID: &str = "custom-theme";
+
+#[cfg(test)]
+mod tests;

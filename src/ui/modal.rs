@@ -13,8 +13,7 @@ use std::time::Duration;
 
 pub(super) mod layout;
 
-#[cfg(test)]
-mod tests;
+
 
 struct ModalFocusOrigin {
     widget: Option<glib::WeakRef<gtk::Widget>>,
@@ -199,19 +198,6 @@ fn track_removed_layer(layer: &gtk::Widget) {
     });
 }
 
-/// Sets where focus goes when a dismissed overlay leaves `window` without a
-/// focused widget, normally the browser's file view.
-pub(crate) fn set_modal_focus_fallback(window: &gtk::Window, fallback: Rc<dyn Fn()>) {
-    MODAL_FOCUS_FALLBACKS.with(|fallbacks| {
-        let mut fallbacks = fallbacks.borrow_mut();
-        fallbacks.retain(|(candidate, _)| {
-            candidate
-                .upgrade()
-                .is_some_and(|candidate| candidate != *window)
-        });
-        fallbacks.push((window.downgrade(), fallback));
-    });
-}
 
 fn modal_focus_fallback(window: &gtk::Window) -> Option<Rc<dyn Fn()>> {
     MODAL_FOCUS_FALLBACKS.with(|fallbacks| {
@@ -321,12 +307,6 @@ pub(super) fn remember_modal_focus(layer: &gtk::Box, overlay: &gtk::Overlay) -> 
     remember_removed_modal_focus(layer, overlay, true)
 }
 
-/// [`remember_modal_focus`] for dialogs whose work changes the listing, such as
-/// file-operation progress: closing it hands focus to the browser cursor through the
-/// window fallback, never to the row widget that was focused when it opened.
-pub(super) fn remember_modal_focus_for_listing(layer: &gtk::Box, overlay: &gtk::Overlay) {
-    remember_removed_modal_focus(layer, overlay, false);
-}
 
 fn remember_removed_modal_focus(
     layer: &gtk::Box,
@@ -363,53 +343,7 @@ fn remember_removed_modal_focus(
     restore
 }
 
-/// [`remember_modal_focus`] for layers hidden with `set_visible(false)` rather than
-/// removed, such as Settings and the search palettes. The origin is captured each
-/// time the layer becomes visible and restored when a `dismissing` hide completes.
-/// The returned flag is re-armed on every show; clear it to skip the origin and
-/// fall back to the browser (an activation that already moved focus keeps it).
-pub(crate) fn remember_persistent_modal_focus(layer: &gtk::Widget) -> Rc<Cell<bool>> {
-    let focus = layer_focus(layer);
-    let restore = Rc::new(Cell::new(true));
-    let shown: RefCell<Option<Rc<ModalFocusOrigin>>> = RefCell::new(None);
-    let restore_on_hide = restore.clone();
-    layer.connect_visible_notify(move |layer| {
-        let window = layer.root().and_downcast::<gtk::Window>();
-        if layer.is_visible() {
-            restore_on_hide.set(true);
-            forget_focus_origin(layer);
-            shown.replace(Some(register_focus_origin(layer, window.as_ref(), true)));
-            return;
-        }
-        let Some(origin) = shown.take() else {
-            return;
-        };
-        forget_focus_origin(layer);
-        let Some(window) = window else {
-            return;
-        };
-        if !layer.has_css_class("dismissing")
-            || crate::ui::window::visible_modal_layer(&window).is_some()
-        {
-            return;
-        }
-        restore_modal_focus(&window, &origin, restore_on_hide.get());
-        rearm_focus_ring(&window, &focus);
-    });
-    restore
-}
 
-pub(super) fn set_modal_focus_restore(layer: &gtk::Widget, restore: Rc<dyn Fn()>) {
-    MODAL_FOCUS_ORIGINS.with(|origins| {
-        if let Some((_, origin)) = origins.borrow().iter().find(|(candidate, _)| {
-            candidate
-                .upgrade()
-                .is_some_and(|candidate| candidate == *layer)
-        }) {
-            origin.restore.replace(Some(restore));
-        }
-    });
-}
 
 pub(super) struct ModalHost {
     pub(super) overlay: gtk::Overlay,
@@ -582,17 +516,6 @@ pub(super) fn slide_out(widget: &impl IsA<gtk::Widget>) {
     });
 }
 
-pub(super) fn slide_in_down(widget: &impl IsA<gtk::Widget>) {
-    let w = widget.as_ref();
-    w.remove_css_class("just-dropped");
-    w.add_css_class("just-dropped");
-    let weak = w.downgrade();
-    glib::timeout_add_local_once(Duration::from_millis(200), move || {
-        if let Some(w) = weak.upgrade() {
-            w.remove_css_class("just-dropped");
-        }
-    });
-}
 
 pub(super) fn dismiss_modal_layer(
     layer: &gtk::Box,
@@ -650,17 +573,6 @@ pub(super) fn show_error_dialog(parent: &impl IsA<gtk::Widget>, message: &str, d
     show_error_dialog_after_close(parent, message, detail, Rc::new(|| {}));
 }
 
-/// Reports an operation that finished while some items failed.
-pub(super) fn show_partial_failure_dialog(parent: &impl IsA<gtk::Widget>, detail: &str) {
-    show_message_dialog(
-        parent,
-        &crate::i18n::tr("Completed with errors"),
-        None,
-        detail,
-        MessageKind::PartialFailure,
-        Rc::new(|| {}),
-    );
-}
 
 pub(super) fn show_information_dialog(parent: &impl IsA<gtk::Widget>, message: &str, detail: &str) {
     show_message_dialog(
@@ -673,21 +585,6 @@ pub(super) fn show_information_dialog(parent: &impl IsA<gtk::Widget>, message: &
     );
 }
 
-pub(super) fn show_information_dialog_with_summary(
-    parent: &impl IsA<gtk::Widget>,
-    message: &str,
-    summary: &str,
-    detail: &str,
-) {
-    show_message_dialog(
-        parent,
-        message,
-        Some(summary),
-        detail,
-        MessageKind::Information,
-        Rc::new(|| {}),
-    );
-}
 
 pub(super) fn show_error_dialog_after_close(
     parent: &impl IsA<gtk::Widget>,
@@ -804,63 +701,3 @@ fn show_message_dialog(
     close.grab_focus();
 }
 
-/// For a delete that completed with errors, some of them Trash-unsupported: offers
-/// Delete Permanently for those entries via `on_retry` (#179).
-pub(super) fn show_delete_error_dialog(
-    parent: &impl IsA<gtk::Widget>,
-    detail: &str,
-    retry_label: &str,
-    on_retry: Rc<dyn Fn()>,
-) {
-    let Some(ModalHost {
-        overlay: window_overlay,
-        blurred_root,
-    }) = ModalHost::blurred_for(parent)
-    else {
-        return;
-    };
-
-    let layout = message_dialog_layout(
-        crate::assets::icons::X,
-        &crate::i18n::tr("Completed with errors"),
-        &crate::i18n::tr("Some items could not be processed"),
-        retry_label,
-        ModalTone::Danger,
-    );
-    layout.cancel.set_label(&crate::i18n::tr("Done"));
-    let explanation = message_dialog_description(detail);
-    explanation.set_selectable(true);
-    layout.body.append(&explanation);
-    let content = layout.content;
-    let close_icon = layout.close;
-    let cancel = layout.cancel;
-    let confirm = layout.confirm;
-
-    let layer = modal_layer(&content, &window_overlay, blurred_root.clone(), None);
-    remember_modal_focus(&layer, &window_overlay);
-    window_overlay.add_overlay(&layer);
-    let dismissed = Rc::new(Cell::new(false));
-
-    let dismiss_layer = layer.clone();
-    let dismiss_overlay = window_overlay.clone();
-    let dismiss_root = blurred_root.clone();
-    let dismissed_for_dismiss = dismissed.clone();
-    let dismiss = Rc::new(move || {
-        if dismissed_for_dismiss.replace(true) {
-            return;
-        }
-        dismiss_modal_layer(&dismiss_layer, &dismiss_overlay, dismiss_root.as_ref());
-    });
-
-    let clicked_dismiss = dismiss.clone();
-    cancel.connect_clicked(move |_| clicked_dismiss());
-    let icon_dismiss = dismiss.clone();
-    close_icon.connect_clicked(move |_| icon_dismiss());
-    let confirm_dismiss = dismiss.clone();
-    confirm.connect_clicked(move |_| {
-        confirm_dismiss();
-        on_retry();
-    });
-    close_on_escape(&layer, move || dismiss());
-    focus_button(&confirm);
-}

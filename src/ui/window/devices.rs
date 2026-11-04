@@ -30,18 +30,6 @@ pub(super) fn block_device_from_mount_table(table: &MountTable, path: &Path) -> 
         .map(Path::to_owned)
 }
 
-pub(super) fn mounted_path_from_table(table: &MountTable, device: &Path) -> Option<PathBuf> {
-    let device = device
-        .canonicalize()
-        .unwrap_or_else(|_| device.to_path_buf());
-    table.sources().find_map(|(point, source)| {
-        if !source.starts_with("/dev") {
-            return None;
-        }
-        let source = source.canonicalize().unwrap_or_else(|_| source.to_owned());
-        (source == device).then(|| point.to_owned())
-    })
-}
 
 pub(super) fn label_identity(uuid: Option<&str>, root_uri: Option<&str>) -> Option<String> {
     [("volume", uuid), ("root", root_uri)]
@@ -204,36 +192,8 @@ thread_local! {
     static REMOVABLE: RemovableCache = RemovableCache::default();
 }
 
-pub(in crate::ui) struct RemovableWatch {
-    id: u64,
-    _changed: Rc<dyn Fn()>,
-}
 
-impl Drop for RemovableWatch {
-    fn drop(&mut self) {
-        REMOVABLE.with(|cache| {
-            cache.watchers.borrow_mut().retain(|(id, _)| *id != self.id);
-        });
-    }
-}
 
-pub(in crate::ui) fn watch_removable_destinations(changed: impl Fn() + 'static) -> RemovableWatch {
-    start_removable_destinations();
-    let changed: Rc<dyn Fn()> = Rc::new(changed);
-    let id = REMOVABLE.with(|cache| {
-        let id = cache.next_watcher.get() + 1;
-        cache.next_watcher.set(id);
-        cache
-            .watchers
-            .borrow_mut()
-            .push((id, Rc::downgrade(&changed)));
-        id
-    });
-    RemovableWatch {
-        id,
-        _changed: changed,
-    }
-}
 
 pub(crate) fn removable_destinations() -> Vec<RemovableDestination> {
     start_removable_destinations();
@@ -330,12 +290,6 @@ async fn folders_inside(
     Some(found)
 }
 
-pub(in crate::ui) fn removable_destination_root(id: &str) -> Option<PathBuf> {
-    removable_destinations()
-        .into_iter()
-        .find(|destination| destination.id == id)
-        .map(|destination| destination.root)
-}
 
 fn start_removable_destinations() {
     let started = REMOVABLE.with(|cache| {

@@ -13,76 +13,10 @@ use super::keys::{
 #[cfg(test)]
 mod tests;
 
-/// Shift and Super ride along with keys that move focus or the cursor.
-pub(super) const FOCUS_MODIFIERS: gdk::ModifierType =
-    gdk::ModifierType::SHIFT_MASK.union(gdk::ModifierType::SUPER_MASK);
 
-const ARROWS: [(Binding, Binding); 4] = [
-    (LEFT, VIM_LEFT),
-    (DOWN, VIM_DOWN),
-    (UP, VIM_UP),
-    (RIGHT, VIM_RIGHT),
-];
 
-pub(super) fn spatial_arrow(press: &KeyPress) -> Option<Binding> {
-    ARROWS
-        .into_iter()
-        .find(|(arrow, vim)| press.is_any(&[*arrow, *vim]))
-        .map(|(arrow, _)| arrow)
-}
 
-/// Reads **h j k l** as arrows unless typing owns them.
-pub(super) fn navigation_key(
-    press: &KeyPress,
-    type_to_search: bool,
-    focused: Option<&gtk::Widget>,
-) -> KeyPress {
-    if type_to_search || focused.is_some_and(|widget| editable(widget) || in_popover(widget)) {
-        return *press;
-    }
-    ARROWS
-        .into_iter()
-        .find(|(_, vim)| press.is(*vim))
-        .map_or(*press, |(arrow, _)| press.read_as(arrow))
-}
 
-pub(super) fn activate_native_arrow(scope: &impl IsA<gtk::Widget>, key: gdk::Key) -> bool {
-    let Some(focused) = scope.root().and_then(|root| root.focus()) else {
-        return false;
-    };
-    let Some((collection, _)) = super::scrolling::focused_collection(&focused) else {
-        return false;
-    };
-    // Invoke GTK's own binding: returning Proceed would deliver the original letter.
-    let controllers = collection.observe_controllers();
-    for index in 0..controllers.n_items() {
-        let Some(controller) = controllers
-            .item(index)
-            .and_downcast::<gtk::ShortcutController>()
-        else {
-            continue;
-        };
-        for index in 0..controller.n_items() {
-            let Some(shortcut) = controller.item(index).and_downcast::<gtk::Shortcut>() else {
-                continue;
-            };
-            let Some(trigger) = shortcut.trigger().and_downcast::<gtk::KeyvalTrigger>() else {
-                continue;
-            };
-            if trigger.keyval() == key
-                && trigger.modifiers().is_empty()
-                && let Some(action) = shortcut.action()
-            {
-                return action.activate(
-                    gtk::ShortcutActionFlags::EXCLUSIVE,
-                    &collection,
-                    shortcut.arguments().as_ref(),
-                );
-            }
-        }
-    }
-    false
-}
 
 pub(super) fn arrow_direction(
     press: &KeyPress,
@@ -99,93 +33,10 @@ pub(super) fn arrow_direction(
     .map(|(_, direction)| direction)
 }
 
-pub(super) fn vim_focus_direction(press: &KeyPress) -> Option<gtk::DirectionType> {
-    [
-        (VIM_LEFT, gtk::DirectionType::Left),
-        (VIM_DOWN, gtk::DirectionType::Down),
-        (VIM_UP, gtk::DirectionType::Up),
-        (VIM_RIGHT, gtk::DirectionType::Right),
-    ]
-    .into_iter()
-    .find_map(|(binding, direction)| press.is(binding).then_some(direction))
-}
 
-pub(super) fn plain_tab_direction(press: &KeyPress) -> Option<gtk::DirectionType> {
-    if press.is(FOCUS_NEXT) {
-        Some(gtk::DirectionType::TabForward)
-    } else if press.is(FOCUS_PREVIOUS) {
-        Some(gtk::DirectionType::TabBackward)
-    } else {
-        None
-    }
-}
 
-pub(super) fn contains_widget(container: &gtk::Widget, focused: Option<&gtk::Widget>) -> bool {
-    focused.is_some_and(|focused| focused == container || focused.is_ancestor(container))
-}
 
-/// Moves focus to the next (`TabForward`) or previous (`TabBackward`) focusable widget
-/// outside `scope` in Tab order, wrapping at the ends of the window as GTK does. Never
-/// enters `scope`, so a whole subtree acts as one Tab stop.
-pub(super) fn focus_beyond(scope: &gtk::Widget, direction: gtk::DirectionType) -> bool {
-    let backward = direction == gtk::DirectionType::TabBackward;
-    let step = |widget: &gtk::Widget| {
-        if backward {
-            widget.prev_sibling()
-        } else {
-            widget.next_sibling()
-        }
-    };
-    let focus = |candidate: &gtk::Widget| {
-        candidate.is_mapped() && candidate.is_sensitive() && candidate.child_focus(direction)
-    };
-    let mut path = vec![scope.clone()];
-    while let Some(parent) = path.last().and_then(gtk::Widget::parent) {
-        path.push(parent);
-    }
-    for widget in &path {
-        let mut sibling = step(widget);
-        while let Some(candidate) = sibling {
-            if focus(&candidate) {
-                return true;
-            }
-            sibling = step(&candidate);
-        }
-    }
-    for widget in path.iter().rev() {
-        let Some(parent) = widget.parent() else {
-            continue;
-        };
-        let mut sibling = if backward {
-            parent.last_child()
-        } else {
-            parent.first_child()
-        };
-        while let Some(candidate) = sibling.filter(|candidate| candidate != widget) {
-            if focus(&candidate) {
-                return true;
-            }
-            sibling = step(&candidate);
-        }
-    }
-    false
-}
 
-/// Whether `focused` was detached from `container` while the window's focus chain still
-/// runs through it (GTK moves focus at the next paint).
-pub(super) fn focus_removed_from(container: &gtk::Widget, focused: &gtk::Widget) -> bool {
-    if focused.root().is_some() {
-        return false;
-    }
-    let mut child = container.clone();
-    while let Some(parent) = child.parent() {
-        if parent.focus_child().as_ref() != Some(&child) {
-            return false;
-        }
-        child = parent;
-    }
-    child.is::<gtk::Root>()
-}
 
 pub(super) fn editable(widget: &gtk::Widget) -> bool {
     widget.is::<gtk::Editable>()

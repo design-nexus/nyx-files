@@ -4,20 +4,13 @@ use gtk::prelude::*;
 use std::{rc::Rc, time::Duration};
 
 mod completion;
-#[cfg(test)]
-mod tests;
+
 
 use crate::{
     assets,
-    ui::{accessibility, controls::pane_header_action},
+    ui::{accessibility},
 };
 
-pub(super) struct Notice<'a> {
-    pub(super) title: &'a str,
-    pub(super) text: &'a str,
-    pub(super) action: &'a str,
-    pub(super) shown_for: Duration,
-}
 
 pub(super) struct CompactProgress {
     pub(super) root: gtk::Box,
@@ -70,152 +63,13 @@ pub(super) fn dock(overlay: &gtk::Overlay) -> (gtk::ScrolledWindow, gtk::Box) {
     (scroll, list)
 }
 
-fn wrapped_label(width: i32) -> gtk::Label {
-    gtk::Label::builder()
-        .xalign(0.0)
-        .wrap(true)
-        .wrap_mode(gtk::pango::WrapMode::WordChar)
-        .max_width_chars(width)
-        .build()
-}
 
 impl CompactProgress {
-    pub(super) fn new(overlay: &gtk::Overlay, icon: &str) -> Self {
-        let (dock, list) = dock(overlay);
-        let root = gtk::Box::new(gtk::Orientation::Vertical, 4);
-        root.add_css_class("file-operation-card");
-        let header = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-        let icon = assets::primary_icon(icon, 14);
-        header.append(&icon);
-        let title = wrapped_label(22);
-        title.set_hexpand(true);
-        title.add_css_class("job-name");
-        header.append(&title);
-        let status = gtk::Label::builder().xalign(1.0).build();
-        status.add_css_class("job-status");
-        let pin = gtk::ToggleButton::new();
-        pane_header_action(&pin);
-        pin.add_css_class("progress-card-action");
-        pin.set_child(Some(&assets::primary_icon(assets::icons::PIN, 14)));
-        pin.set_tooltip_text(Some(&crate::i18n::tr("Keep notification")));
-        accessibility::set_label(&pin, &crate::i18n::tr("Keep notification"));
-        pin.set_visible(false);
-        header.append(&pin);
-        let cancel = gtk::Button::new();
-        pane_header_action(&cancel);
-        cancel.add_css_class("progress-cancel");
-        cancel.add_css_class("progress-card-action");
-        cancel.set_child(Some(&assets::primary_icon(assets::icons::X, 14)));
-        cancel.set_tooltip_text(Some(&crate::i18n::tr("Cancel operation")));
-        accessibility::set_label(&cancel, &crate::i18n::tr("Cancel operation"));
-        header.append(&cancel);
-        root.append(&header);
-        let details = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        let info = wrapped_label(42);
-        info.set_hexpand(true);
-        info.add_css_class("job-meta");
-        info.add_css_class("job-description");
-        details.append(&info);
-        let count = gtk::Label::builder()
-            .xalign(1.0)
-            .valign(gtk::Align::Start)
-            .visible(false)
-            .build();
-        count.add_css_class("job-meta");
-        details.append(&count);
-        root.append(&details);
-        let destination = wrapped_label(42);
-        destination.add_css_class("job-meta");
-        destination.set_margin_bottom(4);
-        root.append(&destination);
-        let progress = gtk::ProgressBar::new();
-        progress.add_css_class("modal-progress");
-        root.append(&progress);
-        let footer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        let complete = gtk::Button::with_label(&crate::i18n::tr("Complete"));
-        complete.add_css_class("job-action");
-        complete.add_css_class("progress-complete");
-        complete.set_cursor_from_name(Some("pointer"));
-        accessibility::set_label(
-            &complete,
-            &crate::i18n::tr("Dismiss completed notification"),
-        );
-        complete.set_visible(false);
-        footer.append(&complete);
-        let meta = wrapped_label(42);
-        meta.set_hexpand(true);
-        meta.add_css_class("job-meta");
-        footer.append(&meta);
-        status.set_valign(gtk::Align::Start);
-        status.set_margin_start(8);
-        footer.append(&status);
-        root.append(&footer);
-        list.append(&root);
-        let completion = completion::Completion::new(completion::Widgets {
-            root: root.downgrade(),
-            overlay: overlay.downgrade(),
-            dock: dock.downgrade(),
-            list: list.downgrade(),
-            meta: meta.downgrade(),
-            status: status.downgrade(),
-            progress: progress.downgrade(),
-        });
-        completion.bind(&root, &cancel, &complete, &pin);
-        Self {
-            root,
-            title,
-            status,
-            info,
-            count,
-            destination,
-            meta,
-            progress,
-            cancel,
-            complete,
-            pin,
-            icon,
-            completion,
-        }
-    }
 
-    pub(super) fn set_cancel_action(&self, action: Rc<dyn Fn()>) {
-        self.completion.set_cancel(action);
-    }
 
-    pub(super) fn notice(overlay: &gtk::Overlay, icon: &str, notice: Notice<'_>) -> Self {
-        let card = Self::new(overlay, icon);
-        card.info.set_text(notice.text);
-        card.destination.set_visible(false);
-        card.complete.set_label(notice.action);
-        accessibility::set_label(&card.complete, notice.action);
-        card.close_after(notice.title, notice.shown_for);
-        card.status.set_visible(false);
-        card
-    }
 
-    pub(super) fn completed(&self, title: &str) {
-        self.complete_after(title, Duration::from_secs(5));
-    }
 
-    fn complete_after(&self, title: &str, duration: Duration) {
-        if self.root.parent().is_none() {
-            return;
-        }
-        assets::set_primary_icon(&self.icon, assets::icons::CHECK);
-        self.close_after(title, duration);
-    }
 
-    fn close_after(&self, title: &str, duration: Duration) {
-        self.title.set_text(title);
-        self.complete.set_visible(true);
-        self.pin.set_visible(true);
-        self.cancel.set_visible(true);
-        self.cancel.set_sensitive(true);
-        self.cancel
-            .set_tooltip_text(Some(&crate::i18n::tr("Dismiss notification")));
-        accessibility::set_label(&self.cancel, &crate::i18n::tr("Dismiss notification"));
-        self.completion.complete(duration);
-    }
 
     pub(super) fn remove(&self) {
         self.completion.dismiss();

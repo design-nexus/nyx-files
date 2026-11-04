@@ -7,7 +7,6 @@ use gtk::prelude::*;
 use super::preferences::PreferenceManager;
 
 pub(crate) const MODE_DESCRIPTION: &str = "Opinionated keyboard-centric mode with Yazi-style navigation. Disables some features. Toggle with %{tenxer_mode_keys}.";
-pub(crate) const UNUSED_SUBTITLE: &str = "Not used in 10xer mode.";
 pub(crate) const TAG_TEXT: &str = "10X";
 pub(crate) const TAG_NAME: &str = "10xer mode";
 
@@ -27,53 +26,7 @@ pub(crate) fn hide_while_enabled(widget: &impl IsA<gtk::Widget>) {
     );
 }
 
-/// The sort map handler restores device-order sensitivity when shown again.
-pub(crate) fn hide_sort_direction_while_enabled(widget: &impl IsA<gtk::Widget>) {
-    widget.add_css_class("tenxer-suppressed-chrome");
-    widget.add_css_class("tenxer-sort-direction");
-    PreferenceManager::shared().bind_preference(
-        widget,
-        PreferenceManager::tenxer_mode,
-        |widget, enabled| {
-            if enabled {
-                widget.set_sensitive(false);
-                widget.set_visible(false);
-            } else {
-                widget.set_sensitive(true);
-                widget.set_visible(true);
-            }
-        },
-    );
-}
 
-pub(crate) fn hide_filter_while_enabled(button: &gtk::ToggleButton, revealer: &gtk::Revealer) {
-    button.add_css_class("tenxer-suppressed-chrome");
-    revealer.add_css_class("tenxer-filter-revealer");
-    let revealer = revealer.downgrade();
-    let primed = Cell::new(false);
-    PreferenceManager::shared().bind_preference(
-        button,
-        PreferenceManager::tenxer_mode,
-        move |widget, enabled| {
-            widget.set_visible(!enabled);
-            widget.set_sensitive(!enabled);
-            if !primed.replace(true) {
-                return;
-            }
-            let Some(revealer) = revealer.upgrade() else {
-                return;
-            };
-            if enabled {
-                revealer.set_reveal_child(false);
-            } else {
-                let button = widget
-                    .downcast_ref::<gtk::ToggleButton>()
-                    .expect("filter toggle binding");
-                revealer.set_reveal_child(button.is_active());
-            }
-        },
-    );
-}
 
 /// A pending two-key command. While armed, the next key belongs to it alone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -215,23 +168,8 @@ impl Prompt {
         crate::i18n::tr(label)
     }
 
-    pub(crate) fn picks_history(self) -> bool {
-        matches!(self, Self::Jump | Self::Recent)
-    }
 
-    pub(crate) fn picks_folder(self) -> bool {
-        matches!(
-            self,
-            Self::Go | Self::MoveTo | Self::CopyTo | Self::ExtractTo
-        )
-    }
 
-    pub(crate) fn holds_targets(self) -> bool {
-        matches!(
-            self,
-            Self::Rename | Self::MoveTo | Self::CopyTo | Self::ExtractTo
-        )
-    }
 
     pub(crate) fn name(self) -> &'static str {
         match self {

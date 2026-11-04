@@ -147,18 +147,7 @@ impl FolderViews {
         self.entries.is_empty()
     }
 
-    pub(in crate::ui) fn has_within(&self, root: &FolderKey) -> bool {
-        self.entries
-            .range(root..)
-            .next()
-            .is_some_and(|(key, _)| root.contains(key))
-    }
 
-    pub(in crate::ui) fn may_forget(&self, root: &FolderKey) -> bool {
-        let drive_root =
-            matches!(root, FolderKey::Volume { relative, .. } if relative.as_os_str().is_empty());
-        !drive_root && self.has_within(root)
-    }
 
     fn keys_within(&self, root: &FolderKey) -> Vec<FolderKey> {
         self.entries
@@ -183,18 +172,6 @@ impl FolderViews {
         self.edits
     }
 
-    pub(in crate::ui) fn touch(&mut self, key: &FolderKey) -> bool {
-        if !self.entries.contains_key(key) {
-            return false;
-        }
-        let used = self.tick();
-        if let Some(entry) = self.entries.get_mut(key) {
-            entry.used = used;
-        }
-        self.edits += 1;
-        self.touched.insert(key.clone(), self.edits);
-        true
-    }
 
     pub(in crate::ui) fn update(
         &mut self,
@@ -578,6 +555,8 @@ fn parse_entry(value: &toml::Value) -> Option<(FolderKey, Entry, bool)> {
     }
     Some((key, Entry { view, used }, clean))
 }
+
+
 
 #[cfg(test)]
 mod tests;

@@ -4,65 +4,8 @@ use std::{cell::Cell, ops::Range, rc::Rc, time::Duration};
 
 use gtk::prelude::*;
 
-/// `labels` are already translated: decrease, the value, increase.
-pub(super) fn stepper(labels: [String; 3]) -> (gtk::Box, [gtk::Button; 3]) {
-    let control = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    control.add_css_class("appearance-text-stepper");
-    control.set_hexpand(true);
-    control.set_halign(gtk::Align::End);
-    let buttons = std::array::from_fn(|index| {
-        let label = &labels[index];
-        let button = gtk::Button::new();
-        if index == 1 {
-            button.add_css_class("appearance-text-value");
-            button.set_hexpand(true);
-            super::accessibility::set_description(&button, Some(label));
-        } else {
-            let icon = if index == 0 {
-                crate::assets::icons::MINUS
-            } else {
-                crate::assets::icons::PLUS
-            };
-            let image = crate::assets::primary_icon(icon, 16);
-            image.set_halign(gtk::Align::Center);
-            image.set_valign(gtk::Align::Center);
-            button.set_child(Some(&image));
-            button.add_css_class("appearance-text-step");
-            super::accessibility::set_label(&button, label);
-            button.set_tooltip_text(Some(label));
-        }
-        control.append(&button);
-        button
-    });
-    (control, buttons)
-}
 
-/// A numeric stepper with GTK's native spin actions, decrement before the entry.
-pub(super) fn number_stepper(min: u32, max: u32, step: u32) -> gtk::SpinButton {
-    let control = gtk::SpinButton::with_range(f64::from(min), f64::from(max), f64::from(step));
-    control.set_numeric(true);
-    control.set_width_chars(3);
-    control.set_alignment(0.5);
-    let mut child = control.first_child();
-    while let Some(widget) = child {
-        child = widget.next_sibling();
-        if widget.has_css_class("down") {
-            widget.insert_before(&control, control.first_child().as_ref());
-            break;
-        }
-    }
-    control.set_update_policy(gtk::SpinButtonUpdatePolicy::IfValid);
-    crate::assets::use_bundled_spin_icons(&control);
-    control.add_css_class("form-control");
-    control.add_css_class("text-size-control");
-    control
-}
 
-pub(super) fn pane_header_action(widget: &impl IsA<gtk::Widget>) {
-    widget.add_css_class("column-header-action");
-    widget.set_valign(gtk::Align::Center);
-    widget.set_cursor_from_name(Some("pointer"));
-}
 
 pub(super) fn form_entry() -> gtk::Entry {
     let entry = gtk::Entry::new();
@@ -70,52 +13,7 @@ pub(super) fn form_entry() -> gtk::Entry {
     entry
 }
 
-pub(super) struct FormTextField {
-    pub widget: gtk::Box,
-    pub entry: gtk::Entry,
-    remaining: gtk::Label,
-}
 
-impl FormTextField {
-    pub fn with_character_limit(max_length: i32) -> Self {
-        let entry = form_entry();
-        entry.set_max_length(max_length);
-        let remaining = form_label("");
-        remaining.set_halign(gtk::Align::End);
-        remaining.set_xalign(1.0);
-        super::accessibility::set_label(&remaining, &crate::i18n::tr("Characters remaining"));
-
-        let widget = gtk::Box::new(gtk::Orientation::Vertical, 4);
-        widget.append(&entry);
-        widget.append(&remaining);
-        let field = Self {
-            widget,
-            entry,
-            remaining,
-        };
-        field.refresh_remaining();
-        let remaining = field.remaining.clone();
-        field.entry.connect_changed(move |entry| {
-            Self::update_remaining(entry, &remaining);
-        });
-        let remaining = field.remaining.clone();
-        field.entry.connect_max_length_notify(move |entry| {
-            Self::update_remaining(entry, &remaining);
-        });
-        field
-    }
-
-    fn refresh_remaining(&self) {
-        Self::update_remaining(&self.entry, &self.remaining);
-    }
-
-    fn update_remaining(entry: &gtk::Entry, remaining: &gtk::Label) {
-        let limit = entry.max_length();
-        remaining.set_visible(limit > 0);
-        let count = (limit as usize).saturating_sub(entry.text().chars().count());
-        remaining.set_text(&crate::i18n::count("chars_remaining", count));
-    }
-}
 
 #[cfg(test)]
 mod tests;
@@ -166,66 +64,8 @@ pub(super) fn copyable_command(command: &str) -> gtk::Overlay {
     overlay
 }
 
-pub(super) struct ProgressSummary {
-    pub widget: gtk::Box,
-    pub header: gtk::Box,
-    pub amount: gtk::Label,
-    pub percent: gtk::Label,
-    pub progress: gtk::ProgressBar,
-}
 
-pub(super) fn progress_summary(caption: &str) -> ProgressSummary {
-    let header = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    header.add_css_class("transfer-progress-header");
-    let amount_box = gtk::Box::new(gtk::Orientation::Vertical, 4);
-    amount_box.set_hexpand(true);
-    let caption = gtk::Label::new(Some(&crate::i18n::tr(caption)));
-    caption.add_css_class("transfer-progress-caption");
-    caption.set_xalign(0.0);
-    let amount = gtk::Label::new(None);
-    amount.add_css_class("transfer-progress-bytes");
-    amount.set_xalign(0.0);
-    amount_box.append(&caption);
-    amount_box.append(&amount);
-    let percent = gtk::Label::new(None);
-    percent.add_css_class("transfer-progress-percent");
-    header.append(&amount_box);
-    header.append(&percent);
-    let progress = gtk::ProgressBar::new();
-    progress.add_css_class("modal-progress");
-    progress.set_fraction(0.0);
-    let widget = gtk::Box::new(gtk::Orientation::Vertical, 12);
-    widget.append(&header);
-    widget.append(&progress);
-    ProgressSummary {
-        widget,
-        header,
-        amount,
-        percent,
-        progress,
-    }
-}
 
-pub(super) fn properties_action(icon: &str, label: &str, tone: ModalTone) -> gtk::Button {
-    let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    content.set_halign(gtk::Align::Center);
-    let image = match tone {
-        ModalTone::Accent => crate::assets::primary_icon(icon, 14),
-        ModalTone::Danger => crate::assets::danger_icon(icon, 14),
-    };
-    content.append(&image);
-    content.append(&gtk::Label::new(Some(&crate::i18n::tr(label))));
-    let button = gtk::Button::builder().child(&content).build();
-    match tone {
-        ModalTone::Accent => button.add_css_class("properties-action"),
-        ModalTone::Danger => {
-            button.add_css_class("action-dialog-confirm");
-            button.add_css_class("danger");
-        }
-    }
-    button.set_hexpand(true);
-    button
-}
 
 pub(super) fn form_password_entry() -> gtk::PasswordEntry {
     let entry = gtk::PasswordEntry::new();
@@ -233,12 +73,6 @@ pub(super) fn form_password_entry() -> gtk::PasswordEntry {
     entry
 }
 
-pub(super) fn form_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::new(Some(text));
-    label.add_css_class("action-dialog-field-label");
-    label.set_xalign(0.0);
-    label
-}
 
 pub(super) fn form_error_label() -> gtk::Label {
     let label = gtk::Label::new(None);
@@ -263,14 +97,6 @@ pub(super) fn set_form_field_error(
     }
 }
 
-/// Lets a text button wrap between words so a crowded action row can shrink to the window.
-pub(super) fn wrap_button_label(button: &gtk::Button) {
-    if let Some(label) = button.child().and_downcast::<gtk::Label>() {
-        label.set_wrap(true);
-        label.set_wrap_mode(gtk::pango::WrapMode::Word);
-        label.set_justify(gtk::Justification::Center);
-    }
-}
 
 pub(super) fn form_check_button(label: &str) -> gtk::CheckButton {
     let button = gtk::CheckButton::with_label(label);
@@ -278,103 +104,14 @@ pub(super) fn form_check_button(label: &str) -> gtk::CheckButton {
     button
 }
 
-pub(super) fn menu_option(label: &str, selected: bool) -> (gtk::Button, gtk::Image) {
-    checkable_menu_option(label, selected, gtk::AccessibleRole::MenuItemRadio)
-}
 
-pub(super) fn check_menu_option(label: &str, selected: bool) -> (gtk::Button, gtk::Image) {
-    checkable_menu_option(label, selected, gtk::AccessibleRole::MenuItemCheckbox)
-}
 
-const MENU_OPTION_CLASS: &str = "column-menu-option";
 
-pub(super) fn menu_action(label: &str) -> gtk::Button {
-    let action = super::accessibility::menu_item_button();
-    action.set_child(Some(&menu_option_label(label)));
-    action.add_css_class(MENU_OPTION_CLASS);
-    action
-}
 
-fn checkable_menu_option(
-    label: &str,
-    selected: bool,
-    role: gtk::AccessibleRole,
-) -> (gtk::Button, gtk::Image) {
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-    let check = crate::assets::primary_icon(crate::assets::icons::CHECK, 16);
-    check.set_visible(selected);
-    row.append(&menu_option_label(label));
-    row.append(&check);
-    let option = gtk::Button::builder()
-        .child(&row)
-        .accessible_role(role)
-        .has_frame(false)
-        .build();
-    option.add_css_class(MENU_OPTION_CLASS);
-    super::accessibility::sync_checked_with_icon(&option, &check);
-    (option, check)
-}
 
-fn menu_option_label(text: &str) -> gtk::Label {
-    let label = gtk::Label::new(Some(text));
-    label.set_xalign(0.0);
-    label.set_hexpand(true);
-    label
-}
 
-/// A popover's "Make this the default" and "Reset to default" commands.
-#[derive(Clone)]
-pub(super) struct DefaultActions {
-    group: gtk::Box,
-    make_default: gtk::Button,
-    reset: gtk::Button,
-}
 
-impl DefaultActions {
-    pub(super) fn new(
-        popover: &gtk::Popover,
-        (make_default_label, reset_label): (&str, &str),
-        make_default: impl Fn() + 'static,
-        reset: impl Fn() + 'static,
-    ) -> Self {
-        let group = gtk::Box::new(gtk::Orientation::Vertical, 2);
-        let make_default = closing_menu_action(make_default_label, popover, make_default);
-        let reset = closing_menu_action(reset_label, popover, reset);
-        group.append(&make_default);
-        group.append(&reset);
-        Self {
-            group,
-            make_default,
-            reset,
-        }
-    }
 
-    pub(super) fn widget(&self) -> &gtk::Box {
-        &self.group
-    }
-
-    pub(super) fn set_visible(&self, make_default: bool, reset: bool) {
-        self.make_default.set_visible(make_default);
-        self.reset.set_visible(reset);
-        self.group.set_visible(make_default || reset);
-    }
-}
-
-fn closing_menu_action(
-    label: &str,
-    popover: &gtk::Popover,
-    run: impl Fn() + 'static,
-) -> gtk::Button {
-    let action = menu_action(label);
-    let popover = popover.downgrade();
-    action.connect_clicked(move |_| {
-        run();
-        if let Some(popover) = popover.upgrade() {
-            popover.popdown();
-        }
-    });
-    action
-}
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(super) enum ModalTone {
@@ -582,21 +319,6 @@ fn modal_loading_spinner() -> gtk::Spinner {
     loading
 }
 
-/// Starts a dialog spinner that may have run before. GTK 4.24 leaves a spinner
-/// restarted after being hidden blank or frozen, so this swaps in a fresh one
-/// and returns it.
-pub(super) fn restart_modal_loading(
-    spinner: &gtk::Spinner,
-    description: Option<&str>,
-) -> gtk::Spinner {
-    let fresh = modal_loading_spinner();
-    if let Some(parent) = spinner.parent().and_downcast::<gtk::Box>() {
-        parent.insert_child_after(&fresh, Some(spinner));
-        parent.remove(spinner);
-    }
-    set_modal_loading(&fresh, true, description);
-    fresh
-}
 
 /// [`ModalLayout::set_loading`] for a dialog that keeps only its spinner.
 pub(super) fn set_modal_loading(spinner: &gtk::Spinner, loading: bool, description: Option<&str>) {
@@ -647,24 +369,6 @@ pub(super) fn message_dialog_layout(
     layout
 }
 
-/// Stacks the action buttons once the dialog is narrowed to the window, so a row of
-/// long translated labels cannot push the primary button out of view.
-pub(super) fn stack_actions_when_constrained(layout: &ModalLayout) {
-    let actions = layout.actions.downgrade();
-    layout.content.connect_css_classes_notify(move |content| {
-        let Some(actions) = actions.upgrade() else {
-            return;
-        };
-        let orientation = if content.has_css_class("modal-constrained") {
-            gtk::Orientation::Vertical
-        } else {
-            gtk::Orientation::Horizontal
-        };
-        if actions.orientation() != orientation {
-            actions.set_orientation(orientation);
-        }
-    });
-}
 
 pub(super) fn modal_layout_with_tone(
     icon: &str,

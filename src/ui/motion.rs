@@ -21,11 +21,6 @@ pub(super) fn emphasized_deceleration(progress: f64) -> f64 {
     cubic_bezier(progress, (0.16, 1.0), (0.3, 1.0))
 }
 
-/// The mirror of [`emphasized_deceleration`] for things leaving the screen:
-/// slow to start, fast to finish, so an exit doesn't front-load its motion.
-pub(super) fn emphasized_acceleration(progress: f64) -> f64 {
-    cubic_bezier(progress, (0.3, 0.0), (0.8, 0.15))
-}
 
 fn cubic_bezier(progress: f64, first: (f64, f64), second: (f64, f64)) -> f64 {
     let progress = progress.clamp(0.0, 1.0);

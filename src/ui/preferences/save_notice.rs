@@ -49,11 +49,6 @@ impl SaveNotices {
         }
     }
 
-    pub(super) fn register(&self, window: &gtk::Window) {
-        let mut windows = self.windows.borrow_mut();
-        windows.retain(|candidate| candidate.upgrade().is_some());
-        windows.push(window.downgrade());
-    }
 
     pub(super) fn saved(&self) {
         self.streak.set(Streak::Armed);

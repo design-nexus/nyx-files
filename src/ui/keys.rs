@@ -14,11 +14,10 @@ pub(crate) mod bindings;
 mod composition;
 mod label;
 
-#[cfg(test)]
-mod tests;
+
 
 pub(crate) use label::{
-    Digits, Keys, digit_label, label, label_in, modifiers_label, modifiers_label_in, search_text,
+    Digits, Keys, digit_label, label, label_in, modifiers_label_in, search_text,
 };
 
 /// The modifiers shortcuts compare. Locks, AltGr, Hyper and Meta never count.
@@ -27,17 +26,6 @@ pub(crate) const SHORTCUT_MODIFIERS: Modifiers = Modifiers::CONTROL_MASK
     .union(Modifiers::SHIFT_MASK)
     .union(Modifiers::SUPER_MASK);
 
-/// Editing shortcuts of `gtk::Text` and `gtk::TextView`, with the widget action
-/// each runs.
-pub(crate) const TEXT_EDITING: [(Binding, &str); 7] = [
-    (bindings::COPY, "clipboard.copy"),
-    (bindings::CUT, "clipboard.cut"),
-    (bindings::PASTE, "clipboard.paste"),
-    (bindings::SELECT_ALL, "selection.select-all"),
-    (bindings::UNDO, "text.undo"),
-    (bindings::REDO, "text.redo"),
-    (bindings::REDO_Y, "text.redo"),
-];
 
 /// A canonical key and its exact modifiers. Letters are lowercase with Shift
 /// explicit, a symbol names the symbol, and a digit means its digit-row position.
@@ -98,10 +86,6 @@ impl Binding {
         self.modifiers
     }
 
-    /// The string for a menu item's `accel` attribute.
-    pub(crate) fn accelerator(self) -> glib::GString {
-        gtk::accelerator_name(self.key, self.modifiers)
-    }
 }
 
 /// One key event, normalized once for every handler that sees it.
@@ -170,11 +154,6 @@ impl KeyPress {
         self.state
     }
 
-    /// The modifier this key itself holds, empty for other keys. GDK reports
-    /// the state from before the event, without it.
-    pub(crate) fn modifier_key(&self) -> Modifiers {
-        modifier_of(self.typed)
-    }
 
     /// Whether the key came from another layout or the US-QWERTY table, which
     /// GTK's own bindings may not recognize.
@@ -182,15 +161,6 @@ impl KeyPress {
         self.fallback
     }
 
-    /// The same press read as `binding`, for keys that stand in for others,
-    /// such as h/j/k/l for arrows.
-    pub(crate) fn read_as(self, binding: Binding) -> Self {
-        Self {
-            key: binding.key,
-            shortcut_modifiers: binding.modifiers,
-            ..self
-        }
-    }
 
     /// A press from signal arguments alone, as emitted without a GDK event. It
     /// reads as a US-QWERTY press; tests build presses this way.
@@ -230,21 +200,7 @@ pub(crate) fn on_press(
     })
 }
 
-pub(crate) fn on_release(
-    controller: &gtk::EventControllerKey,
-    handler: impl Fn(&gtk::EventControllerKey, &KeyPress) + 'static,
-) -> glib::SignalHandlerId {
-    signals::released(controller, move |controller, keyval, keycode, state| {
-        handler(controller, &read(controller, keyval, keycode, state));
-    })
-}
 
-/// Reads a key event that reached a non-key controller, such as
-/// `EventControllerLegacy`. Other events give `None`.
-pub(crate) fn read_event(event: &gdk::Event) -> Option<KeyPress> {
-    let event = event.downcast_ref::<gdk::KeyEvent>()?;
-    Some(normalize_event(event))
-}
 
 #[expect(
     clippy::disallowed_methods,
@@ -372,15 +328,6 @@ const MODIFIER_KEYS: [Key; 12] = [
     Key::Caps_Lock,
 ];
 
-fn modifier_of(key: Key) -> Modifiers {
-    match key {
-        Key::Control_L | Key::Control_R => Modifiers::CONTROL_MASK,
-        Key::Shift_L | Key::Shift_R => Modifiers::SHIFT_MASK,
-        Key::Alt_L | Key::Alt_R | Key::Meta_L | Key::Meta_R => Modifiers::ALT_MASK,
-        Key::Super_L | Key::Super_R => Modifiers::SUPER_MASK,
-        _ => Modifiers::empty(),
-    }
-}
 
 fn normalize<Entries>(event: &Event, keymap: impl FnOnce(u32) -> Entries) -> KeyPress
 where
@@ -567,3 +514,6 @@ fn us_position(key: Key) -> Option<(u32, u32)> {
             .map(|level| (keycode, level as u32))
     })
 }
+
+#[cfg(test)]
+mod tests;

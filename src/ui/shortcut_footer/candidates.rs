@@ -100,9 +100,6 @@ impl Candidates {
         candidates
     }
 
-    pub(super) fn connect_activated(&self, listener: impl Fn(PathBuf) + 'static) {
-        self.activated.replace(Some(Rc::new(listener)));
-    }
 
     // Preserve explicit selection across batches, but let the default follow ranking.
     pub(super) fn set(&self, paths: Vec<PathBuf>, keys: CandidateKeys) {
@@ -158,33 +155,13 @@ impl Candidates {
         self.set(Vec::new(), CandidateKeys::default());
     }
 
-    pub(super) fn forget_step(&self) {
-        self.stepped.set(false);
-    }
 
-    pub(super) fn stepped(&self) -> bool {
-        self.stepped.get()
-    }
 
-    pub(super) fn step(&self, delta: i32) {
-        let count = self.paths.borrow().len();
-        if count == 0 {
-            return;
-        }
-        let count = count as i64;
-        let next = (self.chosen.get() as i64 + i64::from(delta)).rem_euclid(count);
-        self.stepped.set(true);
-        self.choose(next as usize);
-    }
 
     pub(super) fn chosen(&self) -> Option<PathBuf> {
         self.paths.borrow().get(self.chosen.get()).cloned()
     }
 
-    pub(super) fn position(&self) -> Option<(usize, usize)> {
-        let count = self.paths.borrow().len();
-        (count > 0).then(|| (self.chosen.get(), count))
-    }
 
     #[cfg(test)]
     pub(super) fn paths(&self) -> Vec<PathBuf> {

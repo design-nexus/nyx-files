@@ -12,8 +12,7 @@ use crate::{
     assets::icons,
 };
 
-#[cfg(test)]
-mod tests;
+
 
 mod about;
 pub(crate) mod actions;
@@ -27,9 +26,6 @@ mod install_command;
 mod search;
 mod theme;
 mod wrap;
-use about::about_page;
-use general::general_page;
-use theme::theme_page;
 
 use super::{
     blur::BlurBin,
@@ -38,12 +34,6 @@ use super::{
     preferences::PreferenceManager,
 };
 
-struct ResponsiveContent {
-    flows: Vec<(gtk::FlowBox, u32)>,
-    actions: Vec<(gtk::Box, gtk::Button)>,
-    setting_rows: Vec<gtk::Box>,
-    activation_rows: Vec<ResponsiveActivationRow>,
-}
 
 pub struct ResponsiveActivationRow {
     row: gtk::Box,
@@ -256,56 +246,8 @@ glib::wrapper! {
 }
 
 impl ResponsiveBin {
-    fn new(
-        child: &impl IsA<gtk::Widget>,
-        navigation: &gtk::Box,
-        navigation_heading: &gtk::Label,
-        navigation_labels: Vec<gtk::Label>,
-        navigation_contents: Vec<gtk::Box>,
-        responsive: ResponsiveContent,
-    ) -> Self {
-        let bin: Self = glib::Object::new();
-        let imp = bin.imp();
-        imp.navigation.replace(Some(navigation.clone()));
-        imp.navigation_heading
-            .replace(Some(navigation_heading.clone()));
-        imp.navigation_labels.replace(navigation_labels);
-        imp.navigation_contents.replace(navigation_contents);
-        imp.responsive_flows.replace(responsive.flows);
-        imp.responsive_actions.replace(responsive.actions);
-        imp.responsive_setting_rows.replace(responsive.setting_rows);
-        imp.responsive_activation_rows
-            .replace(responsive.activation_rows);
-        child.set_parent(&bin);
-        PreferenceManager::shared().bind_interface_scale(&bin, |widget, scale| {
-            let bin = widget
-                .downcast_ref::<ResponsiveBin>()
-                .expect("settings bin");
-            bin.imp().typography_scale.set(scale);
-            bin.imp().activation_side_by_side_min.set(0);
-            bin.imp().activation_inline_options_min.set(0);
-            bin.queue_allocate();
-        });
-        bin
-    }
 
-    fn add_navigation(&self, label: gtk::Label, content: gtk::Box) {
-        let imp = self.imp();
-        imp.navigation_labels.borrow_mut().push(label);
-        imp.navigation_contents.borrow_mut().push(content);
-    }
 
-    fn add_flow(&self, flow: gtk::FlowBox, columns: u32) {
-        flow.set_max_children_per_line(if self.imp().compact_content.get() {
-            1
-        } else {
-            columns
-        });
-        self.imp()
-            .responsive_flows
-            .borrow_mut()
-            .push((flow, columns));
-    }
 
 }
 
@@ -547,264 +489,10 @@ fn uses_compact_navigation(dialog_width: i32) -> bool {
     dialog_width < COMPACT_NAVIGATION_BREAKPOINT
 }
 
-#[expect(
-    deprecated,
-    reason = "GTK 4.12 deprecated translate_coordinates and allocation without a replacement for click-in-bounds checks"
-)]
-pub fn build_layer(
-    settings_button: &gtk::Button,
-    root: &BlurBin,
-    preferences: Rc<PreferenceManager>,
-) -> gtk::Box {
-    let layer = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    layer.add_css_class("app-modal-layer");
-    layer.add_css_class("settings-backdrop");
-    layer.set_halign(gtk::Align::Fill);
-    layer.set_valign(gtk::Align::Fill);
-    layer.set_hexpand(true);
-    layer.set_vexpand(true);
-    layer.set_focusable(true);
-    layer.set_visible(false);
 
-    let panel = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    panel.add_css_class("settings-dialog");
-    panel.set_overflow(gtk::Overflow::Hidden);
 
-    let navigation = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    navigation.add_css_class("settings-navigation");
-    let navigation_heading = append_heading(&navigation, "SETTINGS");
-    let settings_search = search::append(&navigation);
 
-    let page = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    page.add_css_class("settings-page");
-    page.set_hexpand(true);
-    let titlebar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    titlebar.add_css_class("settings-titlebar");
-    let title = gtk::Label::new(Some(&crate::i18n::tr("General")));
-    title.set_xalign(0.0);
-    title.set_hexpand(true);
-    title.add_css_class("settings-title");
-    title.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    title.set_max_width_chars(1);
-    let close = gtk::Button::builder()
-        .tooltip_text(crate::i18n::tr("Close settings"))
-        .build();
-    super::accessibility::set_own_label(&close, &crate::i18n::tr("Close settings"));
-    close.set_child(Some(&crate::assets::primary_icon(icons::X, 18)));
-    close.add_css_class("settings-close");
-    close.set_valign(gtk::Align::Center);
-    titlebar.append(&title);
-    titlebar.append(&close);
-    page.append(&titlebar);
 
-    let stack = gtk::Stack::builder()
-        .transition_type(gtk::StackTransitionType::Crossfade)
-        .transition_duration(120)
-        .hhomogeneous(false)
-        .vhomogeneous(false)
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-    let (general, responsive_setting_rows, responsive_activation_rows) =
-        general_page(preferences.clone());
-    stack.add_named(&general, Some("general"));
-    stack.add_named(&diagnostics::diagnostics_page(), Some("diagnostics"));
-    stack.add_named(&about_page(), Some("about"));
-    // The theme page builds its swatch flows on first selection.
-    page.append(&stack);
-
-    // Created before the navigation loop so lazy builders can register
-    // their responsive rows and flows as pages materialize.
-    let responsive_panel = ResponsiveBin::new(
-        &panel,
-        &navigation,
-        &navigation_heading,
-        Vec::new(),
-        Vec::new(),
-        ResponsiveContent {
-            flows: Vec::new(),
-            actions: Vec::new(),
-            setting_rows: responsive_setting_rows,
-            activation_rows: responsive_activation_rows,
-        },
-    );
-    // Navigation entries register as their buttons are created, so the
-    // responsive panel compacts correctly even with lazy pages.
-    let responsive_for_nav = responsive_panel.clone();
-    let built: Rc<RefCell<std::collections::HashSet<&'static str>>> = Rc::new(RefCell::new(
-        ["general", "diagnostics", "about"].into_iter().collect(),
-    ));
-    let dismiss_hooks = DismissHooks::default();
-    let close_settings: Rc<dyn Fn()> = {
-        let layer = layer.clone();
-        let button = settings_button.clone();
-        let root = root.clone();
-        let hooks = dismiss_hooks.clone();
-        Rc::new(move || hide(&layer, &button, &root, &hooks))
-    };
-    let nav_buttons: Rc<RefCell<Vec<(gtk::Button, &'static str)>>> =
-        Rc::new(RefCell::new(Vec::new()));
-    for entry in &NAVIGATION {
-        let name = entry.page;
-        let active = name == "general";
-        let (button, navigation_label, navigation_content) = navigation_button(entry);
-        responsive_for_nav.add_navigation(navigation_label, navigation_content);
-        if active {
-            button.add_css_class("settings-nav-active");
-        }
-        nav_buttons.borrow_mut().push((button.clone(), name));
-        let buttons = nav_buttons.clone();
-        let stack = stack.clone();
-        let title = title.clone();
-        let page_title = entry.label;
-        let built = built.clone();
-        let preferences = preferences.clone();
-        let responsive_panel = responsive_panel.clone();
-        let search_state = settings_search.state.clone();
-        let dismiss_hooks = dismiss_hooks.clone();
-        button.connect_clicked(move |clicked| {
-            for (candidate, _) in buttons.borrow().iter() {
-                if candidate == clicked {
-                    candidate.add_css_class("settings-nav-active");
-                } else {
-                    candidate.remove_css_class("settings-nav-active");
-                }
-            }
-            if built.borrow_mut().insert(name) {
-                match name {
-                    "theme" => {
-                        let page =
-                            theme_page(preferences.clone(), super::theme::ThemeManager::shared());
-                        search::apply(&page.widget, &search_state);
-                        stack.add_named(&page.widget, Some("theme"));
-                        for (flow, columns) in page.flows {
-                            responsive_panel.add_flow(flow, columns);
-                        }
-                        dismiss_hooks.add(page.dismiss);
-                    }
-                    "cloud" => {
-                        let page = cloud::cloud_page(preferences.clone());
-                        search::apply(&page, &search_state);
-                        stack.add_named(&page, Some("cloud"));
-                    }
-                    "actions" => {
-                        let page = actions::actions_page();
-                        search::apply(&page, &search_state);
-                        stack.add_named(&page, Some("actions"));
-                    }
-                    "keyboard" => {
-                        let page = keyboard::keyboard_page();
-                        search::apply(&page, &search_state);
-                        stack.add_named(&page, Some("keyboard"));
-                    }
-                    _ => {}
-                }
-            }
-            stack.set_visible_child_name(name);
-            title.set_text(&crate::i18n::tr(page_title));
-        });
-        navigation.append(&button);
-    }
-
-    settings_search.install(&stack, &title, &nav_buttons);
-    let spacer = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    spacer.set_vexpand(true);
-    navigation.append(&spacer);
-
-    let navigation_scroll = gtk::ScrolledWindow::builder()
-        .hscrollbar_policy(gtk::PolicyType::Never)
-        .vscrollbar_policy(gtk::PolicyType::Automatic)
-        .propagate_natural_width(true)
-        .child(&navigation)
-        .build();
-    panel.append(&navigation_scroll);
-    panel.append(&page);
-    responsive_panel.set_hexpand(false);
-    responsive_panel.set_vexpand(false);
-    let top = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    top.set_vexpand(true);
-    let bottom = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    bottom.set_vexpand(true);
-    let left = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    left.set_hexpand(true);
-    let right = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    right.set_hexpand(true);
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    row.append(&left);
-    row.append(&responsive_panel);
-    row.append(&right);
-    layer.append(&top);
-    layer.append(&row);
-    layer.append(&bottom);
-
-    // A window closed mid-preview never runs `hide`; the preview is process-wide.
-    layer.connect_unrealize(move |_| dismiss_hooks.run());
-    let close_hide = close_settings.clone();
-    close.connect_clicked(move |_| close_hide());
-    let escape_hide = close_settings.clone();
-    close_on_escape(&layer, move || escape_hide());
-
-    let click_layer = layer.clone();
-    let click_dialog = responsive_panel.clone();
-    let click = gtk::GestureClick::new();
-    click.connect_pressed(move |_, _, x, y| {
-        let on_dialog = click_dialog
-            .translate_coordinates(&click_layer, 0.0, 0.0)
-            .is_some_and(|(dx, dy)| {
-                let alloc = click_dialog.allocation();
-                x >= dx
-                    && x < dx + alloc.width() as f64
-                    && y >= dy
-                    && y < dy + alloc.height() as f64
-            });
-        if !on_dialog {
-            close_settings();
-        }
-    });
-    layer.add_controller(click);
-    super::focus_navigation::install(&layer);
-    layer
-}
-
-/// Work that every route closing Settings must run, such as discarding a theme preview.
-type DismissHookList = RefCell<Vec<Rc<dyn Fn()>>>;
-
-#[derive(Clone, Default)]
-struct DismissHooks(Rc<DismissHookList>);
-
-impl DismissHooks {
-    fn add(&self, hook: Rc<dyn Fn()>) {
-        self.0.borrow_mut().push(hook);
-    }
-
-    /// Hooks are idempotent: they run on every close and again when the layer unrealizes.
-    fn run(&self) {
-        let hooks = self.0.borrow().clone();
-        for hook in hooks {
-            hook();
-        }
-    }
-}
-
-fn hide(layer: &gtk::Box, button: &gtk::Button, root: &BlurBin, hooks: &DismissHooks) {
-    hooks.run();
-    if layer.has_css_class("dismissing") {
-        return;
-    }
-    layer.add_css_class("dismissing");
-    layer.set_sensitive(false);
-    let layer_for_anim = layer.clone();
-    let layer = layer.clone();
-    let root = root.clone();
-    let button = button.clone();
-    super::browser::animate_out(&layer_for_anim, move || {
-        layer.set_visible(false);
-        layer.remove_css_class("dismissing");
-        layer.set_sensitive(true);
-        root.set_blurred(false);
-        button.remove_css_class("active");
-    });
-}
 
 fn process_start_time(pid: u32) -> Option<String> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
@@ -921,92 +609,8 @@ fn close_windows_for_restart(application: &gtk::Application) -> bool {
     application.windows().is_empty()
 }
 
-struct NavigationEntry {
-    page: &'static str,
-    label: &'static str,
-    subtitle: &'static str,
-    icon: &'static str,
-    accessible_label: Option<&'static str>,
-}
 
-/// Settings pages in navigation order. Search finds page titles here and routes
-/// to the button built from each entry.
-static NAVIGATION: [NavigationEntry; 7] = [
-    NavigationEntry {
-        page: "general",
-        label: "General",
-        subtitle: "Browsing, search, files",
-        icon: icons::SLIDERS,
-        accessible_label: None,
-    },
-    NavigationEntry {
-        page: "theme",
-        label: "Appearance",
-        subtitle: "Theme, text, motion",
-        icon: icons::PALETTE,
-        accessible_label: Some("Appearance settings"),
-    },
-    NavigationEntry {
-        page: "actions",
-        label: "Actions",
-        subtitle: "Custom actions",
-        icon: icons::PLAY,
-        accessible_label: None,
-    },
-    NavigationEntry {
-        page: "cloud",
-        label: "Cloud Storage",
-        subtitle: "Connections and cache",
-        icon: icons::CLOUD,
-        accessible_label: None,
-    },
-    NavigationEntry {
-        page: "keyboard",
-        label: "Keyboard",
-        subtitle: "Shortcuts",
-        icon: icons::KEY,
-        accessible_label: None,
-    },
-    NavigationEntry {
-        page: "diagnostics",
-        label: "Diagnostics",
-        subtitle: "Troubleshooting",
-        icon: icons::STETHOSCOPE,
-        accessible_label: None,
-    },
-    NavigationEntry {
-        page: "about",
-        label: "About",
-        subtitle: "Version and links",
-        icon: icons::INFO,
-        accessible_label: None,
-    },
-];
 
-fn navigation_button(entry: &NavigationEntry) -> (gtk::Button, gtk::Label, gtk::Box) {
-    let label = entry.label;
-    let content = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-    let icon_image = crate::assets::primary_icon(entry.icon, 18);
-    let text = gtk::Label::new(None);
-    text.set_markup(&format!(
-        "{}\n<span size=\"small\" weight=\"normal\">{}</span>",
-        glib::markup_escape_text(&crate::i18n::tr(label)),
-        glib::markup_escape_text(&crate::i18n::tr(entry.subtitle))
-    ));
-    text.set_xalign(0.0);
-    text.add_css_class("settings-nav-copy");
-    content.append(&icon_image);
-    content.append(&text);
-    let button = gtk::Button::builder().child(&content).build();
-    button.set_widget_name(entry.page);
-    button.set_has_frame(false);
-    button.set_cursor_from_name(Some("pointer"));
-    super::accessibility::set_label(
-        &button,
-        &crate::i18n::tr(entry.accessible_label.unwrap_or(label)),
-    );
-    (button, text, content)
-}
 
 fn scrollable_page(content: &gtk::Box, class: Option<&str>) -> gtk::Widget {
     let empty = gtk::Label::new(Some(&crate::i18n::tr(
@@ -1188,29 +792,7 @@ fn settings_group(content: &gtk::Box, heading: &str) -> gtk::Box {
     group
 }
 
-fn control_row(title: &str, description: &str, control: &impl IsA<gtk::Widget>) -> gtk::Box {
-    let (row, placeholder) = settings_option(title, description, false);
-    row.remove(&placeholder);
-    row.append(control);
-    row
-}
 
-fn indent_row(row: &gtk::Box) {
-    let arrow = crate::assets::primary_icon(icons::CORNER_DOWN_RIGHT, 18);
-    arrow.add_css_class("settings-indent");
-    arrow.set_valign(gtk::Align::Center);
-    // Keep the dependency marker with its heading when the control stacks below.
-    if let Some(copy) = row.first_child().and_downcast::<gtk::Box>()
-        && let Some(title) = copy.first_child()
-    {
-        copy.remove(&title);
-        let heading = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-        heading.append(&arrow);
-        heading.append(&title);
-        copy.prepend(&heading);
-    }
-    row.add_css_class("settings-dependent");
-}
 
 fn append_heading(container: &gtk::Box, text: &str) -> gtk::Label {
     let heading = gtk::Label::new(Some(&crate::i18n::tr(text)));

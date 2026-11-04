@@ -357,156 +357,17 @@ pub(super) fn tag(widget: &impl IsA<gtk::Widget>, title: &str) {
     }
 }
 
-pub(super) fn set_available(widget: &impl IsA<gtk::Widget>, available: bool) {
-    crate::ui::desktop_integration::set_search_available(widget, available);
-}
 
-fn normalized(text: &str) -> String {
-    text.to_lowercase()
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|word| !word.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
-}
 
-fn distance(a: &str, b: &str) -> usize {
-    let b = b.chars().collect::<Vec<_>>();
-    let mut previous = (0..=b.len()).collect::<Vec<_>>();
-    for (i, a) in a.chars().enumerate() {
-        let mut next = vec![i + 1];
-        for (j, b) in b.iter().enumerate() {
-            next.push(
-                (previous[j + 1] + 1)
-                    .min(next[j] + 1)
-                    .min(previous[j] + usize::from(a != *b)),
-            );
-        }
-        previous = next;
-    }
-    previous[b.len()]
-}
 
-/// Kana and Han ideographs.
-fn is_unspaced_script(character: char) -> bool {
-    matches!(
-        character,
-        '\u{3040}'..='\u{30ff}'
-            | '\u{3400}'..='\u{4dbf}'
-            | '\u{4e00}'..='\u{9fff}'
-            | '\u{f900}'..='\u{faff}'
-            | '\u{20000}'..='\u{3134f}'
-    )
-}
 
-fn word_score(query: &str, word: &str) -> Option<i32> {
-    if query == word {
-        Some(80)
-    } else if word.starts_with(query) {
-        Some(60)
-    } else if query.chars().count() >= 2
-        && query.chars().any(is_unspaced_script)
-        && word.contains(query)
-    {
-        Some(40)
-    } else if query.chars().count() >= 4
-        && distance(query, word) <= if query.chars().count() >= 6 { 2 } else { 1 }
-    {
-        Some(20)
-    } else {
-        None
-    }
-}
 
-fn score(query: &str, target: &Target) -> Option<i32> {
-    let source_title = normalized(&super::translated_in("en", target.title));
-    let localized_title = normalized(&super::translated(target.title));
-    let title = format!("{source_title} {localized_title}");
-    // Chinese and Japanese queries run across the spaces titles put around Latin words.
-    let joined_title = localized_title.split_whitespace().collect::<String>();
-    let aliases = normalized(&format!(
-        "{} {} {} {} settings {}",
-        target.aliases,
-        localized_keywords(target),
-        target.page,
-        page_title(target.page)
-            .map(crate::i18n::tr)
-            .unwrap_or_default(),
-        crate::i18n::tr("Settings"),
-    ));
-    let mut total = 0;
-    for query_word in query.split_whitespace() {
-        let title_score = title
-            .split_whitespace()
-            .chain([joined_title.as_str()])
-            .filter_map(|word| word_score(query_word, word))
-            .max();
-        let alias_score = aliases
-            .split_whitespace()
-            .filter_map(|word| word_score(query_word, word).map(|score| score / 2))
-            .max();
-        total += title_score.into_iter().chain(alias_score).max()?;
-    }
-    Some(
-        total
-            + if source_title == query || localized_title == query {
-                1000
-            } else if source_title.contains(query) || localized_title.contains(query) {
-                200
-            } else {
-                0
-            },
-    )
-}
 
-/// Semantic keys; a missing entry adds nothing, since the English aliases are always searched.
-fn localized_keywords(target: &Target) -> String {
-    let key = format!("settings_keywords.{}", target.id);
-    let keywords = crate::i18n::tr(&key);
-    if keywords == key {
-        String::new()
-    } else {
-        keywords
-    }
-}
 
-fn page_title(page: &str) -> Option<&'static str> {
-    super::NAVIGATION
-        .iter()
-        .find(|entry| entry.page == page)
-        .map(|entry| entry.label)
-}
 
-#[derive(Default)]
-pub(super) struct Matches {
-    ids: HashSet<&'static str>,
-    pages: HashSet<&'static str>,
-    best_page: Option<&'static str>,
-}
 
-fn find_matches(query: &str) -> Matches {
-    if query.chars().take(129).count() > 128 {
-        return Matches::default();
-    }
-    let mut result = Matches::default();
-    let mut best = -1;
-    for target in TARGETS {
-        if let Some(score) = score(query, target) {
-            result.ids.insert(target.id);
-            result.pages.insert(target.page);
-            if score > best {
-                best = score;
-                result.best_page = Some(target.page);
-            }
-        }
-    }
-    result
-}
 
-pub(super) type State = Rc<RefCell<Option<Matches>>>;
 
-pub(super) fn apply(widget: &impl IsA<gtk::Widget>, state: &State) {
-    filter_tree(widget.upcast_ref(), state.borrow().as_ref());
-}
 
 fn children(widget: &gtk::Widget) -> Vec<gtk::Widget> {
     let mut children = Vec::new();
@@ -518,116 +379,8 @@ fn children(widget: &gtk::Widget) -> Vec<gtk::Widget> {
     children
 }
 
-fn filter_tree(widget: &gtk::Widget, matches: Option<&Matches>) -> Option<bool> {
-    if let Some(id) = widget.widget_name().strip_prefix("settings-search-")
-        && TARGETS.iter().any(|target| target.id == id)
-    {
-        let visible = !widget.has_css_class("settings-search-unavailable")
-            && matches.is_none_or(|matches| matches.ids.contains(id));
-        widget.set_visible(visible);
-        return Some(visible);
-    }
-    let children = children(widget);
-    let results = children
-        .iter()
-        .map(|child| filter_tree(child, matches))
-        .collect::<Vec<_>>();
-    if !results.iter().any(Option::is_some) {
-        return None;
-    }
-    let visible = results.contains(&Some(true));
-    if widget.has_css_class("settings-group") {
-        widget.set_visible(visible);
-    }
-    if widget.has_css_class("settings-preferences") {
-        for (index, child) in children.iter().enumerate() {
-            if child.has_css_class("settings-search-page-empty") {
-                child.set_visible(matches.is_some() && !visible);
-            }
-            if child.has_css_class("menu-heading")
-                || child.has_css_class("settings-section-description")
-            {
-                let mut any_tagged = false;
-                let mut any_visible = false;
-                for (result, sibling) in results[index + 1..].iter().zip(&children[index + 1..]) {
-                    if sibling.has_css_class("menu-heading") {
-                        break;
-                    }
-                    if let Some(visible) = *result {
-                        any_tagged = true;
-                        any_visible |= visible;
-                    }
-                }
-                child.set_visible(any_visible || !any_tagged);
-            }
-        }
-    }
-    Some(visible)
-}
 
-pub(super) struct Search {
-    pub entry: gtk::Entry,
-    pub state: State,
-}
 
-pub(super) fn append(navigation: &gtk::Box) -> Search {
-    let (field, entry, clear) = super::search_field("Search settings");
-    field.add_css_class("settings-global-search");
-    entry.add_css_class("settings-global-search-entry");
-    entry.set_width_chars(1);
-    crate::ui::accessibility::set_label(&entry, &crate::i18n::tr("Search settings"));
-    navigation.append(&field);
-    let (popup_field, popup_entry, popup_clear) = super::search_field("Search settings");
-    popup_field.set_size_request(260, -1);
-    popup_entry.set_width_chars(1);
-    let popover = gtk::Popover::builder()
-        .child(&popup_field)
-        .has_arrow(false)
-        .build();
-    popover.add_css_class("settings-search-popover");
-    let compact = gtk::MenuButton::new();
-    compact.set_child(Some(&crate::assets::primary_icon(
-        crate::assets::icons::SEARCH,
-        18,
-    )));
-    compact.set_tooltip_text(Some(&crate::i18n::tr("Search settings")));
-    crate::ui::accessibility::set_label(&compact, &crate::i18n::tr("Search settings"));
-    compact.set_popover(Some(&popover));
-    compact.add_css_class("settings-global-search-compact");
-    compact.set_visible(false);
-    navigation.append(&compact);
-    crate::ui::accessibility::set_label(&popup_entry, &crate::i18n::tr("Search settings"));
-    entry
-        .bind_property("text", &popup_entry, "text")
-        .bidirectional()
-        .sync_create()
-        .build();
-    for (source, clear) in [(&entry, clear), (&popup_entry, popup_clear)] {
-        source.connect_changed(move |source| {
-            clear.set_visible(!source.text().is_empty());
-        });
-        let keys = gtk::EventControllerKey::new();
-        let field = source.downgrade();
-        keys::on_press(&keys, move |_, press| {
-            if press.is(ESCAPE_ANY)
-                && let Some(field) = field.upgrade()
-                && !field.text().is_empty()
-            {
-                field.set_text("");
-                return glib::Propagation::Stop;
-            }
-            glib::Propagation::Proceed
-        });
-        source.add_controller(keys);
-    }
-    popover.connect_show(move |_| {
-        popup_entry.grab_focus();
-    });
-    Search {
-        entry,
-        state: Rc::new(RefCell::new(None)),
-    }
-}
 
 pub(super) fn set_compact(navigation: &gtk::Box, compact: bool) {
     let children = children(navigation.upcast_ref());
@@ -667,88 +420,9 @@ pub(super) fn set_compact(navigation: &gtk::Box, compact: bool) {
     }
 }
 
-impl Search {
-    pub(super) fn install(
-        &self,
-        stack: &gtk::Stack,
-        title: &gtk::Label,
-        buttons: &Rc<RefCell<Vec<(gtk::Button, &'static str)>>>,
-    ) {
-        let empty = gtk::Label::new(Some(&crate::i18n::tr("No settings match your search.")));
-        empty.set_wrap(true);
-        empty.add_css_class("settings-option-description");
-        stack.add_named(&empty, Some("settings-search-empty"));
-        let stack = stack.downgrade();
-        let title = title.downgrade();
-        let buttons = buttons
-            .borrow()
-            .iter()
-            .map(|(button, page)| (button.downgrade(), *page))
-            .collect::<Vec<_>>();
-        let state = self.state.clone();
-        self.entry
-            .connect_notify_local(Some("text"), move |entry, _| {
-                let Some(stack) = stack.upgrade() else {
-                    return;
-                };
-                let query = normalized(&entry.text());
-                let matches = if query.is_empty() {
-                    None
-                } else {
-                    Some(find_matches(&query))
-                };
-                let destination = matches.as_ref().and_then(|matches| matches.best_page);
-                let no_matches = matches
-                    .as_ref()
-                    .is_some_and(|matches| matches.ids.is_empty());
-                for (button, page) in &buttons {
-                    if let Some(button) = button.upgrade() {
-                        button.set_visible(
-                            matches
-                                .as_ref()
-                                .is_none_or(|matches| matches.pages.contains(page)),
-                        );
-                    }
-                }
-                state.replace(matches);
-                let destination = destination.or_else(|| {
-                    (stack.visible_child_name().as_deref() == Some("settings-search-empty"))
-                        .then_some("general")
-                });
-                if no_matches {
-                    stack.set_visible_child_name("settings-search-empty");
-                    if let Some(title) = title.upgrade() {
-                        title.set_text(&crate::i18n::tr("Search results"));
-                    }
-                } else if let Some(destination) = destination {
-                    for (button, page) in &buttons {
-                        if *page == destination
-                            && let Some(button) = button.upgrade()
-                        {
-                            button.emit_clicked();
-                            break;
-                        }
-                    }
-                }
-                for page in children(stack.upcast_ref()) {
-                    apply(&page, &state);
-                    reset_scroll(&page);
-                }
-            });
-    }
-}
 
-fn reset_scroll(widget: &gtk::Widget) {
-    if widget.has_css_class("settings-content-scroll")
-        && let Some(scroll) = widget.downcast_ref::<gtk::ScrolledWindow>()
-    {
-        scroll.vadjustment().set_value(0.0);
-        return;
-    }
-    for child in children(widget) {
-        reset_scroll(&child);
-    }
-}
+
+
 
 #[cfg(test)]
 mod tests;

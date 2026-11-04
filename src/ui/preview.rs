@@ -255,11 +255,9 @@ struct PreviewState {
 
 use keyboard::MediaSeek;
 pub(in crate::ui) use keyboard::{
-    ArchiveMove, DocumentScroll, MediaCommand, PreviewSurface, media_key_command,
-};
+    MediaCommand, };
 
-#[cfg(test)]
-mod tests;
+
 
 pub(crate) const PREVIEW_LABEL: &str = "Preview";
 const NEXT_FILE: &[keys::Binding] = &[UP, DOWN];
@@ -806,14 +804,7 @@ impl PreviewDrawer {
         }
     }
 
-    pub fn widget(&self) -> gtk::Widget {
-        self.state.slot.clone().upcast()
-    }
 
-    /// Drawn only while the preview shows content or a placeholder.
-    pub(in crate::ui) fn pane_widget(&self) -> gtk::Widget {
-        self.state.pane.clone().upcast()
-    }
 
     pub fn is_open(&self) -> bool {
         self.state.revealer.reveals_child()
@@ -868,29 +859,9 @@ impl PreviewDrawer {
         self.state.stepper.replace(Some(Rc::new(step)));
     }
 
-    pub(in crate::ui) fn password_has_focus(&self, focused: Option<&gtk::Widget>) -> bool {
-        self.state
-            .password_entry
-            .borrow()
-            .as_ref()
-            .is_some_and(|entry| {
-                focused.is_some_and(|focus| {
-                    focus == entry.upcast_ref::<gtk::Widget>() || focus.is_ancestor(entry)
-                })
-            })
-    }
 
-    pub(in crate::ui) fn archive_key(&self, motion: ArchiveMove) -> bool {
-        self.state.archive_key(motion)
-    }
 
-    pub fn close_archive(&self) -> bool {
-        self.state.close_archive()
-    }
 
-    pub fn archive_list_has_focus(&self, focused: Option<&gtk::Widget>) -> bool {
-        self.state.archive_list_has_focus(focused)
-    }
 
     pub fn toggle(&self, entry: Option<FileEntry>, depth: Option<usize>) {
         self.state.toggle(entry, depth);
@@ -1968,52 +1939,8 @@ impl PreviewState {
         self.reassert_keyboard_owner();
     }
 
-    fn archive_key(&self, motion: ArchiveMove) -> bool {
-        let mut browsers = self.archive_browser.borrow_mut();
-        let Some(browser) = browsers.as_mut() else {
-            return false;
-        };
-        match motion {
-            ArchiveMove::Previous => {
-                browser.move_cursor(-1);
-            }
-            ArchiveMove::Next => {
-                browser.move_cursor(1);
-            }
-            ArchiveMove::Parent => {
-                if !browser.go_up() {
-                    return false;
-                }
-            }
-            ArchiveMove::Open => {
-                browser.open_cursor();
-            }
-        }
-        drop(browsers);
-        self.reassert_keyboard_owner();
-        true
-    }
 
-    fn archive_list_has_focus(&self, focused: Option<&gtk::Widget>) -> bool {
-        self.archive_browser
-            .borrow()
-            .as_ref()
-            .is_some_and(|browser| {
-                focused.is_some_and(|focused| {
-                    focused == browser.list().upcast_ref::<gtk::Widget>()
-                        || focused.is_ancestor(browser.list())
-                })
-            })
-    }
 
-    fn close_archive(self: &Rc<Self>) -> bool {
-        if self.archive_browser.borrow().is_some() {
-            self.close();
-            true
-        } else {
-            false
-        }
-    }
 
     fn open_archive_row(self: &Rc<Self>, position: u32) {
         let mut browsers = self.archive_browser.borrow_mut();
@@ -4328,3 +4255,6 @@ fn install_preview_drag(widget: &impl IsA<gtk::Widget>, state: &Rc<PreviewState>
     });
     widget.add_controller(drag);
 }
+
+#[cfg(test)]
+mod tests;

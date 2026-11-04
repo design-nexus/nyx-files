@@ -277,15 +277,6 @@ impl ListColumnId {
         Self::Modified,
     ];
 
-    pub fn index(self) -> usize {
-        match self {
-            Self::Name => 0,
-            Self::Mode => 1,
-            Self::Size => 2,
-            Self::Type => 3,
-            Self::Modified => 4,
-        }
-    }
 
     pub fn title(self) -> &'static str {
         match self {
@@ -729,11 +720,6 @@ impl PreferenceManager {
         self.changes.bind(self, anchor, read, apply);
     }
 
-    /// A closed window can outlive its close while its own closures still
-    /// reference it, so its bindings end here rather than on destroy.
-    pub(in crate::ui) fn release_bindings_within(&self, root: &impl IsA<gtk::Widget>) {
-        self.changes.release_within(root.as_ref());
-    }
 
     #[cfg(test)]
     pub(in crate::ui) fn listener_count(&self) -> usize {
@@ -746,12 +732,6 @@ impl PreferenceManager {
         self.changes.observe(observer);
     }
 
-    /// Lets `window` show the notice when changes cannot be saved. Windows that
-    /// never register, such as the portal chooser, leave failures to the log.
-    pub(in crate::ui) fn register_save_notice_window(&self, window: &gtk::Window) {
-        self.save_notices.register(window);
-        self.folder_save_notices.register(window);
-    }
 
     /// Republishes current preferences without a stored change, for runtime state
     /// that bindings derive from preferences (such as theme availability).
@@ -1019,13 +999,7 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    pub fn type_to_search_active(&self) -> bool {
-        self.type_to_search() && !self.tenxer_mode()
-    }
 
-    pub fn arrow_navigation_scoped_active(&self) -> bool {
-        self.tenxer_mode() || self.arrow_navigation_scoped()
-    }
 
     pub fn show_keybinding_hints(&self) -> bool {
         self.preferences.borrow().show_keybinding_hints
@@ -1044,32 +1018,11 @@ impl PreferenceManager {
         self.bind_preference(anchor, Self::show_keybinding_hints, refresh);
     }
 
-    pub fn window_show_close(&self) -> bool {
-        self.preferences.borrow().window_show_close
-    }
 
-    pub fn set_window_show_close(&self, enabled: bool) {
-        self.preferences.borrow_mut().window_show_close = enabled;
-        self.save_preferences();
-    }
 
-    pub fn window_show_minimize(&self) -> bool {
-        self.preferences.borrow().window_show_minimize
-    }
 
-    pub fn set_window_show_minimize(&self, enabled: bool) {
-        self.preferences.borrow_mut().window_show_minimize = enabled;
-        self.save_preferences();
-    }
 
-    pub fn window_show_maximize(&self) -> bool {
-        self.preferences.borrow().window_show_maximize
-    }
 
-    pub fn set_window_show_maximize(&self, enabled: bool) {
-        self.preferences.borrow_mut().window_show_maximize = enabled;
-        self.save_preferences();
-    }
 
     pub fn omarchy_variant(&self) -> OmarchyVariant {
         self.preferences.borrow().omarchy_variant
@@ -1194,23 +1147,9 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    pub fn chooser_column_width(&self) -> Option<i32> {
-        self.preferences.borrow().chooser_column_width
-    }
 
-    pub fn set_chooser_column_width(&self, width: Option<i32>) {
-        self.preferences.borrow_mut().chooser_column_width = width.filter(|width| *width > 0);
-        self.save_preferences();
-    }
 
-    pub fn browser_column_width(&self) -> Option<i32> {
-        self.preferences.borrow().browser_column_width
-    }
 
-    pub fn set_browser_column_width(&self, width: Option<i32>) {
-        self.preferences.borrow_mut().browser_column_width = width.filter(|width| *width > 0);
-        self.save_preferences();
-    }
 
     pub fn browser_list_columns(&self) -> Option<ListColumns> {
         self.preferences.borrow().browser_list_columns
@@ -1221,14 +1160,7 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    pub fn chooser_list_columns(&self) -> Option<ListColumns> {
-        self.preferences.borrow().chooser_list_columns
-    }
 
-    pub fn set_chooser_list_columns(&self, columns: Option<ListColumns>) {
-        self.preferences.borrow_mut().chooser_list_columns = columns.filter(ListColumns::is_valid);
-        self.save_preferences();
-    }
 
     pub fn list_column_order(&self) -> Vec<ListColumnId> {
         sanitize_list_column_order(&self.preferences.borrow().list_column_order)
@@ -1248,52 +1180,10 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    pub fn is_list_column_visible(&self, column: ListColumnId) -> bool {
-        if column == ListColumnId::Name {
-            return true;
-        }
-        !self.list_hidden_columns().contains(&column)
-    }
 
-    pub fn set_list_column_visible(&self, column: ListColumnId, visible: bool) {
-        if column == ListColumnId::Name {
-            return;
-        }
-        let mut hidden = self.list_hidden_columns();
-        if visible {
-            hidden.retain(|col| *col != column);
-        } else if !hidden.contains(&column) {
-            hidden.push(column);
-        }
-        self.set_list_hidden_columns(hidden);
-    }
 
-    pub fn swap_list_columns(&self, col1: ListColumnId, col2: ListColumnId) {
-        let mut order = self.list_column_order();
-        let pos1 = order.iter().position(|col| *col == col1);
-        let pos2 = order.iter().position(|col| *col == col2);
-        if let (Some(p1), Some(p2)) = (pos1, pos2) {
-            order.swap(p1, p2);
-            self.set_list_column_order(order);
-        }
-    }
 
-    pub fn reset_list_columns(&self) {
-        {
-            let mut prefs = self.preferences.borrow_mut();
-            prefs.list_column_order = default_list_column_order();
-            prefs.list_hidden_columns.clear();
-        }
-        self.save_preferences();
-    }
 
-    pub fn list_visible_columns(&self) -> Vec<ListColumnId> {
-        let hidden = self.list_hidden_columns();
-        self.list_column_order()
-            .into_iter()
-            .filter(|col| *col == ListColumnId::Name || !hidden.contains(col))
-            .collect()
-    }
 
     pub fn watch_network_folders(&self) -> bool {
         self.preferences.borrow().watch_network_folders
@@ -1368,29 +1258,6 @@ impl PreferenceManager {
             .unwrap_or_default()
     }
 
-    pub(in crate::ui) fn remember_send_to_destination(
-        &self,
-        device_id: &str,
-        relative_path: &Path,
-        remove_relative_path: Option<&Path>,
-    ) {
-        if !is_valid_send_to_relative_path(relative_path) {
-            return;
-        }
-        {
-            let mut preferences = self.preferences.borrow_mut();
-            let recent = preferences
-                .send_to_recent_destinations
-                .entry(device_id.to_owned())
-                .or_default();
-            recent.retain(|path| {
-                path != relative_path && Some(path.as_path()) != remove_relative_path
-            });
-            recent.insert(0, relative_path.to_path_buf());
-            recent.truncate(SEND_TO_RECENT_DESTINATIONS_LIMIT);
-        }
-        self.save_preferences();
-    }
 
     pub fn open_folder_after_drop(&self) -> bool {
         self.preferences.borrow().open_folder_after_drop
@@ -1651,14 +1518,7 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    pub fn sidebar_order(&self) -> Vec<String> {
-        self.preferences.borrow().sidebar_order.clone()
-    }
 
-    pub fn set_sidebar_order(&self, order: Vec<String>) {
-        self.preferences.borrow_mut().sidebar_order = order;
-        self.save_preferences();
-    }
 
     pub fn sidebar_show_home(&self) -> bool {
         self.preferences.borrow().sidebar_show_home
@@ -1759,48 +1619,13 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    pub fn sidebar_compact(&self) -> bool {
-        self.preferences.borrow().sidebar_compact
-    }
 
-    pub fn set_sidebar_compact(&self, compact: bool) {
-        self.preferences.borrow_mut().sidebar_compact = compact;
-        self.save_preferences();
-    }
 
-    pub fn sidebar_places_visibility(&self) -> [bool; 10] {
-        let preferences = self.preferences.borrow();
-        [
-            preferences.sidebar_show_home,
-            preferences.sidebar_show_trash,
-            preferences.sidebar_show_network,
-            preferences.sidebar_show_recent,
-            preferences.sidebar_show_desktop,
-            preferences.sidebar_show_documents,
-            preferences.sidebar_show_downloads,
-            preferences.sidebar_show_music,
-            preferences.sidebar_show_pictures,
-            preferences.sidebar_show_videos,
-        ]
-    }
 
     pub fn sort_preferences(&self) -> ViewPreferences {
         sort_preferences(&self.preferences.borrow())
     }
 
-    /// Unlike `set_default_sort`, this keeps folder sorts that equal the new
-    /// default: with per-folder sorts off, they are kept but ignored.
-    pub fn set_sort_preferences(&self, preferences: ViewPreferences) {
-        if preferences.sort_key == SortKey::Recency {
-            return;
-        }
-        let mut stored = self.preferences.borrow_mut();
-        stored.show_hidden = preferences.show_hidden;
-        stored.folders_first = preferences.folders_first;
-        store_sort(&mut stored, preferences.sort());
-        drop(stored);
-        self.save_preferences();
-    }
 
     fn save_preferences(&self) {
         let changed = self.changes.record(&self.preferences.borrow());
@@ -1986,6 +1811,8 @@ pub(in crate::ui) fn config_directory() -> PathBuf {
 fn settings_path() -> PathBuf {
     config_directory().join("settings.toml")
 }
+
+
 
 #[cfg(test)]
 mod tests;

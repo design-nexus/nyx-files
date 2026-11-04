@@ -109,10 +109,6 @@ impl FilesystemType {
     }
 }
 
-pub(super) fn show_mount(volume: Option<&gio::Volume>) -> bool {
-    is_eligible(volume)
-        && volume.is_some_and(|volume| volume.get_mount().is_none() && volume.can_mount())
-}
 
 /// Eligible targets are removable drives only. Network shares, internal
 /// fixed disks, and volumes without a drive association are excluded.
@@ -248,9 +244,6 @@ pub(crate) fn block_device_for_path(path: &Path) -> Option<PathBuf> {
     super::devices::block_device_from_mount_table(&crate::adapters::mount_watch::latest(), path)
 }
 
-pub(super) fn mounted_path_for_device(device: &Path) -> Option<PathBuf> {
-    super::devices::mounted_path_from_table(&crate::adapters::mount_watch::latest(), device)
-}
 
 /// Human-readable filesystem name for a block device.
 pub(crate) fn filesystem_label_for_device(device: &Path) -> Option<String> {
@@ -394,26 +387,6 @@ fn format_device(
     Ok(())
 }
 
-/// Report the outcome: stay quiet on cancellation and success, and show
-/// everything else through the error dialog.
-pub(super) fn report_result(
-    parent: &gtk::Widget,
-    display_name: &str,
-    result: Result<(), DriveOpError>,
-) {
-    match result {
-        Ok(()) => {}
-        Err(DriveOpError::Cancelled) => {}
-        Err(error) => show_error_dialog(
-            parent,
-            &rust_i18n::t!(
-                "Unable to update %{display_name}",
-                display_name = display_name
-            ),
-            &error.user_message(),
-        ),
-    }
-}
 
 #[cfg(test)]
 mod tests;

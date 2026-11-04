@@ -36,10 +36,3 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Actionable;
 }
 
-pub(super) fn menu_item_button() -> gtk::Button {
-    glib::Object::builder::<MenuOption>()
-        .property("accessible-role", gtk::AccessibleRole::MenuItem)
-        .property("has-frame", false)
-        .build()
-        .upcast()
-}

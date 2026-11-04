@@ -72,19 +72,6 @@ impl EdgeHint {
         self.pending.replace(Some(source));
     }
 
-    pub(super) fn show(&self, target: &impl IsA<gtk::Widget>, text: &'static str, edge: EdgePoint) {
-        let target = target.as_ref();
-        if self.target.borrow().as_ref() != Some(target) {
-            self.hide();
-            self.aim(target, text, edge);
-        } else {
-            self.edge.replace(Some(edge));
-        }
-        if let Some(source) = self.pending.take() {
-            source.remove();
-        }
-        self.reveal();
-    }
 
     pub(super) fn follow(&self) {
         let (Some(caption), Some(edge)) =

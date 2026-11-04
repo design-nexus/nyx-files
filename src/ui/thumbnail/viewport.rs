@@ -20,30 +20,6 @@ struct MetadataTarget {
     details: bool,
 }
 
-pub(in crate::ui) fn request_metadata(
-    image: &ThumbnailSlot,
-    item: &impl IsA<gtk::Widget>,
-    browser: &Rc<Browser>,
-    depth: usize,
-    position: usize,
-    location: Location,
-    details: bool,
-) {
-    METADATA.with(|pending| {
-        pending.borrow_mut().insert(
-            image.as_ptr() as usize,
-            MetadataTarget {
-                item: item.as_ref().downgrade(),
-                browser: Rc::downgrade(browser),
-                depth,
-                position,
-                location,
-                details,
-            },
-        );
-    });
-    schedule_refresh();
-}
 
 pub(super) fn publish_thumbnail_metadata(
     image_id: usize,
@@ -206,9 +182,6 @@ pub(super) fn hook_ancestors(widget: &impl IsA<gtk::Widget>) {
     }
 }
 
-pub(in crate::ui) fn near_viewport(widget: &impl IsA<gtk::Widget>) -> bool {
-    visibility(widget).0 < 2
-}
 
 #[cfg(test)]
 mod tests;

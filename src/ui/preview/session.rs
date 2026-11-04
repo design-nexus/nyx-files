@@ -7,17 +7,7 @@ impl PreviewDrawer {
         self.state.is_enabled()
     }
 
-    /// Whether the full sidebar fits, by the rule the preview applies each frame.
-    pub(in crate::ui) fn sidebar_fit(
-        &self,
-        content: &gtk::Paned,
-    ) -> Option<crate::ui::window::SidebarFit> {
-        self.state.sidebar_fit(content)
-    }
 
-    pub(in crate::ui) fn action(&self) -> gio::SimpleAction {
-        self.state.enabled_action.clone()
-    }
 
     pub(in crate::ui) fn clear_target(&self) {
         self.state.clear_target();

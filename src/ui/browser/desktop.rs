@@ -18,13 +18,6 @@ use std::rc::{Rc, Weak};
 #[cfg(test)]
 mod tests;
 
-pub(in crate::ui) fn open_location(
-    location: &Location,
-    parent: &impl IsA<gtk::Widget>,
-    browser: &Rc<Browser>,
-) {
-    open_location_at(location, None, parent, browser);
-}
 
 pub(crate) fn open_location_at(
     location: &Location,
@@ -312,16 +305,7 @@ fn exit_prompt_format() -> String {
     .replace('\u{1}', "%s")
 }
 
-pub(super) fn can_open_terminal(location: &Location) -> bool {
-    location.native_path().is_some() && !is_trash_location(location)
-}
 
-pub(super) fn selected_terminal_location(entries: &[FileEntry]) -> Option<Location> {
-    let [entry] = entries else {
-        return None;
-    };
-    entry.is_directory().then(|| entry.location.clone())
-}
 
 pub(crate) fn launch_terminal(location: &Location, parent: &impl IsA<gtk::Widget>) {
     let Some(path) = location.native_path() else {

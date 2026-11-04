@@ -601,31 +601,7 @@ impl WeakPromptBar {
     }
 }
 
-pub(in crate::ui) struct PromptSink {
-    prompt: WeakPromptBar,
-    kind: Prompt,
-}
 
-impl PromptSink {
-    /// Replaces the text (caret at the end) and the hint, but only while the
-    /// same kind of prompt is still open.
-    pub(in crate::ui) fn show(&self, text: Option<&str>, hint: Option<&str>) {
-        let Some(prompt) = self.prompt.upgrade() else {
-            return;
-        };
-        if prompt.kind.get() != Some(self.kind) || !prompt.bar.is_visible() {
-            return;
-        }
-        if let Some(text) = text {
-            // GTK reports a replacement as two changes: cleared, then filled.
-            prompt.replacing.set(true);
-            prompt.entry.set_text(text);
-            prompt.replacing.set(false);
-            prompt.entry.set_position(-1);
-        }
-        prompt.set_hint(hint);
-    }
-}
 
 impl ShortcutFooter {
     pub fn new(mode: BrowserMode) -> Self {
@@ -1022,16 +998,6 @@ impl ShortcutFooter {
         });
     }
 
-    /// Reports `source`'s filter in place of the directory count while its
-    /// results are displayed, in every key map; the query mark and hit path
-    /// show only in 10xer mode. Call [`Self::refresh_filter`] when it changes.
-    pub(in crate::ui) fn observe_filter(
-        &self,
-        source: impl Fn() -> Option<Option<FilterStatus>> + 'static,
-    ) {
-        self.filter_source.replace(Some(Rc::new(source)));
-        self.refresh_filter();
-    }
 
     pub(in crate::ui) fn refresh_filter(&self) {
         let source = self.filter_source.borrow().clone();
@@ -1086,13 +1052,6 @@ impl ShortcutFooter {
         self.set_reference_scope(ReferenceScope { mode, ..scope });
     }
 
-    pub(in crate::ui) fn set_chooser(&self, chooser: ChooserScope) {
-        let scope = self.reference_scope.get();
-        self.set_reference_scope(ReferenceScope {
-            chooser: Some(chooser),
-            ..scope
-        });
-    }
 
     fn set_reference_scope(&self, scope: ReferenceScope) {
         self.reference_scope.set(scope);
@@ -1177,11 +1136,6 @@ impl ShortcutFooter {
         });
     }
 
-    /// Runs `listener` whenever a prompt opens or closes, so work tied to the
-    /// previous text can be dropped.
-    pub(in crate::ui) fn connect_prompt_reset(&self, listener: impl Fn() + 'static) {
-        self.prompt.resets.borrow_mut().push(Box::new(listener));
-    }
 
     #[cfg(test)]
     pub(in crate::ui) fn prompt_hint(&self) -> Option<String> {
@@ -1191,12 +1145,6 @@ impl ShortcutFooter {
             .then(|| self.prompt.hint.text().to_string())
     }
 
-    pub(in crate::ui) fn prompt_sink(&self, kind: Prompt) -> PromptSink {
-        PromptSink {
-            prompt: self.prompt.downgrade(),
-            kind,
-        }
-    }
 
     #[cfg(test)]
     pub(in crate::ui) fn filter_mark(&self) -> Option<String> {
@@ -1242,11 +1190,6 @@ impl ShortcutFooter {
         self.prompt.entry.text().to_string()
     }
 
-    /// Unlike `PromptSink`, this notifies edit listeners.
-    pub(in crate::ui) fn type_prompt_text(&self, text: &str) {
-        self.prompt.entry.set_text(text);
-        self.prompt.entry.set_position(-1);
-    }
 
     #[cfg(test)]
     pub(in crate::ui) fn prompt_label(&self) -> Option<String> {
@@ -1258,39 +1201,16 @@ impl ShortcutFooter {
         self.prompt.close();
     }
 
-    pub(in crate::ui) fn show_candidates(&self, paths: Vec<PathBuf>, keys: CandidateKeys) {
-        if self.prompt.bar.is_visible() {
-            self.prompt.candidates.set(paths, keys);
-        }
-    }
 
-    pub(in crate::ui) fn step_candidate(&self, delta: i32) {
-        self.prompt.candidates.step(delta);
-    }
 
-    pub(in crate::ui) fn forget_candidate_step(&self) {
-        self.prompt.candidates.forget_step();
-    }
 
-    pub(in crate::ui) fn candidate_stepped(&self) -> bool {
-        self.prompt.candidates.stepped()
-    }
 
-    pub(in crate::ui) fn chosen_candidate(&self) -> Option<PathBuf> {
-        self.prompt.candidates.chosen()
-    }
 
-    pub(in crate::ui) fn candidate_position(&self) -> Option<(usize, usize)> {
-        self.prompt.candidates.position()
-    }
 
     pub(crate) fn connect_prompt_activated(&self, listener: impl Fn() + 'static) {
         self.prompt.entry.connect_activate(move |_| listener());
     }
 
-    pub(in crate::ui) fn connect_candidate_activated(&self, listener: impl Fn(PathBuf) + 'static) {
-        self.prompt.candidates.connect_activated(listener);
-    }
 
     #[cfg(test)]
     pub(in crate::ui) fn candidates(&self) -> Vec<PathBuf> {
@@ -1348,17 +1268,11 @@ impl ShortcutFooter {
         self.chords.panel.shown_options()
     }
 
-    pub(crate) fn prompt_is_visible(&self) -> bool {
-        self.prompt.bar.is_visible()
-    }
 
     pub(crate) fn prompt_has_focus(&self) -> bool {
         self.prompt.has_focus()
     }
 
-    pub(in crate::ui) fn reference_is_open(&self) -> bool {
-        self.session.is_open()
-    }
 
     pub(crate) fn handle_key(&self, press: &KeyPress) -> Option<glib::Propagation> {
         const SHIFT: gdk::ModifierType = gdk::ModifierType::SHIFT_MASK;
@@ -2102,5 +2016,7 @@ fn append_section(parent: &gtk::Box, title: &str, shortcuts: &[Shortcut], compac
 
 mod candidates;
 mod chord_panel;
+
+
 #[cfg(test)]
 mod tests;

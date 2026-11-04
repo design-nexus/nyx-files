@@ -53,70 +53,11 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Actionable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
-/// What the sidebar shows. The toggle's `active` state is its visibility.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum SidebarMode {
-    Expanded,
-    Compact,
-    Hidden,
-}
 
-impl SidebarMode {
-    pub(crate) fn of(visible: bool, rail: bool) -> Self {
-        match (visible, rail) {
-            (false, _) => Self::Hidden,
-            (true, true) => Self::Compact,
-            (true, false) => Self::Expanded,
-        }
-    }
-
-    /// The step a click takes: full, then the rail, then hidden, then full.
-    pub(crate) fn next(self) -> Self {
-        match self {
-            Self::Expanded => Self::Compact,
-            Self::Compact => Self::Hidden,
-            Self::Hidden => Self::Expanded,
-        }
-    }
-
-    fn step_message(self) -> &'static str {
-        match self {
-            Self::Expanded => "Show sidebar (%{keys})",
-            Self::Compact => "Compact sidebar (%{keys})",
-            Self::Hidden => "Hide sidebar (%{keys})",
-        }
-    }
-}
 
 impl SidebarToggle {
-    pub(crate) fn new() -> Self {
-        let toggle: Self = glib::Object::new();
-        toggle.set_active(true);
-        toggle.set_child(Some(&assets::primary_icon(icons::PANEL_LEFT, 17)));
-        toggle.add_css_class("sidebar-toggle");
-        toggle.set_cursor_from_name(Some("pointer"));
-        toggle
-    }
 
-    /// Runs on click or keyboard activation instead of flipping `active`.
-    pub(crate) fn set_step(&self, step: impl Fn() + 'static) {
-        self.imp().step.replace(Some(Rc::new(step)));
-    }
 
-    /// The tooltip names the step the next click takes from `mode`; the
-    /// accessible name stays the control's own so it can be found in any mode.
-    pub(crate) fn describe(&self, mode: SidebarMode, tenxer: bool) {
-        let keys = Keys::One(if tenxer { TENXER_SIDEBAR } else { SIDEBAR });
-        self.set_tooltip_text(Some(&super::shortcut_reference::with_keys(
-            mode.next().step_message(),
-            keys,
-        )));
-        super::accessibility::set_label(
-            self,
-            &super::shortcut_reference::with_keys("Toggle sidebar (%{keys})", keys),
-        );
-    }
 }
 
-#[cfg(test)]
-mod tests;
+

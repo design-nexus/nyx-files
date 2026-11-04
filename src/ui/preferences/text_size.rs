@@ -29,17 +29,6 @@ impl TextSize {
         Self::new(self.0.saturating_add_signed(delta))
     }
 
-    pub(in crate::ui) fn for_shortcut(self, press: &KeyPress) -> Option<Self> {
-        if press.is_any(&[TEXT_LARGER, TEXT_LARGER_EQUAL]) {
-            Some(self.stepped(1))
-        } else if press.is(TEXT_SMALLER) {
-            Some(self.stepped(-1))
-        } else if press.is(TEXT_RESET) {
-            Some(Self::default())
-        } else {
-            None
-        }
-    }
 }
 
 impl Default for TextSize {

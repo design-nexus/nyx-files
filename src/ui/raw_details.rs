@@ -152,12 +152,6 @@ impl RawDetails {
     }
 }
 
-pub(super) fn load(section: &gtk::Box, path: Option<PathBuf>) -> MetadataLoad {
-    let details = RawDetails::new();
-    section.append(&details.section);
-    section.set_visible(true);
-    details.load(path)
-}
 
 #[cfg(test)]
 mod tests;
