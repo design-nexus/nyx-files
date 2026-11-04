@@ -13,6 +13,7 @@ mod icons;
 mod list;
 mod model;
 mod mount;
+mod open_with;
 mod properties;
 mod search;
 mod settings;

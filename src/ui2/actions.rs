@@ -431,6 +431,9 @@ pub(super) fn item_menu(
             .key("Enter"),
         );
     }
+    if entries.iter().all(|e| !e.is_directory()) {
+        items.push(super::open_with::submenu(window, &entries));
+    }
     if let Some(folder) = folder.clone() {
         let w = window.clone();
         items.push(

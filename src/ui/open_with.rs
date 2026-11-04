@@ -23,7 +23,7 @@ use super::{
 
 /// Inside a Flatpak sandbox GIO only sees the runtime's desktop entries, so
 /// files are handed to the host through the OpenURI portal instead.
-pub(in crate::ui) fn uses_portal() -> bool {
+pub(crate) fn uses_portal() -> bool {
     static FLATPAK: OnceLock<bool> = OnceLock::new();
     *FLATPAK.get_or_init(|| {
         #[cfg(not(test))]
@@ -35,7 +35,7 @@ pub(in crate::ui) fn uses_portal() -> bool {
 /// Opens each file with the host's default handler, or lets the desktop's
 /// own chooser pick one when `always_ask` is set. Files open one after
 /// another so choosers do not stack; dismissing one stops the rest.
-pub(in crate::ui) fn launch_with_portal(
+pub(crate) fn launch_with_portal(
     parent: &impl IsA<gtk::Widget>,
     files: Vec<gio::File>,
     always_ask: bool,
@@ -186,10 +186,10 @@ fn split_recent(
 }
 
 #[derive(Clone, Default)]
-pub(super) struct Choices {
-    recent: Vec<gio::AppInfo>,
-    recommended: Vec<gio::AppInfo>,
-    other: Vec<gio::AppInfo>,
+pub(crate) struct Choices {
+    pub(crate) recent: Vec<gio::AppInfo>,
+    pub(crate) recommended: Vec<gio::AppInfo>,
+    pub(crate) other: Vec<gio::AppInfo>,
 }
 
 impl Choices {
@@ -221,14 +221,14 @@ pub(super) fn choices_for_type(
     Choices::new(history, &[content_type.to_owned()], recommended, other)
 }
 
-pub(super) struct Applications {
-    pub(super) choices: Choices,
-    pub(super) default: Option<gio::AppInfo>,
-    pub(super) content_types: Vec<String>,
+pub(crate) struct Applications {
+    pub(crate) choices: Choices,
+    pub(crate) default: Option<gio::AppInfo>,
+    pub(crate) content_types: Vec<String>,
 }
 
 impl Applications {
-    pub(super) fn unavailable_reason(&self) -> Option<&'static str> {
+    pub(crate) fn unavailable_reason(&self) -> Option<&'static str> {
         if uses_portal() || !self.choices.is_empty() {
             None
         } else if self.content_types.len() > 1 {
@@ -242,7 +242,7 @@ impl Applications {
 /// Looks up the type of every file, then the handlers they all share. An
 /// unreadable file or broken link fails the whole lookup rather than letting
 /// another item decide. `None` means `current` stopped holding first.
-pub(super) async fn resolve(
+pub(crate) async fn resolve(
     files: &[gio::File],
     current: impl Fn() -> bool,
 ) -> Option<Result<Applications, &'static str>> {
@@ -314,7 +314,7 @@ fn common_applications(
     (recommended, other, default)
 }
 
-pub(super) fn launch(
+pub(crate) fn launch(
     app: &gio::AppInfo,
     files: &[gio::File],
     content_types: &[String],

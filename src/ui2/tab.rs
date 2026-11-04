@@ -38,7 +38,7 @@ pub(super) struct Tab {
     icons: IconsView,
     pub(super) page: gtk::Stack,
     /// The views and the preview beside them.
-    pub(super) root: gtk::Paned,
+
     /// The paned views and preview, with the shortcut footer under them.
     pub(super) container: gtk::Box,
     footer: crate::ui::shortcut_footer::ShortcutFooter,
@@ -135,7 +135,6 @@ impl Tab {
             list,
             icons,
             page,
-            root,
             container,
             footer,
             preview,
