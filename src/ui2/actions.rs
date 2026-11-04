@@ -42,17 +42,30 @@ fn keys(binding: crate::ui::keys::Binding) -> String {
 /// The files as clipboard or drag content: a file list and `text/uri-list`,
 /// plus GNOME's copied-files form when `cut` says which it is.
 fn content(entries: &[FileEntry], cut: Option<bool>) -> Option<gdk::ContentProvider> {
-    let files: Vec<gio::File> = entries.iter().filter_map(|e| file_of(&e.location)).collect();
+    let files: Vec<gio::File> = entries
+        .iter()
+        .filter_map(|e| file_of(&e.location))
+        .collect();
     if files.is_empty() {
         return None;
     }
     let list = gdk::ContentProvider::for_value(&gdk::FileList::from_array(&files).to_value());
     let uris: String = files.iter().map(|f| format!("{}\r\n", f.uri())).collect();
-    let uri_list = gdk::ContentProvider::for_bytes("text/uri-list", &glib::Bytes::from_owned(uris.clone().into_bytes()));
+    let uri_list = gdk::ContentProvider::for_bytes(
+        "text/uri-list",
+        &glib::Bytes::from_owned(uris.clone().into_bytes()),
+    );
     let mut parts = vec![list, uri_list];
     if let Some(cut) = cut {
-        let gnome = format!("{}\n{}", if cut { "cut" } else { "copy" }, uris.replace("\r\n", "\n").trim_end());
-        parts.push(gdk::ContentProvider::for_bytes("x-special/gnome-copied-files", &glib::Bytes::from_owned(gnome.into_bytes())));
+        let gnome = format!(
+            "{}\n{}",
+            if cut { "cut" } else { "copy" },
+            uris.replace("\r\n", "\n").trim_end()
+        );
+        parts.push(gdk::ContentProvider::for_bytes(
+            "x-special/gnome-copied-files",
+            &glib::Bytes::from_owned(gnome.into_bytes()),
+        ));
     }
     Some(gdk::ContentProvider::new_union(&parts))
 }
@@ -82,7 +95,11 @@ pub(super) fn forced_action(target: &gtk::DropTarget) -> gdk::DragAction {
 /// What the pointer shows while over a target.
 pub(super) fn drop_action(target: &gtk::DropTarget) -> gdk::DragAction {
     let forced = forced_action(target);
-    if forced.is_empty() { gdk::DragAction::MOVE } else { forced }
+    if forced.is_empty() {
+        gdk::DragAction::MOVE
+    } else {
+        forced
+    }
 }
 
 fn same_device(a: &Location, b: &Location) -> bool {
@@ -98,13 +115,28 @@ fn same_device(a: &Location, b: &Location) -> bool {
 
 /// Files dropped into `destination`: moved on the same drive, else as the
 /// "Drag & drop to another device" setting says; Shift and Ctrl override.
-pub(super) fn drop_into(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location, sources: Vec<Location>, forced: gdk::DragAction) {
-    let sources: Vec<Location> = sources.into_iter().filter(|s| s != &destination && !destination.is_within(s)).collect();
+pub(super) fn drop_into(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    destination: Location,
+    sources: Vec<Location>,
+    forced: gdk::DragAction,
+) {
+    let sources: Vec<Location> = sources
+        .into_iter()
+        .filter(|s| s != &destination && !destination.is_within(s))
+        .collect();
     if sources.is_empty() {
         return;
     }
     if forced.contains(gdk::DragAction::MOVE) || forced.contains(gdk::DragAction::COPY) {
-        transfer(window, tab, destination, sources, forced.contains(gdk::DragAction::MOVE));
+        transfer(
+            window,
+            tab,
+            destination,
+            sources,
+            forced.contains(gdk::DragAction::MOVE),
+        );
         return;
     }
     if sources.iter().all(|s| same_device(s, &destination)) {
@@ -116,7 +148,8 @@ pub(super) fn drop_into(window: &Rc<Window>, tab: &Rc<Tab>, destination: Locatio
         CrossVolumeDropStrategy::Copy => transfer(window, tab, destination, sources, false),
         CrossVolumeDropStrategy::Move => transfer(window, tab, destination, sources, true),
         CrossVolumeDropStrategy::Ask => {
-            let (dialog, card) = widgets::dialog(&crate::i18n::tr("Copy or move to another device?"), 400);
+            let (dialog, card) =
+                widgets::dialog(&crate::i18n::tr("Copy or move to another device?"), 400);
             let buttons = widgets::hbox(8);
             buttons.set_halign(gtk::Align::End);
             let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
@@ -130,7 +163,13 @@ pub(super) fn drop_into(window: &Rc<Window>, tab: &Rc<Tab>, destination: Locatio
             let d = dialog.clone();
             cancel.connect_clicked(move |_| d.close());
             for (button, moving) in [(&copy_button, false), (&move_button, true)] {
-                let (d, w, t, dest, src) = (dialog.clone(), window.clone(), tab.clone(), destination.clone(), sources.clone());
+                let (d, w, t, dest, src) = (
+                    dialog.clone(),
+                    window.clone(),
+                    tab.clone(),
+                    destination.clone(),
+                    sources.clone(),
+                );
                 button.connect_clicked(move |_| {
                     d.close();
                     transfer(&w, &t, dest.clone(), src.clone(), moving);
@@ -143,17 +182,29 @@ pub(super) fn drop_into(window: &Rc<Window>, tab: &Rc<Tab>, destination: Locatio
 }
 
 pub(super) fn copy(entries: &[FileEntry], cut: bool) {
-    let Some(content) = content(entries, Some(cut)) else { return };
+    let Some(content) = content(entries, Some(cut)) else {
+        return;
+    };
     if let Some(display) = gdk::Display::default() {
         display.clipboard().set_content(Some(&content)).ok();
     }
-    CUT.with(|c| *c.borrow_mut() = if cut { entries.iter().map(|e| e.location.clone()).collect() } else { Vec::new() });
+    CUT.with(|c| {
+        *c.borrow_mut() = if cut {
+            entries.iter().map(|e| e.location.clone()).collect()
+        } else {
+            Vec::new()
+        }
+    });
 }
 
 pub(super) fn copy_paths(entries: &[FileEntry]) {
     let text: Vec<String> = entries
         .iter()
-        .map(|e| e.location.native_path().map_or_else(|| e.location.display_path(), |p| p.display().to_string()))
+        .map(|e| {
+            e.location
+                .native_path()
+                .map_or_else(|| e.location.display_path(), |p| p.display().to_string())
+        })
         .collect();
     if let Some(display) = gdk::Display::default() {
         display.clipboard().set_text(&text.join("\n"));
@@ -162,14 +213,21 @@ pub(super) fn copy_paths(entries: &[FileEntry]) {
 
 /// Pastes the clipboard's files into `destination`, asking once if names clash.
 pub(super) fn paste(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location) {
-    let Some(display) = gdk::Display::default() else { return };
+    let Some(display) = gdk::Display::default() else {
+        return;
+    };
     let clipboard = display.clipboard();
     let (window, tab) = (window.clone(), tab.clone());
     glib::MainContext::default().spawn_local(async move {
-        let Ok(value) = clipboard.read_value_future(gdk::FileList::static_type(), glib::Priority::DEFAULT).await else {
+        let Ok(value) = clipboard
+            .read_value_future(gdk::FileList::static_type(), glib::Priority::DEFAULT)
+            .await
+        else {
             return;
         };
-        let Ok(files) = value.get::<gdk::FileList>() else { return };
+        let Ok(files) = value.get::<gdk::FileList>() else {
+            return;
+        };
         let sources: Vec<Location> = files.files().iter().map(location_of).collect();
         if sources.is_empty() {
             return;
@@ -183,7 +241,13 @@ pub(super) fn paste(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location) {
 }
 
 /// Copies or moves `sources` into `destination`; clashing names get one question.
-pub(super) fn transfer(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location, sources: Vec<Location>, moving: bool) {
+pub(super) fn transfer(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    destination: Location,
+    sources: Vec<Location>,
+    moving: bool,
+) {
     let dest_dir = destination.native_path().map(std::path::PathBuf::from);
     let clashes: Vec<&Location> = sources
         .iter()
@@ -206,10 +270,15 @@ pub(super) fn transfer(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location
                         TransferConflict::ReplaceExisting if folder => TransferConflict::Merge,
                         other => other,
                     };
-                    PasteItem { source: source.clone(), conflict, target_name: None }
+                    PasteItem {
+                        source: source.clone(),
+                        conflict,
+                        target_name: None,
+                    }
                 })
                 .collect();
-            tab.browser.transfer(destination.clone(), items, moving, true);
+            tab.browser
+                .transfer(destination.clone(), items, moving, true);
         }
     };
     if clashes.is_empty() {
@@ -222,7 +291,12 @@ pub(super) fn transfer(window: &Rc<Window>, tab: &Rc<Tab>, destination: Location
         crate::i18n::tr("Some items already exist here")
     };
     let (dialog, card) = widgets::dialog(&title, 420);
-    let names: Vec<String> = clashes.iter().filter_map(|l| l.file_name()).map(|n| n.to_string_lossy().into_owned()).take(4).collect();
+    let names: Vec<String> = clashes
+        .iter()
+        .filter_map(|l| l.file_name())
+        .map(|n| n.to_string_lossy().into_owned())
+        .take(4)
+        .collect();
     let mut text = names.join(", ");
     if clashes.len() > names.len() {
         text.push_str(&format!(" +{}", clashes.len() - names.len()));
@@ -268,7 +342,11 @@ pub(super) fn trash(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>)
     let message = if count == 1 {
         crate::i18n::tr("Moved to Trash")
     } else {
-        format!("{} · {}", crate::i18n::tr("Moved to Trash"), crate::i18n::count("items", count))
+        format!(
+            "{} · {}",
+            crate::i18n::tr("Moved to Trash"),
+            crate::i18n::count("items", count)
+        )
     };
     let browser = tab.browser.clone();
     toast::show_undo(&window.overlay, &message, move || {
@@ -314,7 +392,9 @@ pub(super) fn rename(tab: &Rc<Tab>, entry: FileEntry) {
     field.grab_focus();
     let name = field.text();
     let stem = match name.rfind('.') {
-        Some(dot) if dot > 0 && !name[..dot].is_empty() && name[dot..].len() <= 6 => name[..dot].chars().count() as i32,
+        Some(dot) if dot > 0 && !name[..dot].is_empty() && name[dot..].len() <= 6 => {
+            name[..dot].chars().count() as i32
+        }
         _ => -1,
     };
     field.select_region(0, stem);
@@ -333,60 +413,98 @@ pub(super) fn new_folder(tab: &Rc<Tab>) {
 }
 
 /// The menu for the selected items (a right-click on one of them).
-pub(super) fn item_menu(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEntry>) -> Vec<menu::Entry> {
+pub(super) fn item_menu(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    entries: Vec<FileEntry>,
+) -> Vec<menu::Entry> {
     let one = (entries.len() == 1).then(|| entries[0].clone());
     let folder = one.as_ref().filter(|e| e.is_directory()).cloned();
     let mut items = Vec::new();
     {
         let (tab, entries) = (tab.clone(), entries.clone());
-        items.push(menu::item(&crate::i18n::tr("Open"), move || entries.iter().for_each(|e| tab.open(e))).icon("document-open-symbolic").key("Enter"));
+        items.push(
+            menu::item(&crate::i18n::tr("Open"), move || {
+                entries.iter().for_each(|e| tab.open(e))
+            })
+            .icon("document-open-symbolic")
+            .key("Enter"),
+        );
     }
     if let Some(folder) = folder.clone() {
         let w = window.clone();
         items.push(
-            menu::item(&crate::i18n::tr("Open in new tab"), move || w.open_tab(folder.location.clone()))
-                .icon("tab-new-symbolic")
-                .key(&keys(bindings::OPEN_IN_NEW_TAB)),
+            menu::item(&crate::i18n::tr("Open in new tab"), move || {
+                w.open_tab(folder.location.clone())
+            })
+            .icon("tab-new-symbolic")
+            .key(&keys(bindings::OPEN_IN_NEW_TAB)),
         );
     }
     items.push(menu::separator());
     {
         let e = entries.clone();
-        items.push(menu::item(&crate::i18n::tr("Cut"), move || copy(&e, true)).icon("edit-cut-symbolic").key(&keys(bindings::CUT)));
+        items.push(
+            menu::item(&crate::i18n::tr("Cut"), move || copy(&e, true))
+                .icon("edit-cut-symbolic")
+                .key(&keys(bindings::CUT)),
+        );
     }
     {
         let e = entries.clone();
-        items.push(menu::item(&crate::i18n::tr("Copy"), move || copy(&e, false)).icon("edit-copy-symbolic").key(&keys(bindings::COPY)));
+        items.push(
+            menu::item(&crate::i18n::tr("Copy"), move || copy(&e, false))
+                .icon("edit-copy-symbolic")
+                .key(&keys(bindings::COPY)),
+        );
     }
     if let Some(folder) = folder {
         let (w, t) = (window.clone(), tab.clone());
-        items.push(menu::item(&crate::i18n::tr("Paste into folder"), move || paste(&w, &t, folder.location.clone())).icon("edit-paste-symbolic"));
+        items.push(
+            menu::item(&crate::i18n::tr("Paste into folder"), move || {
+                paste(&w, &t, folder.location.clone())
+            })
+            .icon("edit-paste-symbolic"),
+        );
     }
     items.push(menu::separator());
     if let Some(entry) = one {
         let t = tab.clone();
-        items.push(menu::item(&crate::i18n::tr("Rename…"), move || rename(&t, entry.clone())).icon("document-edit-symbolic").key(&keys(bindings::RENAME)));
+        items.push(
+            menu::item(&crate::i18n::tr("Rename…"), move || {
+                rename(&t, entry.clone())
+            })
+            .icon("document-edit-symbolic")
+            .key(&keys(bindings::RENAME)),
+        );
     }
     {
         let e = entries.clone();
-        items.push(menu::item(&crate::i18n::tr("Copy path"), move || copy_paths(&e)).icon("edit-copy-symbolic"));
+        items.push(
+            menu::item(&crate::i18n::tr("Copy path"), move || copy_paths(&e))
+                .icon("edit-copy-symbolic"),
+        );
     }
     if let [entry] = entries.as_slice() {
         let entry = entry.clone();
         items.push(
-            menu::item(&crate::i18n::tr("Properties"), move || super::properties::show(&entry))
-                .icon("document-properties-symbolic")
-                .key(&keys(bindings::PROPERTIES)),
+            menu::item(&crate::i18n::tr("Properties"), move || {
+                super::properties::show(&entry)
+            })
+            .icon("document-properties-symbolic")
+            .key(&keys(bindings::PROPERTIES)),
         );
     }
     items.push(menu::separator());
     {
         let (w, t) = (window.clone(), tab.clone());
         items.push(
-            menu::item(&crate::i18n::tr("Move to Trash"), move || trash(&w, &t, entries.clone()))
-                .icon("user-trash-symbolic")
-                .key(&keys(bindings::DELETE))
-                .danger(),
+            menu::item(&crate::i18n::tr("Move to Trash"), move || {
+                trash(&w, &t, entries.clone())
+            })
+            .icon("user-trash-symbolic")
+            .key(&keys(bindings::DELETE))
+            .danger(),
         );
     }
     items
@@ -394,25 +512,143 @@ pub(super) fn item_menu(window: &Rc<Window>, tab: &Rc<Tab>, entries: Vec<FileEnt
 
 /// The menu for the folder showing (a right-click on empty space).
 pub(super) fn folder_menu(window: &Rc<Window>, tab: &Rc<Tab>) -> Vec<menu::Entry> {
-    let Some(here) = tab.location() else { return Vec::new() };
+    let Some(here) = tab.location() else {
+        return Vec::new();
+    };
     let mut items = Vec::new();
     {
         let t = tab.clone();
-        items.push(menu::item(&crate::i18n::tr("New folder…"), move || new_folder(&t)).icon("folder-new-symbolic").key(&keys(bindings::NEW_FOLDER)));
+        items.push(
+            menu::item(&crate::i18n::tr("New folder…"), move || new_folder(&t))
+                .icon("folder-new-symbolic")
+                .key(&keys(bindings::NEW_FOLDER)),
+        );
     }
     {
         let (w, t) = (window.clone(), tab.clone());
-        items.push(menu::item(&crate::i18n::tr("Paste"), move || paste(&w, &t, here.clone())).icon("edit-paste-symbolic").key(&keys(bindings::PASTE)));
+        items.push(
+            menu::item(&crate::i18n::tr("Paste"), move || {
+                paste(&w, &t, here.clone())
+            })
+            .icon("edit-paste-symbolic")
+            .key(&keys(bindings::PASTE)),
+        );
     }
     items.push(menu::separator());
     let shown = tab.shows_hidden();
     {
         let t = tab.clone();
-        items.push(menu::check(&crate::i18n::tr("Show hidden files"), shown, move |_| t.browser.toggle_hidden()).key(&keys(bindings::HIDDEN_FILES)));
+        items.push(
+            menu::check(&crate::i18n::tr("Show hidden files"), shown, move |_| {
+                t.browser.toggle_hidden()
+            })
+            .key(&keys(bindings::HIDDEN_FILES)),
+        );
     }
     {
         let t = tab.clone();
-        items.push(menu::item(&crate::i18n::tr("Refresh"), move || t.browser.reload_active()).icon("view-refresh-symbolic").key(&keys(bindings::REFRESH)));
+        items.push(
+            menu::item(&crate::i18n::tr("Refresh"), move || {
+                t.browser.reload_active()
+            })
+            .icon("view-refresh-symbolic")
+            .key(&keys(bindings::REFRESH)),
+        );
     }
     items
+}
+
+fn exists(location: &Location) -> bool {
+    location
+        .native_path()
+        .is_none_or(|path| path.symlink_metadata().is_ok())
+}
+
+fn still_there(locations: Vec<Location>) -> Vec<Location> {
+    locations.into_iter().filter(exists).collect()
+}
+
+fn move_items(records: Vec<crate::services::MoveRecord>) -> Vec<crate::services::UndoMoveItem> {
+    records
+        .into_iter()
+        .filter(|r| exists(&r.current))
+        .map(|record| crate::services::UndoMoveItem {
+            record,
+            conflict: TransferConflict::FailIfExists,
+        })
+        .collect()
+}
+
+/// Undoes the tab's latest rename, move, copy, merge or trash.
+pub(super) fn undo(tab: &Rc<Tab>) -> bool {
+    let b = &tab.browser;
+    if let Some((generation, _, _)) = b.pending_undo_rename() {
+        return b.undo_rename(generation);
+    }
+    if let Some((generation, records)) = b.pending_undo_move() {
+        let items = move_items(records);
+        return if items.is_empty() {
+            b.discard_pending_replay(false, generation);
+            false
+        } else {
+            b.undo_move(generation, items)
+        };
+    }
+    if let Some((generation, records)) = b.pending_undo_group() {
+        let items = move_items(records);
+        return if items.is_empty() {
+            b.discard_pending_replay(false, generation);
+            false
+        } else {
+            b.undo_group(generation, items)
+        };
+    }
+    if let Some((generation, locations)) = b.pending_undo_copy() {
+        let locations = still_there(locations);
+        return if locations.is_empty() {
+            b.discard_pending_replay(false, generation);
+            false
+        } else {
+            b.undo_copy(generation, locations)
+        };
+    }
+    if let Some((generation, created, overwritten)) = b.pending_undo_merge() {
+        let created = still_there(created);
+        if created.is_empty() && overwritten.is_empty() {
+            b.discard_pending_replay(false, generation);
+            return false;
+        }
+        return b.undo_merge(generation, created, overwritten);
+    }
+    b.undo_last_trash()
+}
+
+/// Does again what the last undo reverted.
+pub(super) fn redo(tab: &Rc<Tab>) -> bool {
+    let b = &tab.browser;
+    if let Some((generation, _, _)) = b.pending_redo_rename() {
+        return b.redo_rename(generation);
+    }
+    if let Some((generation, records)) = b.pending_redo_move() {
+        let items = move_items(records);
+        return if items.is_empty() {
+            b.discard_pending_replay(true, generation);
+            false
+        } else {
+            b.redo_move(generation, items)
+        };
+    }
+    if let Some((generation, locations)) = b.pending_redo_copy() {
+        return b.redo_copy(generation, locations);
+    }
+    if let Some((generation, locations)) = b.pending_redo_trash() {
+        let locations = still_there(locations);
+        return if locations.is_empty() {
+            b.discard_pending_replay(true, generation);
+            false
+        } else {
+            b.redo_trash(generation, locations)
+        };
+    }
+    false
 }

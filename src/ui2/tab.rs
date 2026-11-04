@@ -54,7 +54,10 @@ pub(super) fn home() -> PathBuf {
 
 impl Tab {
     pub(super) fn new(location: Location) -> Rc<Tab> {
-        let browser = Browser::with_preferences(Rc::new(LocalFileSource), PreferenceManager::shared().sort_preferences());
+        let browser = Browser::with_preferences(
+            Rc::new(LocalFileSource),
+            PreferenceManager::shared().sort_preferences(),
+        );
         browser.set_operation_provider(Rc::new(LocalOperationProvider));
         let model = Rc::new(EntryModel::new());
         let columns = ColumnsView::new();
@@ -107,11 +110,13 @@ impl Tab {
             }
         });
         let weak = Rc::downgrade(&tab);
-        tab.model.selection.connect_selection_changed(move |_, _, _| {
-            if let Some(tab) = weak.upgrade() {
-                tab.push_selection();
-            }
-        });
+        tab.model
+            .selection
+            .connect_selection_changed(move |_, _, _| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.push_selection();
+                }
+            });
         let weak = Rc::downgrade(&tab);
         *tab.model.hooks.context.borrow_mut() = Some(Box::new(move |index, widget, x, y| {
             let Some(tab) = weak.upgrade() else { return };
@@ -130,7 +135,12 @@ impl Tab {
                 && let Some(depth) = tab.depth()
                 && tab.requested.borrow_mut().insert(entry.location.clone())
             {
-                tab.browser.request_visible_metadata_fill(depth, position, entry.location.clone(), false);
+                tab.browser.request_visible_metadata_fill(
+                    depth,
+                    position,
+                    entry.location.clone(),
+                    false,
+                );
             }
         }));
         tab.wire_dnd(&tab.model.clone());
@@ -139,21 +149,30 @@ impl Tab {
     }
 
     /// Files dropped: the destination folder, the files, and Shift/Ctrl's choice.
-    pub(super) fn connect_drop(&self, f: impl Fn(Location, Vec<Location>, gtk::gdk::DragAction) + 'static) {
+    pub(super) fn connect_drop(
+        &self,
+        f: impl Fn(Location, Vec<Location>, gtk::gdk::DragAction) + 'static,
+    ) {
         *self.dropped.borrow_mut() = Some(Box::new(f));
     }
 
     fn wire_dnd(self: &Rc<Self>, model: &Rc<EntryModel>) {
         let m = Rc::downgrade(model);
         *model.hooks.drag.borrow_mut() = Some(Box::new(move |index| {
-            let Some(model) = m.upgrade() else { return Vec::new() };
+            let Some(model) = m.upgrade() else {
+                return Vec::new();
+            };
             model.select_for_menu(index);
             model.selected()
         }));
         let weak = Rc::downgrade(self);
         *model.hooks.drop.borrow_mut() = Some(Box::new(move |folder, sources, action| {
-            let Some(tab) = weak.upgrade() else { return false };
-            let Some(destination) = folder.map(|f| f.location).or_else(|| tab.location()) else { return false };
+            let Some(tab) = weak.upgrade() else {
+                return false;
+            };
+            let Some(destination) = folder.map(|f| f.location).or_else(|| tab.location()) else {
+                return false;
+            };
             if let Some(f) = tab.dropped.borrow().as_ref() {
                 f(destination, sources, action);
             }
@@ -162,7 +181,10 @@ impl Tab {
     }
 
     /// Right-clicks: the item under the pointer (selected for the menu), or none.
-    pub(super) fn connect_context(&self, f: impl Fn(Option<FileEntry>, &gtk::Widget, f64, f64) + 'static) {
+    pub(super) fn connect_context(
+        &self,
+        f: impl Fn(Option<FileEntry>, &gtk::Widget, f64, f64) + 'static,
+    ) {
         *self.context.borrow_mut() = Some(Box::new(f));
     }
 
@@ -183,7 +205,9 @@ impl Tab {
     }
 
     fn column_count(&self) -> usize {
-        (0..).take_while(|&d| self.browser.location_at(d).is_some()).count()
+        (0..)
+            .take_while(|&d| self.browser.location_at(d).is_some())
+            .count()
     }
 
     fn wire_column(self: &Rc<Self>, depth: usize, column: &Rc<Column>) {
@@ -194,12 +218,19 @@ impl Tab {
                 && entry.modified_unix_seconds == MetadataValue::Unknown
                 && tab.requested.borrow_mut().insert(entry.location.clone())
             {
-                tab.browser.request_visible_metadata_fill(depth, position, entry.location.clone(), false);
+                tab.browser.request_visible_metadata_fill(
+                    depth,
+                    position,
+                    entry.location.clone(),
+                    false,
+                );
             }
         }));
         let (weak, model) = (Rc::downgrade(self), Rc::downgrade(&column.model));
         *column.model.hooks.context.borrow_mut() = Some(Box::new(move |index, widget, x, y| {
-            let (Some(tab), Some(model)) = (weak.upgrade(), model.upgrade()) else { return };
+            let (Some(tab), Some(model)) = (weak.upgrade(), model.upgrade()) else {
+                return;
+            };
             tab.browser.set_active_column(depth);
             let entry = index.and_then(|i| {
                 model.select_for_menu(i);
@@ -210,15 +241,22 @@ impl Tab {
             }
         }));
         let weak = Rc::downgrade(self);
-        column.model.selection.connect_selection_changed(move |_, _, _| {
-            if let Some(tab) = weak.upgrade() {
-                tab.column_selected(depth);
-            }
-        });
+        column
+            .model
+            .selection
+            .connect_selection_changed(move |_, _, _| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.column_selected(depth);
+                }
+            });
         let (weak, model) = (Rc::downgrade(self), Rc::downgrade(&column.model));
         column.view.connect_activate(move |_, index| {
-            let (Some(tab), Some(model)) = (weak.upgrade(), model.upgrade()) else { return };
-            let Some(entry) = model.entry(index) else { return };
+            let (Some(tab), Some(model)) = (weak.upgrade(), model.upgrade()) else {
+                return;
+            };
+            let Some(entry) = model.entry(index) else {
+                return;
+            };
             if entry.is_directory() {
                 tab.browser.descend(depth, entry.location.clone());
             } else {
@@ -228,7 +266,9 @@ impl Tab {
         let keys = gtk::EventControllerKey::new();
         let weak = Rc::downgrade(self);
         crate::ui::keys::on_press(&keys, move |_, press| {
-            let Some(tab) = weak.upgrade() else { return glib::Propagation::Proceed };
+            let Some(tab) = weak.upgrade() else {
+                return glib::Propagation::Proceed;
+            };
             use crate::ui::keys::bindings::{LEFT, RIGHT};
             if press.is(LEFT) && depth > 0 {
                 tab.focus_column(depth - 1);
@@ -251,7 +291,9 @@ impl Tab {
     }
 
     fn focus_column(&self, depth: usize) {
-        let Some(column) = self.columns.column(depth) else { return };
+        let Some(column) = self.columns.column(depth) else {
+            return;
+        };
         self.browser.set_active_column(depth);
         if column.model.selection.selection().is_empty() && column.model.len() > 0 {
             column.model.selection.select_item(0, true);
@@ -266,14 +308,19 @@ impl Tab {
         if self.syncing.get() {
             return;
         }
-        let Some(column) = self.columns.column(depth) else { return };
+        let Some(column) = self.columns.column(depth) else {
+            return;
+        };
         let selected = column.model.selected_positions();
         let positions: Vec<usize> = selected.iter().map(|(_, p)| *p).collect();
         self.browser.set_active_column(depth);
-        self.browser.set_selection(depth, &positions, positions.last().copied());
+        self.browser
+            .set_selection(depth, &positions, positions.last().copied());
         let entries = column.model.selected();
         match entries.as_slice() {
-            [entry] if entry.is_directory() => self.browser.show_child(depth, entry.location.clone()),
+            [entry] if entry.is_directory() => {
+                self.browser.show_child(depth, entry.location.clone())
+            }
             _ if self.columns.column(depth + 1).is_some() => self.browser.close_column(depth + 1),
             _ => {}
         }
@@ -281,12 +328,20 @@ impl Tab {
 
     fn refresh_columns(self: &Rc<Self>) {
         let count = self.column_count();
-        self.columns.ensure(count, |depth, column| self.wire_column(depth, column));
+        self.columns
+            .ensure(count, |depth, column| self.wire_column(depth, column));
         self.syncing.set(true);
         for depth in 0..count {
-            let Some(column) = self.columns.column(depth) else { continue };
-            let show_hidden = self.browser.column_preferences(depth).is_some_and(|p| p.show_hidden);
-            self.browser.with_column_entries(depth, |entries| column.model.set_entries(entries, show_hidden));
+            let Some(column) = self.columns.column(depth) else {
+                continue;
+            };
+            let show_hidden = self
+                .browser
+                .column_preferences(depth)
+                .is_some_and(|p| p.show_hidden);
+            self.browser.with_column_entries(depth, |entries| {
+                column.model.set_entries(entries, show_hidden)
+            });
         }
         self.syncing.set(false);
     }
@@ -323,7 +378,9 @@ impl Tab {
     }
 
     pub(super) fn shows_hidden(&self) -> bool {
-        self.depth().and_then(|d| self.browser.column_preferences(d)).is_some_and(|p| p.show_hidden)
+        self.depth()
+            .and_then(|d| self.browser.column_preferences(d))
+            .is_some_and(|p| p.show_hidden)
     }
 
     fn activate(&self, index: u32) {
@@ -339,7 +396,8 @@ impl Tab {
         let Some(depth) = self.depth() else { return };
         let selected = self.model.selected_positions();
         let positions: Vec<usize> = selected.iter().map(|(_, p)| *p).collect();
-        self.browser.set_selection(depth, &positions, positions.last().copied());
+        self.browser
+            .set_selection(depth, &positions, positions.last().copied());
     }
 
     /// The tab's folder or title changed (for the tab row and header).
@@ -348,12 +406,15 @@ impl Tab {
     }
 
     pub(super) fn location(&self) -> Option<Location> {
-        self.depth().and_then(|depth| self.browser.location_at(depth))
+        self.depth()
+            .and_then(|depth| self.browser.location_at(depth))
     }
 
     pub(super) fn title(&self) -> String {
         match self.location() {
-            Some(location) if location.native_path() == Some(home().as_path()) => crate::i18n::tr("Home"),
+            Some(location) if location.native_path() == Some(home().as_path()) => {
+                crate::i18n::tr("Home")
+            }
             Some(location) => location.display_name(),
             None => crate::i18n::tr("Files"),
         }
@@ -365,8 +426,12 @@ impl Tab {
 
     fn on_event(self: &Rc<Self>, event: &BrowserEvent) {
         match event {
-            BrowserEvent::EntryCreated { location } => *self.select_next.borrow_mut() = Some(location.clone()),
-            BrowserEvent::ItemRelocated { to, .. } => *self.select_next.borrow_mut() = Some(to.clone()),
+            BrowserEvent::EntryCreated { location } => {
+                *self.select_next.borrow_mut() = Some(location.clone())
+            }
+            BrowserEvent::ItemRelocated { to, .. } => {
+                *self.select_next.borrow_mut() = Some(to.clone())
+            }
             _ => {}
         }
         if matches!(
@@ -393,7 +458,9 @@ impl Tab {
 
     fn refresh(self: &Rc<Self>) {
         let Some(depth) = self.depth() else { return };
-        let Some(snapshot) = self.browser.column_snapshot(depth) else { return };
+        let Some(snapshot) = self.browser.column_snapshot(depth) else {
+            return;
+        };
         if let Some(error) = &snapshot.error {
             self.status.set_text(error);
             self.page.set_visible_child_name("status");
@@ -408,7 +475,9 @@ impl Tab {
         } else {
             let show_hidden = self.shows_hidden();
             self.syncing.set(true);
-            self.browser.with_column_entries(depth, |entries| self.model.set_entries(entries, show_hidden));
+            self.browser.with_column_entries(depth, |entries| {
+                self.model.set_entries(entries, show_hidden)
+            });
             self.syncing.set(false);
         }
         if let Some(location) = self.select_next.borrow().clone() {
@@ -427,8 +496,12 @@ impl Tab {
         if moved {
             self.requested.borrow_mut().clear();
             if self.model.len() > 0 {
-                self.list.view.scroll_to(0, None, gtk::ListScrollFlags::NONE, None);
-                self.icons.view.scroll_to(0, gtk::ListScrollFlags::NONE, None);
+                self.list
+                    .view
+                    .scroll_to(0, None, gtk::ListScrollFlags::NONE, None);
+                self.icons
+                    .view
+                    .scroll_to(0, gtk::ListScrollFlags::NONE, None);
             }
             for f in self.changed.borrow().iter() {
                 f();
@@ -449,14 +522,18 @@ impl Tab {
             },
         };
         let uri = file.uri();
-        if let Err(error) = gio::AppInfo::launch_default_for_uri(&uri, None::<&gio::AppLaunchContext>) {
+        if let Err(error) =
+            gio::AppInfo::launch_default_for_uri(&uri, None::<&gio::AppLaunchContext>)
+        {
             tracing::warn!(%error, "couldn't open {uri}");
         }
     }
 
     /// The breadcrumbs for the folder showing: from Home when inside it, else from `/`.
     pub(super) fn crumbs(&self) -> (Vec<nyx_ui::pathbar::Crumb>, String) {
-        let Some(location) = self.location() else { return (Vec::new(), String::new()) };
+        let Some(location) = self.location() else {
+            return (Vec::new(), String::new());
+        };
         let home = home();
         let mut crumbs = Vec::new();
         let mut current = Some(location.clone());
@@ -472,7 +549,11 @@ impl Tab {
             }
             let root = path.as_deref() == Some(std::path::Path::new("/"));
             crumbs.push(nyx_ui::pathbar::Crumb {
-                label: if root { String::new() } else { here.display_name() },
+                label: if root {
+                    String::new()
+                } else {
+                    here.display_name()
+                },
                 icon: root.then(|| "drive-harddisk-symbolic".into()),
                 target: target_of(&here),
             });

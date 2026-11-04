@@ -16,12 +16,32 @@ pub(super) struct Place {
 
 fn standard(id: &str) -> Option<(&'static str, &'static str, glib::UserDirectory)> {
     Some(match id {
-        "desktop" => ("user-desktop-symbolic", "Desktop", glib::UserDirectory::Desktop),
-        "documents" => ("folder-documents-symbolic", "Documents", glib::UserDirectory::Documents),
-        "downloads" => ("folder-download-symbolic", "Downloads", glib::UserDirectory::Downloads),
+        "desktop" => (
+            "user-desktop-symbolic",
+            "Desktop",
+            glib::UserDirectory::Desktop,
+        ),
+        "documents" => (
+            "folder-documents-symbolic",
+            "Documents",
+            glib::UserDirectory::Documents,
+        ),
+        "downloads" => (
+            "folder-download-symbolic",
+            "Downloads",
+            glib::UserDirectory::Downloads,
+        ),
         "music" => ("folder-music-symbolic", "Music", glib::UserDirectory::Music),
-        "pictures" => ("folder-pictures-symbolic", "Pictures", glib::UserDirectory::Pictures),
-        "videos" => ("folder-videos-symbolic", "Videos", glib::UserDirectory::Videos),
+        "pictures" => (
+            "folder-pictures-symbolic",
+            "Pictures",
+            glib::UserDirectory::Pictures,
+        ),
+        "videos" => (
+            "folder-videos-symbolic",
+            "Videos",
+            glib::UserDirectory::Videos,
+        ),
         _ => return None,
     })
 }
@@ -43,7 +63,16 @@ fn visible(prefs: &PreferenceManager, id: &str) -> bool {
 }
 
 const ORDER: &[&str] = &[
-    "recent", "home", "desktop", "documents", "downloads", "music", "pictures", "videos", "network", "trash",
+    "recent",
+    "home",
+    "desktop",
+    "documents",
+    "downloads",
+    "music",
+    "pictures",
+    "videos",
+    "network",
+    "trash",
 ];
 
 /// Fills `sidebar` with Places; `open` runs with a place's location.
@@ -58,12 +87,24 @@ pub(super) fn fill(sidebar: &Rc<Sidebar>, open: impl Fn(Location) + Clone + 'sta
         }
         let (icon, name, location) = match id {
             "home" => ("user-home-symbolic", "Home", Location::local(&home)),
-            "recent" => ("document-open-recent-symbolic", "Recent", Location::uri("recent:///")),
+            "recent" => (
+                "document-open-recent-symbolic",
+                "Recent",
+                Location::uri("recent:///"),
+            ),
             "trash" => ("user-trash-symbolic", "Trash", Location::uri("trash:///")),
-            "network" => ("network-workgroup-symbolic", "Network", Location::uri("network:///")),
+            "network" => (
+                "network-workgroup-symbolic",
+                "Network",
+                Location::uri("network:///"),
+            ),
             _ => {
-                let Some((icon, name, dir)) = standard(id) else { continue };
-                let Some(path) = glib::user_special_dir(dir) else { continue };
+                let Some((icon, name, dir)) = standard(id) else {
+                    continue;
+                };
+                let Some(path) = glib::user_special_dir(dir) else {
+                    continue;
+                };
                 if id == "desktop" && path == home {
                     continue;
                 }

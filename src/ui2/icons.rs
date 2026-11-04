@@ -17,7 +17,9 @@ impl IconsView {
         let factory = gtk::SignalListItemFactory::new();
         let hooks = model.hooks.clone();
         factory.connect_setup(move |_, item| {
-            let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
+            let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+                return;
+            };
             let tile = gtk::Box::new(gtk::Orientation::Vertical, 6);
             tile.add_css_class("icon-tile");
             tile.set_size_request(104, -1);
@@ -35,16 +37,25 @@ impl IconsView {
             tile.append(&label);
             let weak = item.downgrade();
             model::on_context(&tile, &hooks, move || weak.upgrade().map(|i| i.position()));
-        model::dnd_on(&tile, item, &hooks);
+            model::dnd_on(&tile, item, &hooks);
             item.set_child(Some(&tile));
         });
         let hooks = model.hooks.clone();
         factory.connect_bind(move |_, item| {
-            let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
-            let (Some(tile), Some(object)) = (item.child(), item.item()) else { return };
-            let Some(r) = model::row_of(&object) else { return };
+            let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+                return;
+            };
+            let (Some(tile), Some(object)) = (item.child(), item.item()) else {
+                return;
+            };
+            let Some(r) = model::row_of(&object) else {
+                return;
+            };
             hooks.bound(&r);
-            if let Some(icon) = tile.first_child().and_downcast::<crate::ui::thumbnail::ThumbnailSlot>() {
+            if let Some(icon) = tile
+                .first_child()
+                .and_downcast::<crate::ui::thumbnail::ThumbnailSlot>()
+            {
                 model::show_icon(&icon, &r.entry, size);
             }
             if let Some(label) = tile.last_child().and_downcast::<gtk::Label>() {

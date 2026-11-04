@@ -46,7 +46,11 @@ pub(super) struct Window {
 pub(super) fn focused() -> Option<Rc<Window>> {
     WINDOWS.with(|windows| {
         let windows = windows.borrow();
-        windows.iter().find(|w| w.window.is_active()).or_else(|| windows.last()).cloned()
+        windows
+            .iter()
+            .find(|w| w.window.is_active())
+            .or_else(|| windows.last())
+            .cloned()
     })
 }
 
@@ -57,7 +61,8 @@ fn start_location() -> Location {
 
 /// True while the keyboard is typing into a text field.
 fn typing(window: &gtk::ApplicationWindow) -> bool {
-    gtk::prelude::GtkWindowExt::focus(window).is_some_and(|f| f.is::<gtk::Text>() || f.is::<gtk::TextView>())
+    gtk::prelude::GtkWindowExt::focus(window)
+        .is_some_and(|f| f.is::<gtk::Text>() || f.is::<gtk::TextView>())
 }
 
 const QUIT: Binding = Binding::ctrl(gdk::Key::q);
@@ -84,9 +89,18 @@ impl Window {
         sidebar_toggle.set_valign(gtk::Align::Center);
         sidebar_toggle.set_tooltip_text(Some(&with_keys("Sidebar (%{keys})", bindings::SIDEBAR)));
         header.start.append(&sidebar_toggle);
-        let back = widgets::bar_button("go-previous-symbolic", &with_keys("Back (%{keys})", bindings::HISTORY_BACK));
-        let forward = widgets::bar_button("go-next-symbolic", &with_keys("Forward (%{keys})", bindings::HISTORY_FORWARD));
-        let up = widgets::bar_button("go-up-symbolic", &with_keys("Enclosing folder (%{keys})", bindings::PARENT_FOLDER));
+        let back = widgets::bar_button(
+            "go-previous-symbolic",
+            &with_keys("Back (%{keys})", bindings::HISTORY_BACK),
+        );
+        let forward = widgets::bar_button(
+            "go-next-symbolic",
+            &with_keys("Forward (%{keys})", bindings::HISTORY_FORWARD),
+        );
+        let up = widgets::bar_button(
+            "go-up-symbolic",
+            &with_keys("Enclosing folder (%{keys})", bindings::PARENT_FOLDER),
+        );
         for button in [&back, &forward, &up] {
             header.start.append(button);
         }
@@ -208,7 +222,9 @@ impl Window {
         self.path.connect_typed(move |text| {
             let Some(w) = weak.upgrade() else { return };
             let Some(tab) = w.current() else { return };
-            let base = tab.location().and_then(|l| l.native_path().map(std::path::PathBuf::from));
+            let base = tab
+                .location()
+                .and_then(|l| l.native_path().map(std::path::PathBuf::from));
             if let Err(error) = tab.browser.navigate_input_located(text, base.as_deref()) {
                 nyx_ui::toast::show(&w.overlay, &error.to_string());
             }
@@ -228,7 +244,10 @@ impl Window {
         let weak = Rc::downgrade(self);
         self.tab_row.connect_new(move || {
             if let Some(w) = weak.upgrade() {
-                let location = w.current().and_then(|t| t.location()).unwrap_or_else(start_location);
+                let location = w
+                    .current()
+                    .and_then(|t| t.location())
+                    .unwrap_or_else(start_location);
                 w.add_tab(location);
             }
         });
@@ -255,7 +274,9 @@ impl Window {
         let keys = gtk::EventControllerKey::new();
         let weak = Rc::downgrade(self);
         crate::ui::keys::on_press(&keys, move |_, press| {
-            let Some(w) = weak.upgrade() else { return glib::Propagation::Proceed };
+            let Some(w) = weak.upgrade() else {
+                return glib::Propagation::Proceed;
+            };
             if w.handle_key(press) {
                 glib::Propagation::Stop
             } else {
@@ -269,7 +290,9 @@ impl Window {
         let tab = self.current();
         let count = self.tabs.borrow().len().max(1);
         if press.is(bindings::TAB_NEW) {
-            let location = tab.and_then(|t| t.location()).unwrap_or_else(start_location);
+            let location = tab
+                .and_then(|t| t.location())
+                .unwrap_or_else(start_location);
             self.add_tab(location);
         } else if press.is(bindings::TAB_CLOSE) {
             self.close_tab(self.active.get());
@@ -279,7 +302,8 @@ impl Window {
             let (_, text) = tab.map(|t| t.crumbs()).unwrap_or_default();
             self.path.edit(&text);
         } else if press.is(bindings::SIDEBAR) {
-            self.sidebar_toggle.set_active(!self.sidebar_toggle.is_active());
+            self.sidebar_toggle
+                .set_active(!self.sidebar_toggle.is_active());
         } else if press.is(bindings::HISTORY_BACK) {
             tab.iter().for_each(|t| t.browser.back());
         } else if press.is(bindings::HISTORY_FORWARD) {
@@ -320,9 +344,24 @@ impl Window {
         let current = PreferenceManager::shared().browser_mode();
         let mut first: Option<gtk::ToggleButton> = None;
         for (mode, icon, message, binding) in [
-            (BrowserMode::Columns, "view-dual-symbolic", "Columns (%{keys})", bindings::VIEW_COLUMNS),
-            (BrowserMode::Icons, "view-grid-symbolic", "Icons (%{keys})", bindings::VIEW_ICONS),
-            (BrowserMode::List, "view-list-symbolic", "List (%{keys})", bindings::VIEW_LIST),
+            (
+                BrowserMode::Columns,
+                "view-dual-symbolic",
+                "Columns (%{keys})",
+                bindings::VIEW_COLUMNS,
+            ),
+            (
+                BrowserMode::Icons,
+                "view-grid-symbolic",
+                "Icons (%{keys})",
+                bindings::VIEW_ICONS,
+            ),
+            (
+                BrowserMode::List,
+                "view-list-symbolic",
+                "List (%{keys})",
+                bindings::VIEW_LIST,
+            ),
         ] {
             let button = gtk::ToggleButton::new();
             button.set_icon_name(icon);
@@ -367,7 +406,14 @@ impl Window {
         self.add_tab(location);
     }
 
-    fn show_menu(self: &Rc<Self>, tab: &Rc<tab::Tab>, entry: Option<crate::model::FileEntry>, widget: &gtk::Widget, x: f64, y: f64) {
+    fn show_menu(
+        self: &Rc<Self>,
+        tab: &Rc<tab::Tab>,
+        entry: Option<crate::model::FileEntry>,
+        widget: &gtk::Widget,
+        x: f64,
+        y: f64,
+    ) {
         let items = match entry {
             Some(_) => actions::item_menu(self, tab, tab.selected()),
             None => actions::folder_menu(self, tab),
@@ -377,7 +423,9 @@ impl Window {
 
     /// Keys that act on the selected items; not while typing in a field.
     fn handle_file_key(self: &Rc<Self>, press: &KeyPress) -> bool {
-        let Some(tab) = self.current() else { return false };
+        let Some(tab) = self.current() else {
+            return false;
+        };
         let selected = tab.selected();
         if press.is(bindings::COPY) {
             actions::copy(&selected, false);
@@ -393,6 +441,10 @@ impl Window {
             if let [entry] = selected.as_slice() {
                 actions::rename(&tab, entry.clone());
             }
+        } else if press.is(bindings::UNDO) {
+            actions::undo(&tab);
+        } else if press.is_any(&[bindings::REDO, bindings::REDO_Y]) {
+            actions::redo(&tab);
         } else if press.is(bindings::PROPERTIES) {
             if let [entry] = selected.as_slice() {
                 super::properties::show(entry);
@@ -449,7 +501,9 @@ impl Window {
     }
 
     fn select(&self, index: usize) {
-        let Some(tab) = self.tabs.borrow().get(index).cloned() else { return };
+        let Some(tab) = self.tabs.borrow().get(index).cloned() else {
+            return;
+        };
         self.active.set(index);
         self.pages.set_visible_child(&tab.page);
         self.sync();
@@ -475,7 +529,11 @@ impl Window {
         self.pages.remove(&tab.page);
         let len = self.tabs.borrow().len();
         let active = self.active.get();
-        let next = if active > index || active >= len { active.saturating_sub(1) } else { active };
+        let next = if active > index || active >= len {
+            active.saturating_sub(1)
+        } else {
+            active
+        };
         self.select(next.min(len - 1));
     }
 
@@ -514,7 +572,9 @@ impl Window {
             })
             .collect();
         self.tab_row.set_tabs(&shown, self.active.get());
-        let Some(tab) = tabs.get(self.active.get()) else { return };
+        let Some(tab) = tabs.get(self.active.get()) else {
+            return;
+        };
         let (crumbs, text) = tab.crumbs();
         self.path.set_crumbs(&crumbs, &text);
         self.back.set_sensitive(tab.browser.can_go_back());

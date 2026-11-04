@@ -11,7 +11,9 @@ use nyx_ui::widgets;
 use crate::{
     adapters::directory_summary::summarize_directory_with_progress,
     model::FileEntry,
-    ui::browser::properties::{directory_counts_label, format_permissions, measurement_warning_text, media},
+    ui::browser::properties::{
+        directory_counts_label, format_permissions, measurement_warning_text, media,
+    },
 };
 
 use super::list::{entry_icon, kind};
@@ -54,10 +56,18 @@ pub(super) fn show(entry: &FileEntry) {
     let details = gtk::Box::new(gtk::Orientation::Vertical, 6);
     details.add_css_class("properties-details");
     card.append(&details);
-    let folder = entry.location.parent().map(|p| p.display_path()).unwrap_or_default();
+    let folder = entry
+        .location
+        .parent()
+        .map(|p| p.display_path())
+        .unwrap_or_default();
     row(&details, "Location", &folder);
     let size = row(&details, "Size", "—");
-    let file = entry.location.native_path().map(gio::File::for_path).or_else(|| entry.location.uri_value().map(gio::File::for_uri));
+    let file = entry
+        .location
+        .native_path()
+        .map(gio::File::for_path)
+        .or_else(|| entry.location.uri_value().map(gio::File::for_uri));
     let mut keep = Vec::new();
     if entry.is_directory() {
         let contains = row(&details, "Contains", "—");
@@ -67,7 +77,8 @@ pub(super) fn show(entry: &FileEntry) {
         details.append(&warning);
         if let Some(file) = file.clone() {
             size.set_text(&crate::i18n::tr("Calculating…"));
-            let (size, contains, warning) = (size.downgrade(), contains.downgrade(), warning.downgrade());
+            let (size, contains, warning) =
+                (size.downgrade(), contains.downgrade(), warning.downgrade());
             glib::MainContext::default().spawn_local(async move {
                 let last = Rc::new(Cell::new(std::time::Instant::now()));
                 let (s, c) = (size.clone(), contains.clone());
@@ -84,13 +95,20 @@ pub(super) fn show(entry: &FileEntry) {
                     }
                 })
                 .await;
-                let (Some(size), Some(contains)) = (size.upgrade(), contains.upgrade()) else { return };
+                let (Some(size), Some(contains)) = (size.upgrade(), contains.upgrade()) else {
+                    return;
+                };
                 match result {
                     Ok(summary) => {
                         let prefix = if summary.truncated() { "≥ " } else { "" };
-                        size.set_text(&format!("{prefix}{}", glib::format_size(summary.total_size)));
+                        size.set_text(&format!(
+                            "{prefix}{}",
+                            glib::format_size(summary.total_size)
+                        ));
                         contains.set_text(&directory_counts_label(&summary));
-                        if let (Some(w), Some(text)) = (warning.upgrade(), measurement_warning_text(&summary)) {
+                        if let (Some(w), Some(text)) =
+                            (warning.upgrade(), measurement_warning_text(&summary))
+                        {
                             w.set_text(&text);
                             w.set_visible(true);
                         }
@@ -106,18 +124,34 @@ pub(super) fn show(entry: &FileEntry) {
         size.set_text(&format!("{} ({} bytes)", glib::format_size(bytes), bytes));
     }
     let modified = row(&details, "Modified", "—");
-    crate::util::set_full_modified_date(&modified, match entry.modified_unix_seconds {
-        crate::model::MetadataValue::Known(seconds) => Some(seconds),
-        _ => None,
-    });
+    crate::util::set_full_modified_date(
+        &modified,
+        match entry.modified_unix_seconds {
+            crate::model::MetadataValue::Known(seconds) => Some(seconds),
+            _ => None,
+        },
+    );
     if !entry.is_directory() {
         let (content_type, _) = gio::content_type_guess(Some(&entry.native_name), None::<&[u8]>);
-        let app = gio::AppInfo::default_for_type(&content_type, false).map(|a| a.display_name().to_string());
-        row(&details, "Opens with", &app.unwrap_or_else(|| crate::i18n::tr("No app")));
+        let app = gio::AppInfo::default_for_type(&content_type, false)
+            .map(|a| a.display_name().to_string());
+        row(
+            &details,
+            "Opens with",
+            &app.unwrap_or_else(|| crate::i18n::tr("No app")),
+        );
     }
-    row(&details, "Hidden", &crate::i18n::tr(if entry.is_hidden { "Yes" } else { "No" }));
+    row(
+        &details,
+        "Hidden",
+        &crate::i18n::tr(if entry.is_hidden { "Yes" } else { "No" }),
+    );
 
-    if let Some(path) = entry.location.native_path().filter(|_| !entry.is_directory()) {
+    if let Some(path) = entry
+        .location
+        .native_path()
+        .filter(|_| !entry.is_directory())
+    {
         let section = gtk::Box::new(gtk::Orientation::Vertical, 6);
         section.add_css_class("properties-details");
         card.append(&section);
@@ -154,13 +188,19 @@ fn permissions(file: &gio::File, directory: bool) -> gtk::Box {
     let mut toggles: Vec<(gtk::ToggleButton, u32)> = Vec::new();
     let owner = widgets::label("", "dim");
     let group = widgets::label("", "dim");
-    for (title, shift, identity) in [("Owner", 6, Some(&owner)), ("Group", 3, Some(&group)), ("Others", 0, None)] {
+    for (title, shift, identity) in [
+        ("Owner", 6, Some(&owner)),
+        ("Group", 3, Some(&group)),
+        ("Others", 0, None),
+    ] {
         let line = widgets::hbox(12);
         line.add_css_class("properties-row");
         let key = widgets::label(&crate::i18n::tr(title), "properties-row-label");
         key.set_width_chars(12);
         line.append(&key);
-        let who = identity.cloned().unwrap_or_else(|| widgets::label("", "dim"));
+        let who = identity
+            .cloned()
+            .unwrap_or_else(|| widgets::label("", "dim"));
         who.set_hexpand(true);
         line.append(&who);
         let bits = widgets::hbox(4);
@@ -176,14 +216,24 @@ fn permissions(file: &gio::File, directory: bool) -> gtk::Box {
         section.append(&line);
     }
     let executable = (!directory).then(|| {
-        let (r, switch) = widgets::switch_row(&crate::i18n::tr("Allow executing file as a program"), "", false, |_| {});
+        let (r, switch) = widgets::switch_row(
+            &crate::i18n::tr("Allow executing file as a program"),
+            "",
+            false,
+            |_| {},
+        );
         switch.set_sensitive(false);
         section.append(&r);
         switch
     });
     let syncing = Rc::new(Cell::new(false));
     let show = {
-        let (toggles, mode_label, executable, syncing) = (toggles.clone(), mode_label.clone(), executable.clone(), syncing.clone());
+        let (toggles, mode_label, executable, syncing) = (
+            toggles.clone(),
+            mode_label.clone(),
+            executable.clone(),
+            syncing.clone(),
+        );
         Rc::new(move |m: u32| {
             syncing.set(true);
             mode_label.set_text(&format_permissions(m));
@@ -199,22 +249,38 @@ fn permissions(file: &gio::File, directory: bool) -> gtk::Box {
         })
     };
     let apply = {
-        let (file, mode, show, section) = (file.clone(), mode.clone(), show.clone(), section.downgrade());
+        let (file, mode, show, section) = (
+            file.clone(),
+            mode.clone(),
+            show.clone(),
+            section.downgrade(),
+        );
         Rc::new(move |requested: u32| {
-            let Some(previous) = mode.replace(Some(requested)) else { return };
+            let Some(previous) = mode.replace(Some(requested)) else {
+                return;
+            };
             show(requested);
             let info = gio::FileInfo::new();
             info.set_attribute_uint32("unix::mode", requested & 0o7777);
-            let (file, mode, show, section) = (file.clone(), mode.clone(), show.clone(), section.clone());
+            let (file, mode, show, section) =
+                (file.clone(), mode.clone(), show.clone(), section.clone());
             glib::MainContext::default().spawn_local(async move {
-                if let Err(error) =
-                    file.set_attributes_future(&info, gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS, glib::Priority::DEFAULT).await
+                if let Err(error) = file
+                    .set_attributes_future(
+                        &info,
+                        gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
+                        glib::Priority::DEFAULT,
+                    )
+                    .await
                 {
                     mode.set(Some(previous));
                     show(previous);
                     tracing::warn!(%error, "unable to change file permissions");
                     if let Some(section) = section.upgrade() {
-                        section.append(&widgets::banner(&glib::markup_escape_text(&error.to_string()), true));
+                        section.append(&widgets::banner(
+                            &glib::markup_escape_text(&error.to_string()),
+                            true,
+                        ));
                     }
                 }
             });
@@ -243,7 +309,11 @@ fn permissions(file: &gio::File, directory: bool) -> gtk::Box {
     let file = file.clone();
     glib::MainContext::default().spawn_local(async move {
         let Ok(info) = file
-            .query_info_future("unix::mode,owner::user,owner::group", gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS, glib::Priority::DEFAULT)
+            .query_info_future(
+                "unix::mode,owner::user,owner::group",
+                gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
+                glib::Priority::DEFAULT,
+            )
             .await
         else {
             return;

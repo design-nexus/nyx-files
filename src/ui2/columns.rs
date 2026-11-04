@@ -28,7 +28,9 @@ fn column_list(model: &EntryModel) -> gtk::ListView {
     let factory = gtk::SignalListItemFactory::new();
     let hooks = model.hooks.clone();
     factory.connect_setup(move |_, item| {
-        let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
+        let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+            return;
+        };
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         let icon = model::icon_slot(ICON);
         let label = gtk::Label::new(None);
@@ -47,12 +49,21 @@ fn column_list(model: &EntryModel) -> gtk::ListView {
     });
     let hooks = model.hooks.clone();
     factory.connect_bind(move |_, item| {
-        let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
-        let (Some(row), Some(object)) = (item.child(), item.item()) else { return };
-        let Some(r) = model::row_of(&object) else { return };
+        let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+            return;
+        };
+        let (Some(row), Some(object)) = (item.child(), item.item()) else {
+            return;
+        };
+        let Some(r) = model::row_of(&object) else {
+            return;
+        };
         hooks.bound(&r);
         let mut child = row.first_child();
-        if let Some(icon) = child.as_ref().and_then(|c| c.downcast_ref::<crate::ui::thumbnail::ThumbnailSlot>()) {
+        if let Some(icon) = child
+            .as_ref()
+            .and_then(|c| c.downcast_ref::<crate::ui::thumbnail::ThumbnailSlot>())
+        {
             model::show_icon(icon, &r.entry, ICON);
         }
         child = child.and_then(|c| c.next_sibling());
@@ -84,7 +95,11 @@ impl ColumnsView {
             .vexpand(true)
             .child(&strip)
             .build();
-        Self { root, strip, columns: RefCell::new(Vec::new()) }
+        Self {
+            root,
+            strip,
+            columns: RefCell::new(Vec::new()),
+        }
     }
 
     /// Makes exactly `count` columns; `make` wires each new one (given its depth).
@@ -107,7 +122,11 @@ impl ColumnsView {
             scroller.set_size_request(WIDTH, -1);
             scroller.add_css_class("column");
             self.strip.append(&scroller);
-            let column = Rc::new(Column { model, view, scroller });
+            let column = Rc::new(Column {
+                model,
+                view,
+                scroller,
+            });
             make(columns.len(), &column);
             columns.push(column);
         }

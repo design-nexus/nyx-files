@@ -24,11 +24,17 @@ fn context_on(child: &impl IsA<gtk::Widget>, item: &gtk::ListItem, hooks: &Rc<Ho
     model::on_context(child, hooks, move || item.upgrade().map(|i| i.position()));
 }
 
-fn column(title: &str, hooks: &Rc<Hooks>, bind: fn(&gtk::Label, &FileEntry)) -> gtk::ColumnViewColumn {
+fn column(
+    title: &str,
+    hooks: &Rc<Hooks>,
+    bind: fn(&gtk::Label, &FileEntry),
+) -> gtk::ColumnViewColumn {
     let factory = gtk::SignalListItemFactory::new();
     let h = hooks.clone();
     factory.connect_setup(move |_, item| {
-        let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
+        let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+            return;
+        };
         let label = gtk::Label::new(None);
         label.set_xalign(0.0);
         label.set_ellipsize(gtk::pango::EllipsizeMode::End);
@@ -37,8 +43,13 @@ fn column(title: &str, hooks: &Rc<Hooks>, bind: fn(&gtk::Label, &FileEntry)) -> 
         item.set_child(Some(&label));
     });
     factory.connect_bind(move |_, item| {
-        let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
-        let (Some(label), Some(object)) = (item.child().and_downcast::<gtk::Label>(), item.item()) else { return };
+        let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+            return;
+        };
+        let (Some(label), Some(object)) = (item.child().and_downcast::<gtk::Label>(), item.item())
+        else {
+            return;
+        };
         if let Some(row) = model::row_of(&object) {
             bind(&label, &row.entry);
         }
@@ -52,7 +63,9 @@ fn name_column(hooks: &Rc<Hooks>) -> gtk::ColumnViewColumn {
     let factory = gtk::SignalListItemFactory::new();
     let h = hooks.clone();
     factory.connect_setup(move |_, item| {
-        let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
+        let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+            return;
+        };
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         let icon = model::icon_slot(ICON);
         let label = gtk::Label::new(None);
@@ -67,9 +80,15 @@ fn name_column(hooks: &Rc<Hooks>) -> gtk::ColumnViewColumn {
     });
     let h = hooks.clone();
     factory.connect_bind(move |_, item| {
-        let Some(item) = item.downcast_ref::<gtk::ListItem>() else { return };
-        let (Some(row), Some(object)) = (item.child(), item.item()) else { return };
-        let Some(r) = model::row_of(&object) else { return };
+        let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+            return;
+        };
+        let (Some(row), Some(object)) = (item.child(), item.item()) else {
+            return;
+        };
+        let Some(r) = model::row_of(&object) else {
+            return;
+        };
         h.bound(&r);
         if let Some(icon) = row.first_child().and_downcast::<ThumbnailSlot>() {
             model::show_icon(&icon, &r.entry, ICON);
@@ -120,11 +139,23 @@ impl ListView {
         view.set_show_row_separators(false);
         view.set_reorderable(false);
         view.append_column(&name_column(&model.hooks));
-        view.append_column(&column(&crate::i18n::tr("Size"), &model.hooks, |label, entry| label.set_text(&size_text(entry))));
-        view.append_column(&column(&crate::i18n::tr("Modified"), &model.hooks, |label, entry| {
-            crate::util::set_modified_date(label, Some(entry), "");
-        }));
-        view.append_column(&column(&crate::i18n::tr("Kind"), &model.hooks, |label, entry| label.set_text(&kind(entry))));
+        view.append_column(&column(
+            &crate::i18n::tr("Size"),
+            &model.hooks,
+            |label, entry| label.set_text(&size_text(entry)),
+        ));
+        view.append_column(&column(
+            &crate::i18n::tr("Modified"),
+            &model.hooks,
+            |label, entry| {
+                crate::util::set_modified_date(label, Some(entry), "");
+            },
+        ));
+        view.append_column(&column(
+            &crate::i18n::tr("Kind"),
+            &model.hooks,
+            |label, entry| label.set_text(&kind(entry)),
+        ));
         model::on_context(&view, &model.hooks, || None);
         model::drop_on_view(&view, &model.hooks);
         let root = gtk::ScrolledWindow::builder()
