@@ -5,12 +5,13 @@
 
 mod actions;
 mod columns;
+mod devices;
 mod icons;
 mod list;
 mod model;
-mod places;
 mod properties;
 mod settings;
+mod sidebar;
 mod tab;
 mod theme;
 mod window;

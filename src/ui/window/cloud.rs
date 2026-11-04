@@ -111,7 +111,7 @@ fn append_remote(holder: &gtk::Box, state: &Rc<SidebarState>, remote: Remote) {
 }
 
 /// Cloud mounts each account as an rclone FUSE folder directly in the home directory.
-pub(super) fn is_cloud_mount(path: &std::path::Path) -> bool {
+pub(crate) fn is_cloud_mount(path: &std::path::Path) -> bool {
     if path.parent() != Some(super::home_directory().as_path()) {
         return false;
     }

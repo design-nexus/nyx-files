@@ -175,3 +175,17 @@ window.files-window button.chip.permission-bit {
   padding: 0;
   font-family: "JetBrains Mono", monospace;
 }
+
+/* Sidebar devices */
+
+.device-row button.device-eject {
+  min-width: 26px;
+  min-height: 26px;
+  margin: 0 4px 0 2px;
+  padding: 0;
+  color: @theme_text_tertiary;
+}
+
+.device-row button.device-eject:hover {
+  color: @theme_text;
+}

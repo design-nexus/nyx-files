@@ -55,7 +55,7 @@ pub(super) fn open_from_sidebar(
 }
 
 #[derive(Clone)]
-pub(super) enum PropertiesTarget {
+pub(crate) enum PropertiesTarget {
     Volume(gio::Volume),
     Mount(gio::Mount),
 }
@@ -68,7 +68,7 @@ impl PropertiesTarget {
         }
     }
 
-    pub(super) fn label_id(&self) -> Option<String> {
+    pub(crate) fn label_id(&self) -> Option<String> {
         let uuid = self
             .volume()
             .and_then(|volume| volume.uuid())

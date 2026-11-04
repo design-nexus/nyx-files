@@ -458,6 +458,27 @@ pub(super) fn item_menu(
                 .key(&keys(bindings::COPY)),
         );
     }
+    if let Some(folder) = folder.clone() {
+        let location = folder.location.clone();
+        if super::sidebar::is_pinned(&location) {
+            if !super::sidebar::is_place_location(&location) {
+                items.push(
+                    menu::item(&crate::i18n::tr("Unpin from sidebar"), move || {
+                        super::sidebar::unpin(location.clone())
+                    })
+                    .icon("view-pin-symbolic"),
+                );
+            }
+        } else {
+            let name = folder.display_name.clone();
+            items.push(
+                menu::item(&crate::i18n::tr("Pin to sidebar"), move || {
+                    super::sidebar::pin(location.clone(), name.clone())
+                })
+                .icon("view-pin-symbolic"),
+            );
+        }
+    }
     if let Some(folder) = folder {
         let (w, t) = (window.clone(), tab.clone());
         items.push(
@@ -651,4 +672,144 @@ pub(super) fn redo(tab: &Rc<Tab>) -> bool {
         };
     }
     false
+}
+
+/// The menu for a sidebar row: open it, pin or unpin, eject or unmount.
+pub(super) fn sidebar_menu(
+    window: &Rc<Window>,
+    target: super::sidebar::Target,
+) -> Vec<menu::Entry> {
+    use super::sidebar::Target;
+    let location = match &target {
+        Target::Place(_, l) | Target::Pin(l) => Some(l.clone()),
+        Target::Volume(v) => v.get_mount().map(|m| location_of(&m.root())),
+        Target::Mount(m) => Some(location_of(&m.root())),
+    };
+    let mut items = Vec::new();
+    if let Some(location) = location.clone() {
+        let w = window.clone();
+        items.push(
+            menu::item(&crate::i18n::tr("Open in new tab"), move || {
+                w.open_tab(location.clone())
+            })
+            .icon("tab-new-symbolic"),
+        );
+    }
+    match &target {
+        Target::Pin(location) => {
+            let l = location.clone();
+            items.push(
+                menu::item(&crate::i18n::tr("Unpin"), move || {
+                    super::sidebar::unpin(l.clone())
+                })
+                .icon("view-pin-symbolic"),
+            );
+        }
+        Target::Place(id, _) => {
+            let id = *id;
+            items.push(
+                menu::item(&crate::i18n::tr("Hide from sidebar"), move || {
+                    hide_place(id)
+                })
+                .icon("view-conceal-symbolic"),
+            );
+            if id == "trash" {
+                let w = window.clone();
+                items.push(menu::separator());
+                items.push(
+                    menu::item(&crate::i18n::tr("Empty Trash…"), move || empty_trash(&w))
+                        .icon("user-trash-full-symbolic")
+                        .danger(),
+                );
+            }
+        }
+        Target::Volume(_) | Target::Mount(_) => {
+            if let Some(label) = super::devices::release_label(&target) {
+                let t = target.clone();
+                let w = window.clone();
+                items.push(menu::separator());
+                items.push(
+                    menu::item(&crate::i18n::tr(label), move || {
+                        super::devices::release(&t, w.window.upcast_ref())
+                    })
+                    .icon("media-eject-symbolic"),
+                );
+            }
+        }
+    }
+    items
+}
+
+fn hide_place(id: &str) {
+    let prefs = crate::ui::preferences::PreferenceManager::shared();
+    match id {
+        "recent" => prefs.set_sidebar_show_recent(false),
+        "home" => prefs.set_sidebar_show_home(false),
+        "desktop" => prefs.set_sidebar_show_desktop(false),
+        "documents" => prefs.set_sidebar_show_documents(false),
+        "downloads" => prefs.set_sidebar_show_downloads(false),
+        "music" => prefs.set_sidebar_show_music(false),
+        "pictures" => prefs.set_sidebar_show_pictures(false),
+        "videos" => prefs.set_sidebar_show_videos(false),
+        "network" => prefs.set_sidebar_show_network(false),
+        "trash" => prefs.set_sidebar_show_trash(false),
+        _ => {}
+    }
+}
+
+/// Measures Trash, asks, then deletes everything in it for good.
+pub(super) fn empty_trash(window: &Rc<Window>) {
+    let window = window.clone();
+    glib::MainContext::default().spawn_local(async move {
+        let trash = gio::File::for_uri("trash:///");
+        let summary = crate::adapters::directory_summary::summarize_directory(&trash).await;
+        let Ok(summary) = summary else { return };
+        if summary.item_count == 0 {
+            toast::show(&window.overlay, &crate::i18n::tr("Trash is empty"));
+            return;
+        }
+        let (dialog, card) = widgets::dialog(&crate::i18n::tr("Empty Trash?"), 420);
+        let note = widgets::label(
+            &format!(
+                "{} · {}. {}",
+                crate::i18n::count("items", summary.item_count),
+                glib::format_size(summary.total_size),
+                crate::i18n::tr("They will be deleted permanently.")
+            ),
+            "dim",
+        );
+        note.set_wrap(true);
+        card.append(&note);
+        let buttons = widgets::hbox(8);
+        buttons.set_halign(gtk::Align::End);
+        buttons.set_margin_top(6);
+        let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
+        let empty = gtk::Button::with_label(&crate::i18n::tr("Empty Trash"));
+        empty.add_css_class("destructive-action");
+        buttons.append(&cancel);
+        buttons.append(&empty);
+        card.append(&buttons);
+        let d = dialog.clone();
+        cancel.connect_clicked(move |_| d.close());
+        let d = dialog.clone();
+        empty.connect_clicked(move |_| {
+            d.close();
+            let window = window.clone();
+            glib::MainContext::default().spawn_local(async move {
+                let root = gio::File::for_uri("trash:///");
+                let message = match crate::adapters::trash::empty_trash(&root, |_| {}).await {
+                    Ok(outcome) if outcome.failed == 0 => crate::i18n::tr("Trash emptied"),
+                    Ok(outcome) => rust_i18n::t!(
+                        "%{items} could not be deleted. The remaining items were processed.",
+                        items = crate::i18n::count("items", outcome.failed)
+                    )
+                    .into_owned(),
+                    Err(error) => error.message().to_string(),
+                };
+                toast::show(&window.overlay, &message);
+            });
+        });
+        dialog.present();
+        cancel.grab_focus();
+    });
 }

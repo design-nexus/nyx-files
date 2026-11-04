@@ -58,7 +58,7 @@ pub(crate) mod thumbnail;
 mod top_bar_navigation;
 pub(crate) mod udiskie_preferences;
 mod virtual_preview;
-mod window;
+pub(crate) mod window;
 
 #[cfg(feature = "qa")]
 pub(crate) use accessibility::qa as accessibility_qa;

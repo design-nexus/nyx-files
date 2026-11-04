@@ -48,13 +48,13 @@ use super::{
 };
 
 mod bookmarks;
-mod cloud;
+pub(crate) mod cloud;
 mod composition;
 mod density_slider;
 mod device_labels;
-mod device_release;
+pub(crate) mod device_release;
 mod devices;
-mod drive_dialogs;
+pub(crate) mod drive_dialogs;
 mod drive_ops;
 mod keyboard;
 mod network_location;

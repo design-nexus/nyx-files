@@ -19,7 +19,11 @@ use crate::{
     },
 };
 
-use super::{actions, places, settings, tab};
+use super::{
+    actions, settings,
+    sidebar::{SidebarContent, Target},
+    tab,
+};
 
 thread_local! {
     static WINDOWS: RefCell<Vec<Rc<Window>>> = const { RefCell::new(Vec::new()) };
@@ -32,7 +36,7 @@ pub(super) struct Window {
     pages: gtk::Stack,
     sidebar: Rc<Sidebar>,
     sidebar_toggle: gtk::ToggleButton,
-    places: RefCell<Vec<places::Place>>,
+    content: Rc<SidebarContent>,
     path: Rc<PathBar>,
     back: gtk::Button,
     forward: gtk::Button,
@@ -113,7 +117,21 @@ impl Window {
         let tab_row = TabRow::new(&with_keys("New tab (%{keys})", bindings::TAB_NEW));
         tab_row.set_hide_single(false);
 
-        let sidebar = Sidebar::new();
+        let holder: Rc<RefCell<std::rc::Weak<Window>>> = Rc::default();
+        let (h1, h2) = (holder.clone(), holder.clone());
+        let content = SidebarContent::new(
+            move |location| {
+                if let Some(w) = h1.borrow().upgrade() {
+                    w.navigate(location);
+                }
+            },
+            move |target, widget, x, y| {
+                if let Some(w) = h2.borrow().upgrade() {
+                    w.sidebar_menu(target, widget, x, y);
+                }
+            },
+        );
+        let sidebar = content.sidebar.clone();
         let pages = gtk::Stack::new();
         pages.set_hexpand(true);
         pages.add_css_class("files-pages");
@@ -137,7 +155,7 @@ impl Window {
             pages,
             sidebar,
             sidebar_toggle,
-            places: RefCell::new(Vec::new()),
+            content,
             path,
             back,
             forward,
@@ -160,13 +178,7 @@ impl Window {
         header.end.append(&settings_button);
 
         this.wire();
-        let weak = Rc::downgrade(&this);
-        let places = places::fill(&this.sidebar, move |location| {
-            if let Some(w) = weak.upgrade() {
-                w.navigate(location);
-            }
-        });
-        *this.places.borrow_mut() = places;
+        *holder.borrow_mut() = Rc::downgrade(&this);
         this.sidebar.follow_window(&this.window);
         let expanded = PreferenceManager::shared().sidebar_expanded();
         this.sidebar_toggle.set_active(expanded);
@@ -461,6 +473,14 @@ impl Window {
         true
     }
 
+    pub(super) fn current_browser(&self) -> Option<Rc<crate::app::Browser>> {
+        self.current().map(|t| t.browser.clone())
+    }
+
+    fn sidebar_menu(self: &Rc<Self>, target: Target, widget: &gtk::Widget, x: f64, y: f64) {
+        nyx_ui::menu::popup_at(widget, x, y, actions::sidebar_menu(self, target));
+    }
+
     fn current(&self) -> Option<Rc<tab::Tab>> {
         self.tabs.borrow().get(self.active.get()).cloned()
     }
@@ -581,7 +601,7 @@ impl Window {
         self.forward.set_sensitive(tab.browser.can_go_forward());
         self.up.set_sensitive(tab.browser.can_go_parent());
         let location = tab.location();
-        places::mark(&self.places.borrow(), location.as_ref());
+        self.content.mark(location.as_ref());
         chrome::set_title(&self.window, "Files", &tab.title());
     }
 }

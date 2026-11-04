@@ -1325,7 +1325,7 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    pub(in crate::ui) fn device_label(&self, device_id: &str) -> Option<String> {
+    pub(crate) fn device_label(&self, device_id: &str) -> Option<String> {
         self.preferences
             .borrow()
             .device_labels

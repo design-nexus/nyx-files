@@ -32,7 +32,7 @@ pub(super) const RELEASE_BODY: &str =
 pub(super) const RELEASE_ROW_TOOLTIP: &str = "Writing data to the drive. Do not unplug it.";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum ReleaseKind {
+pub(crate) enum ReleaseKind {
     Unmount,
     Eject,
     Lock,
@@ -81,14 +81,14 @@ pub(super) enum ReleasePhase {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct DeviceIds {
+pub(crate) struct DeviceIds {
     pub unix_device: Option<String>,
     pub uuid: Option<String>,
     pub mount_root: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct ReleaseKey {
+pub(crate) struct ReleaseKey {
     pub unix_device: Option<String>,
     pub uuid: Option<String>,
     pub mount_root: Option<PathBuf>,
@@ -154,7 +154,7 @@ struct RebuildHook {
     rebuild: Box<dyn Fn()>,
 }
 
-pub(super) struct SidebarWatch {
+pub(crate) struct SidebarWatch {
     id: u64,
     _hook: Rc<RebuildHook>,
 }
@@ -165,7 +165,7 @@ impl Drop for SidebarWatch {
     }
 }
 
-pub(super) fn watch_sidebars(rebuild: impl Fn() + 'static) -> SidebarWatch {
+pub(crate) fn watch_sidebars(rebuild: impl Fn() + 'static) -> SidebarWatch {
     let id = NEXT_WATCH.with(|next| {
         let id = next.get();
         next.set(id.saturating_add(1));
@@ -222,7 +222,7 @@ pub(super) fn reset_releases() {
     RELEASES.with(|releases| releases.borrow_mut().clear());
 }
 
-pub(super) fn is_pending(device: &DeviceIds) -> bool {
+pub(crate) fn is_pending(device: &DeviceIds) -> bool {
     RELEASES.with(|releases| {
         releases
             .borrow()
@@ -269,7 +269,7 @@ pub(super) fn pending_device_shell(row: &gtk::Button) -> gtk::Box {
     shell
 }
 
-pub(super) fn key_for_volume(volume: &gio::Volume) -> ReleaseKey {
+pub(crate) fn key_for_volume(volume: &gio::Volume) -> ReleaseKey {
     let mount = volume.get_mount();
     ReleaseKey {
         unix_device: super::gio_volume_unix_device(volume)
@@ -285,11 +285,11 @@ pub(super) fn key_for_volume(volume: &gio::Volume) -> ReleaseKey {
     }
 }
 
-pub(super) fn ids_for_volume(volume: &gio::Volume) -> DeviceIds {
+pub(crate) fn ids_for_volume(volume: &gio::Volume) -> DeviceIds {
     key_for_volume(volume).ids()
 }
 
-pub(super) fn key_for_mount(mount: &gio::Mount) -> ReleaseKey {
+pub(crate) fn key_for_mount(mount: &gio::Mount) -> ReleaseKey {
     let volume = mount.volume();
     ReleaseKey {
         unix_device: mount
@@ -315,7 +315,7 @@ pub(super) fn key_for_mount(mount: &gio::Mount) -> ReleaseKey {
     }
 }
 
-pub(super) fn ids_for_mount(mount: &gio::Mount) -> DeviceIds {
+pub(crate) fn ids_for_mount(mount: &gio::Mount) -> DeviceIds {
     key_for_mount(mount).ids()
 }
 
@@ -825,7 +825,7 @@ fn show_safe_to_remove(overlay: &ReleaseOverlay, display_name: &str) {
     clippy::too_many_arguments,
     reason = "release start wires the window, flush root, and GIO future together"
 )]
-pub(super) fn start_release<F, Fut>(
+pub(crate) fn start_release<F, Fut>(
     parent: &gtk::Widget,
     browser: Option<Rc<Browser>>,
     view: Option<&BrowserView>,
