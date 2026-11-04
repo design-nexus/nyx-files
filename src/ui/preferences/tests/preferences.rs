@@ -809,6 +809,55 @@ fn settings_files_are_watched_from_the_monitors_worker_without_missing_a_save() 
 
 
 #[test]
+fn folders_remember_their_own_view_and_follow_the_default_otherwise() {
+    gtk_test(
+        "ui::preferences::tests::preferences::folders_remember_their_own_view_and_follow_the_default_otherwise",
+        || {
+            let manager = PreferenceManager::shared();
+            let photos = Location::local("/home/me/Pictures");
+            let music = Location::local("/home/me/Music");
+            assert!(manager.remember_folder_views());
+            assert_eq!(manager.browser_mode(), BrowserMode::Columns);
+
+            manager.set_folder_mode(Some(&photos), BrowserMode::Icons);
+            assert_eq!(manager.mode_for(Some(&photos)), BrowserMode::Icons);
+            assert_eq!(manager.mode_for(Some(&music)), BrowserMode::Columns);
+            assert_eq!(manager.browser_mode(), BrowserMode::Columns);
+            assert!(manager.has_folder_views());
+
+            let revision = manager.folder_modes_revision();
+            manager.set_default_mode(BrowserMode::List);
+            assert_eq!(manager.mode_for(Some(&music)), BrowserMode::List);
+            assert_eq!(manager.mode_for(Some(&photos)), BrowserMode::Icons);
+            manager.set_default_mode(BrowserMode::Icons);
+            assert_ne!(manager.folder_modes_revision(), revision);
+            assert!(!manager.has_folder_views(), "a view equal to the default is dropped");
+
+            manager.set_folder_mode(Some(&photos), BrowserMode::Icons);
+            assert!(!manager.has_folder_views(), "the default view is not stored");
+            let trash = Location::uri("trash:///");
+            manager.set_folder_mode(Some(&trash), BrowserMode::List);
+            assert_eq!(manager.mode_for(Some(&trash)), BrowserMode::Icons);
+
+            manager.set_folder_mode(Some(&photos), BrowserMode::List);
+            manager.set_remember_folder_views(false);
+            assert_eq!(manager.mode_for(Some(&photos)), BrowserMode::Icons);
+            manager.set_folder_mode(Some(&music), BrowserMode::Columns);
+            assert_eq!(manager.browser_mode(), BrowserMode::Columns);
+            assert_eq!(manager.mode_for(Some(&photos)), BrowserMode::Columns);
+            manager.set_remember_folder_views(true);
+            assert_eq!(manager.mode_for(Some(&photos)), BrowserMode::List);
+
+            manager.flush_folder_views();
+            crate::storage::writer::settle();
+            let saved = fs::read_to_string(folder_view_settings::folder_views_path())
+                .expect("saved folder settings");
+            assert!(saved.contains("mode = \"list\""), "{saved}");
+        },
+    );
+}
+
+#[test]
 fn preview_presentation_defaults_to_popup_and_persists_panel() {
     gtk_test("ui::preferences::tests::preferences::preview_presentation_defaults_to_popup_and_persists_panel", || {
         let manager = PreferenceManager::load();

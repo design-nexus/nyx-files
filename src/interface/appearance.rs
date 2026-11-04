@@ -339,7 +339,7 @@ pub(super) fn thumbnail_menu(current: &CurrentTab) -> gtk::Box {
 
 fn content(current: &CurrentTab) -> gtk::Box {
     let prefs = PreferenceManager::shared();
-    let mode = prefs.browser_mode();
+    let mode = current().map_or_else(|| prefs.browser_mode(), |t| t.mode());
     let body = gtk::Box::new(gtk::Orientation::Vertical, 1);
     body.add_css_class("menu-list");
     body.add_css_class("appearance-menu");

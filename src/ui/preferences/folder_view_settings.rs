@@ -12,6 +12,7 @@ use gtk::glib;
 
 use crate::{
     adapters::Watched,
+    ui::browser_modes::BrowserMode,
     model::{FolderSort, Location, SortDirection, SortKey},
     services::{ItemIdentity, LoadHandle},
 };
@@ -34,11 +35,13 @@ const USE_SAVE_DELAY: Duration = Duration::from_secs(60);
 /// Another process saves in milliseconds; one stopped mid-save must not hold up exit.
 const EXIT_LOCK_WAIT: Duration = Duration::from_secs(1);
 
-/// Whether a change can reach saved sorts, which re-sort open columns.
+/// Whether a change can reach saved sorts, which re-sort open columns, or
+/// saved views, which switch open tabs.
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Affects {
     Sorts,
     IconsSizesOnly,
+    ModesOnly,
 }
 
 pub(super) struct FolderViewStore {
@@ -149,12 +152,57 @@ impl PreferenceManager {
     pub(crate) fn set_remember_folder_views(&self, enabled: bool) {
         self.preferences.borrow_mut().remember_folder_views = enabled;
         if enabled {
-            let (sort, size) = (self.default_sort(), self.icons_thumbnail_size());
+            let (sort, size, mode) = (
+                self.default_sort(),
+                self.icons_thumbnail_size(),
+                self.browser_mode(),
+            );
             self.change_folder_views(Affects::Sorts, |views| {
-                views.prune_default_sort(sort) | views.prune_default_icons_size(size)
+                views.prune_default_sort(sort)
+                    | views.prune_default_icons_size(size)
+                    | views.prune_default_mode(mode)
             });
         }
         self.save_preferences();
+    }
+
+    /// Changes whenever a saved folder view may have changed, for tabs that resolve one.
+    pub(crate) fn folder_modes_revision(&self) -> u64 {
+        self.folder_modes_revision.get()
+    }
+
+    /// The view `location` opens in: its own, or the default view.
+    pub(crate) fn mode_for(&self, location: Option<&Location>) -> BrowserMode {
+        location
+            .and_then(|location| self.remembered_key(location))
+            .and_then(|key| self.folder_view_store().views.borrow().view(&key).mode)
+            .unwrap_or_else(|| self.browser_mode())
+    }
+
+    /// Without per-folder settings this sets the default view; a folder that
+    /// cannot be remembered keeps a changed view only while it is shown.
+    pub(crate) fn set_folder_mode(&self, location: Option<&Location>, mode: BrowserMode) {
+        if !self.remember_folder_views() {
+            self.set_browser_mode(mode);
+            return;
+        }
+        let Some(key) = location.and_then(key_for_location) else {
+            return;
+        };
+        let stored = (mode != self.browser_mode()).then_some(mode);
+        self.change_folder_views(Affects::ModesOnly, |views| {
+            views.update(&key, |view| view.mode = stored)
+        });
+    }
+
+    /// Sets the default view, dropping saved views that now equal it.
+    pub(crate) fn set_default_mode(&self, mode: BrowserMode) {
+        self.set_browser_mode(mode);
+        if self.remember_folder_views() {
+            self.change_folder_views(Affects::ModesOnly, |views| {
+                views.prune_default_mode(mode)
+            });
+        }
     }
 
     /// Changes whenever a saved folder sort may have changed, for bindings that resolve one.
@@ -453,6 +501,10 @@ impl PreferenceManager {
         if affects == Affects::Sorts {
             self.folder_sorts_revision
                 .set(self.folder_sorts_revision.get().wrapping_add(1));
+        }
+        if matches!(affects, Affects::Sorts | Affects::ModesOnly) {
+            self.folder_modes_revision
+                .set(self.folder_modes_revision.get().wrapping_add(1));
         }
         self.changes.notify_unrecorded(self);
     }

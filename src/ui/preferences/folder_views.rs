@@ -10,7 +10,10 @@ use serde::Serialize;
 
 use crate::model::{SortDirection, SortKey, rebase_path};
 
-use super::super::icons_cell::{MAX_ICONS_THUMBNAIL_SIZE, MIN_ICONS_THUMBNAIL_SIZE};
+use super::super::{
+    browser_modes::BrowserMode,
+    icons_cell::{MAX_ICONS_THUMBNAIL_SIZE, MIN_ICONS_THUMBNAIL_SIZE},
+};
 
 mod keys;
 pub(in crate::ui) use keys::key_for_location;
@@ -93,11 +96,29 @@ fn local_path(path: &Path) -> Option<PathBuf> {
 pub(in crate::ui) struct FolderView {
     pub(in crate::ui) sort: Option<(SortKey, SortDirection)>,
     pub(in crate::ui) icons_size: Option<i32>,
+    pub(in crate::ui) mode: Option<BrowserMode>,
 }
 
 impl FolderView {
     fn is_empty(&self) -> bool {
-        self.sort.is_none() && self.icons_size.is_none()
+        self.sort.is_none() && self.icons_size.is_none() && self.mode.is_none()
+    }
+}
+
+fn stored_mode(mode: BrowserMode) -> &'static str {
+    match mode {
+        BrowserMode::Columns => "columns",
+        BrowserMode::Icons => "icons",
+        BrowserMode::List => "list",
+    }
+}
+
+fn mode_from_stored(value: &str) -> Option<BrowserMode> {
+    match value {
+        "columns" => Some(BrowserMode::Columns),
+        "icons" => Some(BrowserMode::Icons),
+        "list" => Some(BrowserMode::List),
+        _ => None,
     }
 }
 
@@ -219,6 +240,14 @@ impl FolderViews {
         self.update_all(|view| {
             if view.icons_size == Some(size) {
                 view.icons_size = None;
+            }
+        })
+    }
+
+    pub(in crate::ui) fn prune_default_mode(&mut self, mode: BrowserMode) -> bool {
+        self.update_all(|view| {
+            if view.mode == Some(mode) {
+                view.mode = None;
             }
         })
     }
@@ -482,6 +511,7 @@ impl FolderViews {
                     sort: sort.map(|(key, _)| key),
                     direction: sort.map(|(_, direction)| direction.stored_name()),
                     icons_size: entry.view.icons_size,
+                    mode: entry.view.mode.map(stored_mode),
                     used: entry.used,
                 })
             })
@@ -511,6 +541,8 @@ struct StoredFolder<'a> {
     direction: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     icons_size: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mode: Option<&'static str>,
     used: u64,
 }
 
@@ -553,6 +585,14 @@ fn parse_entry(value: &toml::Value) -> Option<(FolderKey, Entry, bool)> {
             None
         }
     };
+    let mode = match table.get("mode") {
+        None => None,
+        Some(value) => {
+            let mode = value.as_str().and_then(mode_from_stored);
+            clean &= mode.is_some();
+            mode
+        }
+    };
     let used = match table.get("used") {
         None => 0,
         Some(toml::Value::Integer(used)) if *used >= 0 => *used as u64,
@@ -561,7 +601,11 @@ fn parse_entry(value: &toml::Value) -> Option<(FolderKey, Entry, bool)> {
             0
         }
     };
-    let view = FolderView { sort, icons_size };
+    let view = FolderView {
+        sort,
+        icons_size,
+        mode,
+    };
     if view.is_empty() {
         return None;
     }

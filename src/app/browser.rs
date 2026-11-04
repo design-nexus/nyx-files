@@ -134,8 +134,10 @@ pub enum BrowserEvent {
     /// The outgoing directory is still available for presentation-state capture.
     /// `history` marks a return to a recorded path: Back, Forward, Up, or a path an
     /// external change or undo restores. Other routes navigate explicitly.
+    /// `descend` marks opening a folder inside a column already shown.
     NavigationStarting {
         history: bool,
+        descend: bool,
     },
     /// The column at `depth` is about to be cleared for a reload; its entries,
     /// selection and cursor are still readable.
@@ -1704,7 +1706,10 @@ impl Browser {
             return;
         }
         if self.active_location().is_some() {
-            self.emit(BrowserEvent::NavigationStarting { history: false });
+            self.emit(BrowserEvent::NavigationStarting {
+                history: false,
+                descend: false,
+            });
         }
         self.close_peek();
         self.loads.borrow_mut().clear();
@@ -1806,7 +1811,10 @@ impl Browser {
         if !self.source.allows_navigation(&location) || self.location_at(parent_depth).is_none() {
             return;
         }
-        self.emit(BrowserEvent::NavigationStarting { history: false });
+        self.emit(BrowserEvent::NavigationStarting {
+            history: false,
+            descend: true,
+        });
         let request_id = self.new_request_id();
         let mut state = self.state.borrow_mut();
         if !state.descend(parent_depth, location.clone(), request_id) {
@@ -3964,7 +3972,10 @@ impl Browser {
             .last()
             .and_then(|destination| self.came_from_child(destination));
         self.bump_navigation_generation();
-        self.emit(BrowserEvent::NavigationStarting { history: true });
+        self.emit(BrowserEvent::NavigationStarting {
+            history: true,
+            descend: false,
+        });
         self.close_peek();
         self.loads.borrow_mut().clear();
         self.monitors.borrow_mut().clear();

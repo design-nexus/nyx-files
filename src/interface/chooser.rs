@@ -473,7 +473,7 @@ impl Chooser {
         switch.add_css_class("view-switch");
         switch.set_valign(gtk::Align::Center);
         switch.set_margin_end(6);
-        let current = PreferenceManager::shared().browser_mode();
+        let current = self.tab.mode();
         let mut first: Option<gtk::ToggleButton> = None;
         for (mode, icon, message, binding) in [
             (
@@ -519,14 +519,17 @@ impl Chooser {
     }
 
     fn set_mode(&self, mode: BrowserMode) {
-        PreferenceManager::shared().set_browser_mode(mode);
-        self.tab.set_mode(mode);
+        self.tab.choose_mode(mode);
+        self.show_mode(self.tab.mode());
+        self.tab.focus_view();
+    }
+
+    fn show_mode(&self, mode: BrowserMode) {
         for (m, button) in self.view_switch.borrow().iter() {
             if *m == mode && !button.is_active() {
                 button.set_active(true);
             }
         }
-        self.tab.focus_view();
     }
 
     fn wire(self: &Rc<Self>, cancel: &gtk::Button) {
@@ -715,6 +718,7 @@ impl Chooser {
             .set_sensitive(self.tab.browser.can_go_forward());
         self.up.set_sensitive(self.tab.browser.can_go_parent());
         self.content.mark(self.tab.location().as_ref());
+        self.show_mode(self.tab.mode());
     }
 
     fn show(self: &Rc<Self>) {

@@ -634,6 +634,7 @@ pub struct PreferenceManager {
     save_notices: save_notice::SaveNotices,
     folder_views: std::cell::OnceCell<folder_view_settings::FolderViewStore>,
     folder_sorts_revision: Cell<u64>,
+    folder_modes_revision: Cell<u64>,
     folder_save_notices: save_notice::SaveNotices,
     item_customizations: item_customizations::ItemCustomizationState,
 }
@@ -701,6 +702,7 @@ impl PreferenceManager {
             save_notices: save_notice::SaveNotices::default(),
             folder_views: std::cell::OnceCell::new(),
             folder_sorts_revision: Cell::new(0),
+            folder_modes_revision: Cell::new(0),
             folder_save_notices: save_notice::SaveNotices::for_folder_views(),
             item_customizations: Default::default(),
             preferences: RefCell::new(preferences),

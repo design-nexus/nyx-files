@@ -21,6 +21,7 @@ fn sorted(key: SortKey, direction: SortDirection) -> FolderView {
     FolderView {
         sort: Some((key, direction)),
         icons_size: None,
+        mode: None,
     }
 }
 
@@ -45,6 +46,7 @@ fn saved_views_round_trip_through_the_state_file() {
         FolderView {
             sort: Some((SortKey::Size, SortDirection::Ascending)),
             icons_size: Some(208),
+            mode: Some(BrowserMode::List),
         },
     );
     set(
@@ -53,6 +55,7 @@ fn saved_views_round_trip_through_the_state_file() {
         FolderView {
             sort: None,
             icons_size: Some(64),
+            mode: None,
         },
     );
 
@@ -138,6 +141,7 @@ fn invalid_entries_and_fields_are_skipped_while_valid_ones_load() {
         FolderView {
             sort: None,
             icons_size: Some(128),
+            mode: None,
         }
     );
     assert_eq!(
@@ -181,6 +185,7 @@ fn defaults_prune_matching_values_without_touching_other_fields() {
     let view = |sort, icons_size| FolderView {
         sort: Some(sort),
         icons_size,
+        mode: None,
     };
     set(&mut views, &local("/default-sort"), view(default, None));
     set(
@@ -203,6 +208,7 @@ fn defaults_prune_matching_values_without_touching_other_fields() {
         FolderView {
             sort: None,
             icons_size: Some(160),
+            mode: None,
         }
     );
 
@@ -216,6 +222,49 @@ fn defaults_prune_matching_values_without_touching_other_fields() {
     assert_eq!(views.view(&local("/other-values")), view(other, Some(96)));
 }
 
+
+#[test]
+fn modes_load_strictly_and_prune_to_the_default_view() {
+    let (mut views, repaired) = FolderViews::parse(
+        r#"
+        [[folder]]
+        path = "/listed"
+        mode = "list"
+
+        [[folder]]
+        path = "/iconic"
+        mode = "icons"
+        icons_size = 96
+
+        [[folder]]
+        path = "/unknown-mode"
+        mode = "explorer"
+
+        [[folder]]
+        path = "/unknown-mode-keeps-sort"
+        sort = "size"
+        direction = "ascending"
+        mode = 3
+        "#,
+    )
+    .expect("valid TOML loads");
+
+    assert!(repaired);
+    assert_eq!(views.len(), 3);
+    assert_eq!(views.view(&local("/listed")).mode, Some(BrowserMode::List));
+    assert_eq!(views.view(&local("/unknown-mode")), FolderView::default());
+    assert_eq!(
+        views.view(&local("/unknown-mode-keeps-sort")),
+        sorted(SortKey::Size, SortDirection::Ascending)
+    );
+
+    assert!(views.prune_default_mode(BrowserMode::List));
+    assert!(!views.prune_default_mode(BrowserMode::List));
+    assert_eq!(views.len(), 2);
+    assert!(views.prune_default_mode(BrowserMode::Icons));
+    assert_eq!(views.view(&local("/iconic")).icons_size, Some(96));
+    assert_eq!(views.view(&local("/iconic")).mode, None);
+}
 
 #[test]
 fn relocation_carries_descendants_and_replaces_stale_destinations_unless_merged() {

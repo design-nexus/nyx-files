@@ -91,9 +91,10 @@ control that might be midway through synchronization.
 | Hidden files | Shared across existing browsers and new columns. |
 | Open folder after dropping files | Drop dispatch reads the saved choice (off by default), including confirmation of cross-device drops. Successful drops reveal the destination only when enabled and the user is still at the transfer origin. Paste and Move/Copy to remain unchanged. |
 | Cross-device drag and drop | Drop dispatch reads the current Copy, Move, or Ask strategy; unresolved volume lookups follow the same cross-device policy. |
-| Default sort key/direction | The sort for folders without their own; see [Per-folder sort and thumbnail size](#per-folder-sort-and-thumbnail-size). Set under **Settings → General → Browsing → Default sort**; open columns that follow the default re-sort live in every window. With per-folder settings off, an explicit field sort updates the default instead and existing columns keep their own sort. Camera Photos libraries open in column-local Device order (see below). |
+| Default sort key/direction | The sort for folders without their own; see [Per-folder view, sort and thumbnail size](#per-folder-view-sort-and-thumbnail-size). Set under **Settings → General → Browsing → Default sort**; open columns that follow the default re-sort live in every window. With per-folder settings off, an explicit field sort updates the default instead and existing columns keep their own sort. Camera Photos libraries open in column-local Device order (see below). |
 | Folders first | Application-wide: toggling it in any pane's sort menu re-sorts every open column in every window and applies to new columns. Recent keeps its fixed order. |
-| Remember sort and icon size per folder | On by default. Browsers and the portal chooser bind at construction, before Settings opens, and resolve each column's folder sort and the Icons folder's size live. Off restores the last-sort-wins defaults; saved folder values stay stored but unused. See [Per-folder sort and thumbnail size](#per-folder-sort-and-thumbnail-size). |
+| Default view | The view (Columns, Icons or List) for folders without their own; see [Per-folder view, sort and thumbnail size](#per-folder-view-sort-and-thumbnail-size). Set under **Settings → General → Browsing → Default view**; tabs showing a folder that follows the default switch live in every window. With per-folder settings off, the view switch and view shortcuts set the default and every tab follows it. Stored as `browser_mode`. |
+| Remember view, sort and icon size per folder | On by default. Browsers and the portal chooser bind at construction, before Settings opens, and resolve each tab's folder view, each column's folder sort and the Icons folder's size live. Off restores the last-choice-wins defaults; saved folder values stay stored but unused. See [Per-folder view, sort and thumbnail size](#per-folder-view-sort-and-thumbnail-size). |
 | Type-to-search, opening search results directly | Keyboard/search actions read the current manager value at dispatch. |
 | Global search exclusions | Each global-search invocation reads the current rules before indexing, including before Settings opens. Existing search snapshots keep their rules until reopened. Exclusion editors synchronize across windows. Pane filters, 10xer path search, folder-history search, and destination pickers retain their explicit browsing scope and ignore these rules. |
 | Search time limit, search entry limit | Global search, pane filters, 10xer path search, and folder pickers read the current limits when they start a query, including before Settings opens. A changed limit restarts the next query's index walk; an open result snapshot keeps its limits until it requeries. See [Search limits](#search-limits). |
@@ -112,7 +113,7 @@ control that might be midway through synchronization.
 | Thumbnail workers | Browser construction binds the shared decoder limit before Settings opens. Changes apply across windows and rebuilt views; lowering the limit lets active work finish and retires excess idle supervisors. |
 | List column order and visibility | Browser windows and the portal chooser share column order and visibility, including newly opened List panes. Drag a heading to reorder it; the Columns menu, heading context menu, and Appearance → Customize columns edit the same saved choices. Name cannot be hidden. Hiding, showing, reordering, or resetting columns changes only their presentation, never the sort key or direction. A hidden sort column remains active, including for saved folder sorts, newly opened folders, and view switches; showing it again restores its sort indicator. Widths retain their independent browser and chooser scopes below. |
 | Browser and chooser column widths | A Columns resize or a List heading resize, including double-click autofit, saves the unscaled width. A Columns drag or autofit stops at the visible browser area: the window minus the preview divider and the sidebar at its full width, so while a narrow window rails the sidebar, columns stop short of the window edge by the width the rail gives up. Columns opened later, including a saved width from before, are narrowed to the current area, and so are open columns when the window first lays out and after a text-size change; returning to the earlier text size restores the dragged width. Resizing the window does not narrow open columns; dragging the edge of one that is wider than the area snaps it to the area. New columns and rebuilt List panes read the latest saved defaults before Settings opens. Dragging a Columns edge resizes that column as the pointer moves, with a **Column width** caption that appears once the pointer rests on the edge and follows it through the drag, and when the drag ends the window's other open columns ease to the same width; double-click autofit changes only its own column. Other windows keep their widths. Browser defaults (`browser_column_width`, `browser_list_columns`) and chooser defaults (`chooser_column_width`, `chooser_list_columns`) are independent. The Name column keeps expanding until it is resized itself. Not exposed in Settings. |
-| Icons view thumbnail size | The default size for folders without their own; see [Per-folder sort and thumbnail size](#per-folder-sort-and-thumbnail-size). Every browser binds at construction, and an Icons pane resolves its folder's size before it is built, so it opens at that size. With per-folder settings off, the popover slider sets the default. Visible Icons panes in other windows resize when their folder's size or the default changes. Clamped to 32–256 px; not exposed in Settings. |
+| Icons view thumbnail size | The default size for folders without their own; see [Per-folder view, sort and thumbnail size](#per-folder-view-sort-and-thumbnail-size). Every browser binds at construction, and an Icons pane resolves its folder's size before it is built, so it opens at that size. With per-folder settings off, the popover slider sets the default. Visible Icons panes in other windows resize when their folder's size or the default changes. Clamped to 32–256 px; not exposed in Settings. |
 | Hardware video acceleration/backend | Preview providers read the current choice when requesting a preview; changing it does not restart an already playing file. Settings controls and backend availability synchronize live. |
 | Preview text wrap | Every text preview and header toggle binds to the saved wrap choice, including newly loaded files. Off by default. |
 | Preview autoplay | Read when a video, audio, or GIF preview is first shown. Off by default: playback waits for an explicit play action; the generic player shows its center play affordance, and the audio and video views their transport play button. When on, playback starts silent and fades in on a slow-in, slow-out curve, over 1 s from the first frame for video and over 0.5 s from the first sample for audio, unless the saved audio state is muted or the file is shorter than 10 s, which plays at full volume at once; any play, pause, seek, volume or mute input brings the sound in at once, and the saved volume is never changed. Continuing playback into the next file with `<` / `>` keeps its sound. Does not affect resuming playback that was already active before a preview pane was temporarily hidden by a resize. |
@@ -160,17 +161,26 @@ Synchronization between independently running application processes, or manual
 external edits to `settings.toml` while Files runs, is not supported by this
 in-process binding mechanism. External edits are read on the next launch.
 
-## Per-folder sort and thumbnail size
+## Per-folder view, sort and thumbnail size
 
-With **Settings → General → Browsing → Remember sort and icon size per folder** on
-(the default), choosing a sort field or direction in a pane, a List heading, or the
+With **Settings → General → Browsing → Remember view, sort and icon size per folder**
+on (the default), choosing a sort field or direction in a pane, a List heading, or the
 10xer sort chord remembers it for that folder only, and the Icons thumbnail slider
-remembers the size for the folder it shows. Folders without their own value use
-the default sort and default size; values are exact per folder and are not
-inherited by subfolders. A value equal to the default is not stored, so the folder
-follows later default changes. Every open column, tab, and window showing the same
-folder updates live. View mode, density, hidden files, grouping, folders first, and
-List column widths stay application-wide.
+remembers the size for the folder it shows. Choosing Columns, Icons or List with the
+header view switch or the view shortcuts changes only the current tab and remembers
+the view for the folder it shows. Folders without their own value use the default
+view, sort and size; values are exact per folder and are not inherited by
+subfolders. A value equal to the default is not stored, so the folder follows later
+default changes. Every open column, tab, and window showing the same folder updates
+live. Density, hidden files, grouping, folders first, and List column widths stay
+application-wide.
+
+A tab shows the view of the folder it was taken to. Opening a folder in Icons or
+List shows that folder's view. Columns keeps showing folders opened inside it,
+whatever their own views; the sidebar, the path bar, a typed location, Back, Forward,
+Up, and new or restored tabs are jumps and show the destination's view, as does
+choosing a view, which makes the folder showing the one the tab follows. A folder
+that is not remembered keeps a view chosen there while the tab shows it.
 
 In Icons, **Ctrl+Alt++** (or **Ctrl+Alt+=**) and **Ctrl+Alt+−**, **Ctrl+Shift+wheel**,
 and in 10xer mode **+** / **−** on the listing step the thumbnail size through 32,
@@ -194,7 +204,7 @@ plus their path inside the drive, so values survive remounting; drives read thro
 a FUSE driver for local disks (`fuseblk`, such as ntfs-3g or exfat-fuse) count as
 local. Remote shares, other FUSE filesystems, Trash, Recent, Camera Photos, and
 paths that are not valid UTF-8 are not remembered: their sort stays with the open
-column, and a size change lasts while the folder is shown. Renames and moves
+column, and a size or view change lasts while the folder is shown. Renames and moves
 performed in Files, including undo and redo, carry a folder's values and those of
 the folders inside it, following the Replace, Merge, Trash, Put back, and undo
 rules of folder colors (see [Consumers and intentional
@@ -266,7 +276,7 @@ Use **Ctrl++** (or **Ctrl+=**), **Ctrl+−**, and **Ctrl+0** to increase, decrea
 and reset, including while an inline editor or Settings is open; **Ctrl+wheel**
 does the same. Each briefly shows the new size in the bottom-right corner; changes
 made in Settings do not. **Ctrl+Shift+wheel** resizes Icons thumbnails instead (see
-[Per-folder sort and thumbnail size](#per-folder-sort-and-thumbnail-size)).
+[Per-folder view, sort and thumbnail size](#per-folder-view-sort-and-thumbnail-size)).
 Over a PDF preview, **Ctrl+wheel** zooms the pages instead. With the PDF page
 focused, **Ctrl+0** resets page zoom without changing the saved text size.
 

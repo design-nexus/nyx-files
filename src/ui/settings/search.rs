@@ -134,8 +134,14 @@ const TARGETS: &[Target] = &[
     Target {
         id: "folder-views",
         page: "general",
-        title: "Remember sort and icon size per folder",
-        aliases: "browsing per folder sort order thumbnail size view state",
+        title: "Remember view, sort and icon size per folder",
+        aliases: "browsing per folder sort order thumbnail size view mode state",
+    },
+    Target {
+        id: "default-view",
+        page: "general",
+        title: "Default view",
+        aliases: "browsing view mode columns icons grid list",
     },
     Target {
         id: "default-sort",
@@ -147,7 +153,7 @@ const TARGETS: &[Target] = &[
         id: "forget-folder-views",
         page: "general",
         title: "Forget all folder settings",
-        aliases: "browsing reset clear per folder sort thumbnail size",
+        aliases: "browsing reset clear per folder view sort thumbnail size",
     },
     Target {
         id: "type-search",

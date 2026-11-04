@@ -469,10 +469,22 @@ fn browsing(group: &Group) {
     let sorting = group.section("Sorting");
     switch(
         &sorting,
-        "Remember sort and icon size per folder",
-        "Each folder keeps the sort and thumbnail size you choose there. Other folders use the defaults.",
+        "Remember view, sort and icon size per folder",
+        "Each folder keeps the view, sort and thumbnail size you choose there. Other folders use the defaults.",
         PreferenceManager::remember_folder_views,
         PreferenceManager::set_remember_folder_views,
+    );
+    choice(
+        &sorting,
+        "Default view",
+        "Folders without their own view open in this one.",
+        &[
+            ("Columns", BrowserMode::Columns),
+            ("Icons", BrowserMode::Icons),
+            ("List", BrowserMode::List),
+        ],
+        PreferenceManager::browser_mode,
+        PreferenceManager::set_default_mode,
     );
     choice(
         &sorting,
@@ -515,7 +527,7 @@ fn browsing(group: &Group) {
     );
     sorting.append(&row(
         "Forget all folder settings",
-        "Return every folder to the default sort and thumbnail size.",
+        "Return every folder to the default view, sort and thumbnail size.",
         Some(forget.upcast_ref()),
     ));
 }

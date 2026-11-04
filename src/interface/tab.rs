@@ -53,6 +53,11 @@ pub(super) struct Tab {
     events: RefCell<Option<EventFn>>,
     status: gtk::Label,
     mode: Cell<BrowserMode>,
+    /// The folder whose saved view the tab shows; folders opened inside
+    /// Columns keep the view of the folder Columns was entered at.
+    view_anchor: RefCell<Option<Location>>,
+    /// The next folder shown was reached by a jump rather than opened in a column.
+    pending_jump: Cell<bool>,
     refresh_queued: Cell<bool>,
     syncing: Cell<bool>,
     shown: RefCell<Option<(Location, usize)>>,
@@ -114,6 +119,7 @@ impl Tab {
         location: Location,
         source: Rc<dyn crate::services::FileSource>,
     ) -> Rc<Tab> {
+        let initial_mode = PreferenceManager::shared().mode_for(Some(&location));
         let browser =
             Browser::with_preferences(source, PreferenceManager::shared().sort_preferences());
         browser.set_operation_provider(Rc::new(LocalOperationProvider));
@@ -162,9 +168,7 @@ impl Tab {
         root.set_position(i32::MAX);
         root.set_vexpand(true);
         preview.attach_split_only(&root);
-        let footer = crate::ui::shortcut_footer::ShortcutFooter::new(
-            PreferenceManager::shared().browser_mode(),
-        );
+        let footer = crate::ui::shortcut_footer::ShortcutFooter::new(initial_mode);
         footer.bind_preferences(&PreferenceManager::shared());
         let jobs = crate::ui::jobs::JobsIndicator::new();
         footer.set_activity(jobs.widget());
@@ -192,7 +196,9 @@ impl Tab {
             result_open: RefCell::new(None),
             events: RefCell::new(None),
             status,
-            mode: Cell::new(PreferenceManager::shared().browser_mode()),
+            mode: Cell::new(initial_mode),
+            view_anchor: RefCell::new(Some(location.clone())),
+            pending_jump: Cell::new(false),
             refresh_queued: Cell::new(false),
             syncing: Cell::new(false),
             shown: RefCell::new(None),
@@ -575,12 +581,55 @@ impl Tab {
     }
 
     pub(super) fn set_mode(self: &Rc<Self>, mode: BrowserMode) {
+        self.switch_mode(mode);
+        self.refresh();
+        self.show_page();
+    }
+
+    fn switch_mode(&self, mode: BrowserMode) {
         self.mode.set(mode);
         self.set_scope(mode);
         self.footer.set_mode(mode);
         self.apply_grouping();
-        self.refresh();
-        self.show_page();
+    }
+
+    /// Shows `mode` for the folder showing and remembers it there.
+    pub(super) fn choose_mode(self: &Rc<Self>, mode: BrowserMode) {
+        if mode == self.mode.get() {
+            return;
+        }
+        let location = self.location();
+        self.view_anchor.replace(location.clone());
+        self.set_mode(mode);
+        PreferenceManager::shared().set_folder_mode(location.as_ref(), mode);
+    }
+
+    /// Columns keeps folders opened inside it; any other change shows the folder's view.
+    fn follow_folder_mode(&self, location: &Location) {
+        if self.pending_jump.replace(false) || self.mode.get() != BrowserMode::Columns {
+            self.view_anchor.replace(Some(location.clone()));
+        }
+        let mode = PreferenceManager::shared().mode_for(self.view_anchor.borrow().as_ref());
+        if mode != self.mode.get() {
+            self.switch_mode(mode);
+        }
+    }
+
+    /// A folder that cannot be remembered keeps the view chosen there.
+    fn follow_saved_mode(self: &Rc<Self>) {
+        let prefs = PreferenceManager::shared();
+        let anchor = self.view_anchor.borrow().clone();
+        if prefs.remember_folder_views() && !anchor.as_ref().is_some_and(|l| prefs.remembers(l)) {
+            return;
+        }
+        let mode = prefs.mode_for(anchor.as_ref());
+        if mode == self.mode.get() {
+            return;
+        }
+        self.set_mode(mode);
+        for f in self.changed.borrow().iter() {
+            f();
+        }
     }
 
     /// Columns keeps every visible column fresh; the other views only the folder showing.
@@ -642,6 +691,22 @@ impl Tab {
                             PreferenceManager::shared().resolve_folder_sort(location, opened)
                         }) as crate::app::FolderSortResolver
                     }));
+                }
+            },
+        );
+        let weak = Rc::downgrade(self);
+        prefs.bind_preference(
+            &self.page,
+            |p| {
+                (
+                    p.folder_modes_revision(),
+                    p.browser_mode(),
+                    p.remember_folder_views(),
+                )
+            },
+            move |_, _| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.follow_saved_mode();
                 }
             },
         );
@@ -1050,9 +1115,13 @@ impl Tab {
         if !matches!(event, BrowserEvent::MetadataFilled { .. }) {
             self.requested.borrow_mut().clear();
         }
+        if let BrowserEvent::NavigationStarting { descend, .. } = event {
+            self.pending_jump.set(!descend);
+        }
         if let BrowserEvent::LocationNavigationRejected { error }
         | BrowserEvent::NavigationRejected { error, .. } = event
         {
+            self.pending_jump.set(false);
             if let Some(f) = self.rejected.borrow().as_ref() {
                 f(error.clone());
             }
@@ -1099,14 +1168,17 @@ impl Tab {
         let Some(snapshot) = self.browser.column_snapshot(depth) else {
             return;
         };
+        let key = (snapshot.location.clone(), snapshot.count);
+        let moved = self.shown.borrow().as_ref().map(|(l, _)| l) != Some(&key.0);
+        if moved {
+            self.follow_folder_mode(&key.0);
+        }
         if let Some(error) = &snapshot.error {
             self.status.set_text(error);
             self.page.set_visible_child_name("status");
         } else {
             self.show_page();
         }
-        let key = (snapshot.location.clone(), snapshot.count);
-        let moved = self.shown.borrow().as_ref().map(|(l, _)| l) != Some(&key.0);
         let columns = self.mode.get() == BrowserMode::Columns;
         if columns {
             self.refresh_columns();

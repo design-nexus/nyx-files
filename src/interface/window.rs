@@ -689,17 +689,19 @@ impl Window {
     }
 
     fn set_mode(&self, mode: BrowserMode) {
-        PreferenceManager::shared().set_browser_mode(mode);
-        for tab in self.tabs.borrow().iter() {
-            tab.set_mode(mode);
-        }
+        let Some(tab) = self.current() else {
+            return;
+        };
+        tab.choose_mode(mode);
+        self.sync();
+        tab.focus_view();
+    }
+
+    fn show_mode(&self, mode: BrowserMode) {
         for (m, button) in self.view_switch.borrow().iter() {
             if *m == mode && !button.is_active() {
                 button.set_active(true);
             }
-        }
-        if let Some(tab) = self.current() {
-            tab.focus_view();
         }
     }
 
@@ -1021,6 +1023,7 @@ impl Window {
         if let Some(actions) = self.header_actions.borrow().as_ref() {
             actions.sync(tab);
         }
+        self.show_mode(tab.mode());
         self.back.set_sensitive(tab.browser.can_go_back());
         self.forward.set_sensitive(tab.browser.can_go_forward());
         self.up.set_sensitive(tab.browser.can_go_parent());
