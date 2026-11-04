@@ -21,6 +21,7 @@ pub(super) fn row_of(item: &glib::Object) -> Option<std::cell::Ref<'_, Row>> {
 }
 
 type BindHook = RefCell<Option<Box<dyn Fn(usize, &FileEntry)>>>;
+type ClickHook = RefCell<Option<Box<dyn Fn(u32)>>>;
 type HoverHook = RefCell<Option<Box<dyn Fn(Option<u32>, &gtk::Widget)>>>;
 type ContextHook = RefCell<Option<Box<dyn Fn(Option<u32>, &gtk::Widget, f64, f64)>>>;
 type DragHook = RefCell<Option<Box<dyn Fn(u32) -> Vec<FileEntry>>>>;
@@ -41,7 +42,7 @@ pub(super) struct Hooks {
     /// The pointer entered row `Some(index)`, or left it (`None`).
     pub(super) hover: HoverHook,
     /// A plain single click on row `index`.
-    pub(super) click: RefCell<Option<Box<dyn Fn(u32)>>>,
+    pub(super) click: ClickHook,
 }
 
 impl Hooks {
