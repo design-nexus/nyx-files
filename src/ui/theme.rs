@@ -21,7 +21,6 @@ use crate::{adapters::Watched, model::Location, services::LoadHandle};
 
 mod font;
 mod omarchy;
-mod roundness;
 
 /// Above GTK's user priority, every property is unset and the built-in theme
 /// restated, so `~/.config/gtk-4.0/gtk.css` cannot decide any of them.
@@ -30,14 +29,12 @@ const BASE_THEME_STYLE_PRIORITY: u32 = RESET_STYLE_PRIORITY + 1;
 /// Below Strata's stylesheet, so its intentional monospace rules still win.
 const FONT_STYLE_PRIORITY: u32 = BASE_THEME_STYLE_PRIORITY + 1;
 const STYLE_PRIORITY: u32 = FONT_STYLE_PRIORITY + 1;
-const RESET_CSS: &str = "* { all: unset; }";
 /// Above the static stylesheet so generated density spacing wins over its presets.
 const DENSITY_STYLE_PRIORITY: u32 = STYLE_PRIORITY + 1;
 const TOKEN_STYLE_PRIORITY: u32 = DENSITY_STYLE_PRIORITY + 1;
 /// Above every Files stylesheet, so `~/.config/strata/style.css` has the final word.
 const USER_STYLE_PRIORITY: u32 = TOKEN_STYLE_PRIORITY + 1;
 const USER_STYLE_FILE: &str = "style.css";
-const STYLE_CSS: &str = include_str!("../style.css");
 
 thread_local! {
     static SHARED_MANAGER: RefCell<Option<Rc<ThemeManager>>> = const { RefCell::new(None) };
@@ -287,10 +284,7 @@ impl ThemeManager {
             }
         }));
         pin_manual_font_rendering();
-        pin_base_theme();
-        manager.install_provider();
-        manager.apply_base_stylesheet();
-        manager.apply_density();
+        manager.install_user_stylesheet();
         manager.apply_selected();
         manager.monitor_text_scaling();
         manager.monitor_omarchy(&omarchy.directories);
@@ -376,42 +370,9 @@ impl ThemeManager {
         suite_tokens()
     }
 
-    fn install_provider(&self) {
-        if TOKENS_ONLY.with(Cell::get) {
-            return;
-        }
-        self.reset_provider.load_from_string(RESET_CSS);
+    /// The user's own stylesheet in Files' config folder has the final word.
+    fn install_user_stylesheet(&self) {
         if let Some(display) = gdk::Display::default() {
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &self.reset_provider,
-                RESET_STYLE_PRIORITY,
-            );
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &self.base_theme_provider,
-                BASE_THEME_STYLE_PRIORITY,
-            );
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &self.font_provider,
-                FONT_STYLE_PRIORITY,
-            );
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &self.base_provider,
-                STYLE_PRIORITY,
-            );
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &self.density_provider,
-                DENSITY_STYLE_PRIORITY,
-            );
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &self.provider,
-                TOKEN_STYLE_PRIORITY,
-            );
             gtk::style_context_add_provider_for_display(
                 &display,
                 &self.user_provider,
@@ -475,48 +436,9 @@ impl ThemeManager {
         self.pending_user_style_refresh.replace(Some(refresh));
     }
 
-    /// Reparses the stylesheet only when the roundness changed; the other
-    /// appearance preferences are applied through the token provider.
-    fn apply_base_stylesheet(&self) {
-        // Shapes come from the suite's theme; Files' own roundness is no longer offered.
-        let roundness = crate::ui::preferences::CornerRoundness::default();
-        if self.base_roundness.replace(Some(roundness)) == Some(roundness) {
-            return;
-        }
-        self.base_provider
-            .load_from_string(&roundness::scale_radii(STYLE_CSS, roundness.scale()));
-    }
 
-    #[cfg(test)]
-    pub(crate) fn base_stylesheet(&self) -> String {
-        self.base_provider.to_str().into()
-    }
 
-    /// Kept apart from the token provider so dragging a density slider restyles
-    /// only spacing rather than reapplying the whole theme.
-    fn apply_density(&self) {
-        let density = (
-            self.preferences.browser_density(),
-            self.preferences.frame_density(),
-        );
-        if self.density.replace(Some(density)) == Some(density) {
-            return;
-        }
-        let (browser, frame) = density;
-        let mut css = match browser {
-            super::browser_modes::BrowserDensity::Custom(px) => {
-                super::browser_modes::browser_density_custom_css(px)
-            }
-            _ => String::new(),
-        };
-        css.push_str(&frame_density_css(frame.px()));
-        self.density_provider.load_from_string(&css);
-    }
 
-    #[cfg(test)]
-    pub(crate) fn density_stylesheet(&self) -> String {
-        self.density_provider.to_str().into()
-    }
 
     fn apply_selected(&self) {
         let preview = self.preview.borrow().clone();
@@ -554,8 +476,6 @@ impl ThemeManager {
         if self.preview.borrow().is_none() {
             self.apply_selected();
         }
-        self.density.take();
-        self.apply_density();
         self.preferences.notify_changes();
     }
 
@@ -608,7 +528,6 @@ impl ThemeManager {
                 u32::from(red) * 299 + u32::from(green) * 587 + u32::from(blue) * 114 < 128_000
             });
         if self.base_variant_dark.replace(Some(dark_background)) != Some(dark_background) {
-            apply_base_variant(dark_background);
             self.base_theme_provider
                 .load_from_string(&base_theme_import(dark_background));
         }
@@ -644,10 +563,8 @@ impl ThemeManager {
         };
         if *self.appearance.borrow() != appearance {
             self.appearance.replace(appearance);
-            self.apply_base_stylesheet();
             self.apply_selected();
         }
-        self.apply_density();
         self.theme_listeners.notify(self);
     }
 
@@ -1439,60 +1356,13 @@ fn pin_manual_font_rendering() {
     }
 }
 
-thread_local! {
-    static TOKENS_ONLY: Cell<bool> = const { Cell::new(false) };
-}
 
-/// Theme colours for code that asks for them, without Files' own stylesheets or
-/// GTK theme: the Nyx 2.0 interface styles the window itself.
-pub(crate) fn tokens_only() {
-    TOKENS_ONLY.with(|t| t.set(true));
-}
 
-/// An empty theme bundled in Strata's resources. GTK's own theme provider sits
-/// below the reset, so loading a real theme there only adds selector matching.
-/// Desktop selections arrive through the settings portal or `settings.ini`,
-/// which application values outrank for the whole process.
-const PINNED_GTK_THEME: &str = "StrataEmpty";
 
 /// GTK's built-in theme, restated above the reset.
 const BASE_THEME: &str = "Default";
 
-/// Keeps GTK's own theme empty and its contrast regular whatever the desktop
-/// configures, so only Strata's stylesheets shape its widgets. Values are set
-/// even when they already match: only application-sourced values survive later
-/// portal updates. `GTK_THEME` is cleared before GTK starts because it bypasses
-/// the setting.
-fn pin_base_theme() {
-    if TOKENS_ONLY.with(Cell::get) {
-        return;
-    }
-    let Some(settings) = gtk::Settings::default() else {
-        return;
-    };
-    settings.set_gtk_theme_name(Some(PINNED_GTK_THEME));
-    set_enum_setting(&settings, "gtk-interface-contrast", "no-preference");
-}
 
-/// The built-in theme's light or dark variant follows the active Files theme
-/// rather than the desktop color scheme.
-fn apply_base_variant(dark: bool) {
-    if TOKENS_ONLY.with(Cell::get) {
-        return;
-    }
-    let Some(settings) = gtk::Settings::default() else {
-        return;
-    };
-    let scheme = if dark { "dark" } else { "light" };
-    if settings
-        .find_property("gtk-interface-color-scheme")
-        .is_some()
-    {
-        set_enum_setting(&settings, "gtk-interface-color-scheme", scheme);
-    } else {
-        settings.set_gtk_application_prefer_dark_theme(dark);
-    }
-}
 
 fn base_theme_import(dark: bool) -> String {
     let variant = if dark { "gtk-dark.css" } else { "gtk.css" };
@@ -1517,22 +1387,6 @@ fn apply_interface_font(family: Option<&str>, root_font_px: f64) {
     }
 }
 
-/// One inset for every bar so the header, tab strip, sidebar rows, and Miller and
-/// preview headers grow together and stay aligned. Padding and `margin-left` only,
-/// so `sizing`'s `min-height` and fixed button widths still hold. The sidebar toggle
-/// keeps its static margin, which lines it up with the sidebar icons below it.
-fn frame_density_css(inset: u8) -> String {
-    if inset == 0 {
-        return String::new();
-    }
-    // Miller headers keep their two extra bottom pixels that balance the top indicator.
-    let column_header_bottom = inset + 2;
-    format!(
-        "headerbar.browser-header, .tab-strip, .mode-pane-header, .preview-header, .sidebar-row {{ padding-top: {inset}px; padding-bottom: {inset}px; }}\n\
-         .directory-column .column-header {{ padding-top: {inset}px; padding-bottom: {column_header_bottom}px; }}\n\
-         headerbar.browser-header button.header-action, headerbar.browser-header menubutton.header-action > button, .tab-strip button.header-action, .directory-column .column-header button.column-header-action, .directory-column .column-header menubutton.column-header-action > button, .mode-pane-header button.column-header-action, .mode-pane-header menubutton.column-header-action > button, .mode-pane-header .list-navigation-button, .preview-header .preview-header-action {{ margin-left: {inset}px; }}\n"
-    )
-}
 
 fn tokens_css(tokens: &ThemeTokens, root_font_px: f64) -> String {
     let scale = root_font_px / 13.0;

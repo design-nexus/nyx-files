@@ -17,9 +17,6 @@ impl CornerRoundness {
         Self(percent.clamp(Self::MIN, Self::MAX))
     }
 
-    pub fn scale(self) -> f64 {
-        f64::from(self.0) / 100.0
-    }
 }
 
 impl Default for CornerRoundness {

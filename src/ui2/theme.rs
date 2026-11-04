@@ -12,7 +12,7 @@ pub(super) fn install() {
     if INSTALLED.with(|i| i.replace(true)) {
         return;
     }
-    crate::ui::theme::tokens_only();
+    let _colours = crate::ui::theme::ThemeManager::shared();
     nyx_theme::use_design_2();
     nyx_theme::install(nyx_theme::Style {
         window_class: "files-window",

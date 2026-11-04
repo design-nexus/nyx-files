@@ -798,6 +798,24 @@ fn standard_list(body: &gtk::Box, name: &str) -> Option<gtk::Box> {
 /// Files' rows for Appearance, Keyboard and About.
 fn extend_standard(body: &gtk::Box) {
     if let Some(list) = standard_list(body, "Appearance") {
+        let edit = widgets::icon_button(
+            "document-edit-symbolic",
+            &crate::i18n::tr("Edit theme file"),
+        );
+        edit.set_valign(gtk::Align::Center);
+        edit.connect_clicked(|_| {
+            let id = nyx_theme::read_suite().unwrap_or_default().theme;
+            if let Some(path) = nyx_theme::edit_copy(&id) {
+                nyx_core::cmd::open_in_editor(&path);
+            }
+        });
+        list.append(&widgets::row(
+            &crate::i18n::tr("Theme file"),
+            &crate::i18n::tr(
+                "Open the current theme in an editor; saving it restyles every Nyx app.",
+            ),
+            Some(edit.upcast_ref()),
+        ));
         choice(
             &list,
             "Interface renderer",

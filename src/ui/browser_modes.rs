@@ -697,28 +697,6 @@ struct IconsContext {
 
 
 
-/// Spacing for a Custom slider position, extrapolated linearly through the static
-/// Compact and Airy rules in `style.css` so the slider has no jump at either preset.
-pub(crate) fn browser_density_custom_css(px: u8) -> String {
-    let step = (f64::from(px) - f64::from(BrowserDensity::COMPACT_PX))
-        / f64::from(BrowserDensity::AIRY_PX - BrowserDensity::COMPACT_PX);
-    let between = |compact: f64, airy: f64| (compact + (airy - compact) * step).max(0.0).round();
-    let row_margin = px;
-    let row_content_margin = px.min(4);
-    let row_min_height = between(26.0, 42.0);
-    let grid_padding = between(0.0, 5.0);
-    let child_margin = between(1.0, 3.0);
-    let card_vertical = between(2.0, 5.0);
-    let card_horizontal = between(4.0, 7.0);
-    format!(
-        ".density-custom .file-row, .mode-list.density-custom .list-row {{ min-height: {row_min_height}px; }}\n\
-         .density-custom .file-row > *, .mode-list.density-custom .list-row > * {{ margin-top: {row_margin}px; margin-bottom: {row_margin}px; }}\n\
-         .density-custom .file-row > .file-row-content {{ margin-top: {row_content_margin}px; margin-bottom: {row_content_margin}px; }}\n\
-         .mode-icons.density-custom .file-icons {{ padding: {grid_padding}px; }}\n\
-         .mode-icons.density-custom .file-icons > child {{ margin: {child_margin}px; }}\n\
-         .mode-icons.density-custom .icons-card {{ padding: {card_vertical}px {card_horizontal}px; }}\n"
-    )
-}
 
 
 
