@@ -4,7 +4,7 @@ Application-wide preferences live in `ui::preferences::Preferences`. The
 `ui::preferences::PreferenceManager` loads them once per application process and
 persists changes atomically to
 `$XDG_CONFIG_HOME/strata/settings.toml` (normally `~/.config/strata/settings.toml`).
-The file may be a symlink, for example into a dotfiles repository: Strata follows
+The file may be a symlink, for example into a dotfiles repository: Files follows
 up to eight links owned by the current user to a regular file the user owns,
 replaces that target atomically in its own directory, keeps its permission bits
 and leaves the links in place. Links owned by another user, links to directories
@@ -46,15 +46,15 @@ changes to its selected value. There is no separate startup initializer to keep
 in sync with the change handler. Every setter goes through `save_preferences`,
 which deduplicates unchanged preferences and publishes changes through the same
 notification mechanism. The setter returns once the change is published; the file
-is written by Strata's one background settings writer (`storage::writer`), which
-runs every save of Strata's own settings and state files in order on its own
+is written by Files' one background settings writer (`storage::writer`), which
+runs every save of Files' own settings and state files in order on its own
 thread and keeps only the newest contents of a file whose save is still waiting.
 Quitting waits up to 10 seconds for queued saves; a crash before a queued save
 runs loses that last change. Failed writes are logged with the path and reason, still
 apply in memory, and are retried on the next save, so a transient failure such as
 a full disk recovers once its cause is fixed. The first failure also opens a
 "Settings can't be saved" dialog with the path and reason, saying that changes
-last only until Strata closes. It appears once per failure streak, in the active
+last only until Files closes. It appears once per failure streak, in the active
 browser window where the change was made, and again only after a save has
 succeeded and then failed. A failure while no browser window is active, such as
 a background Omarchy theme update, is only logged and leaves the notice for the
@@ -63,7 +63,7 @@ or parsed as TOML, startup logs a warning and uses temporary defaults. Preferenc
 changes still apply in memory, but saving is disabled for that manager's lifetime
 to preserve the original file. The first change made in a browser window then
 opens a "Settings file can't be read" dialog instead, once. Fix the file and restart
-Strata to resume saving. Portal file choosers never show these dialogs; their
+Files to resume saving. Portal file choosers never show these dialogs; their
 failures are only logged.
 Missing files allow normal first-run saves; invalid values in otherwise valid
 TOML still use the existing per-entry recovery.
@@ -103,10 +103,10 @@ control that might be midway through synchronization.
 | Element glow | Shared semantic glow color is applied by `ThemeManager` when the appearance preferences change, before Settings opens and live across windows, dialogs, menus, and rebuilt views. Focus outlines and ordinary depth shadows are preserved. The video preview's ambient light, and the band it needs around the frame, follow the same switch live. |
 | Reduced motion | Set before any window is constructed; animation helpers read the current process-wide value. |
 | Corner roundness | `corner_roundness` stores a percent of the stylesheet's corner radii (0–200, default 60). `ThemeManager` reparses the shared stylesheet with every pixel radius scaled when the value changes, before Settings opens and live across windows, dialogs, menus, and rebuilt views; percentage radii that draw circles are unchanged. Set under **Settings → Appearance → Shape**. |
-| Interface font | `interface_font` stores a font family name; absent means the bundled JetBrains Mono. `ThemeManager` loads the family into a stylesheet below Strata's own, so the explicit monospace of text, source, and command previews still wins, and into GTK's font setting, before Settings opens and live across windows, dialogs, menus, and rebuilt views. The bundled families follow the saved one, so text keeps the default look if it is uninstalled. Independent of text size. Choose it, or Default to restore the bundled font, under **Settings → Appearance → Text**; the picker lists installed families and filters them as you type. |
+| Interface font | `interface_font` stores a font family name; absent means the bundled JetBrains Mono. `ThemeManager` loads the family into a stylesheet below Files' own, so the explicit monospace of text, source, and command previews still wins, and into GTK's font setting, before Settings opens and live across windows, dialogs, menus, and rebuilt views. The bundled families follow the saved one, so text keeps the default look if it is uninstalled. Independent of text size. Choose it, or Default to restore the bundled font, under **Settings → Appearance → Text**; the picker lists installed families and filters them as you type. |
 | Theme, Omarchy following/variant, text size | `ThemeManager` applies shared CSS when theme selection, Omarchy following, Omarchy variant, text size, or element glow change; controls and theme-card selections bind to preferences through `ThemeManager::bind_theme_preference`. Newly saved custom themes appear in other open theme pages. Missing themes/Omarchy use the existing fallback policy. |
 | Language | Initialized before application UI from the saved manual language or system locale priorities. The selection and Restart button synchronize across Settings windows, but the running interface keeps its startup language until a full restart. This deliberate restart-to-apply exception avoids rebuilding active browsers, dialogs, and operations. |
-| Interface renderer | GTK selects the renderer at process startup. The saved GTK default or Cairo choice is read before GTK initializes; GTK default is selected for new installs. The control and Restart button synchronize across Settings windows, but changes take effect only after restarting Strata (via the button or after fully quitting and reopening). An explicit `GSK_RENDERER` always overrides the saved choice. |
+| Interface renderer | GTK selects the renderer at process startup. The saved GTK default or Cairo choice is read before GTK initializes; GTK default is selected for new installs. The control and Restart button synchronize across Settings windows, but changes take effect only after restarting Files (via the button or after fully quitting and reopening). An explicit `GSK_RENDERER` always overrides the saved choice. |
 | Keybinding hints | Navigation hints and the shortcuts button bind immediately and live. When hidden, the status bar appears only while the clipboard badge or F1 reference needs it; otherwise the empty bar is hidden. |
 | Show thumbnails | Enabled by default. **Settings → Appearance → File icons** switches file thumbnails to the existing file-type icons. Applies before Settings opens and live across browser windows, the portal chooser, searches, peeks, and rebuilt views. Disabling cancels pending thumbnail requests and prevents cache reads and decoding for new requests; re-enabling restores thumbnails for still-bound entries. Live thumbnail changes preserve pending dimensions and duration metadata; rebinding or unbinding a row still discards stale updates. Custom icons and the preview panel are unchanged. |
 | Thumbnail workers | Browser construction binds the shared decoder limit before Settings opens. Changes apply across windows and rebuilt views; lowering the limit lets active work finish and retires excess idle supervisors. |
@@ -124,8 +124,8 @@ control that might be midway through synchronization.
 | Sidebar expanded | Browser windows bind their header toggle at construction: a saved collapsed state starts closed without animation. The header toggle, `Ctrl+B`, or `Ctrl+N` in 10xer mode steps the sidebar from full to compact to hidden and back to full; each step persists and updates all open browser windows live. Expanded by default; not exposed in Settings. The portal chooser keeps its own unsaved sidebar state. |
 | Sidebar compact | The second step of the header toggle shows the icon rail and persists it; existing sidebars bind to it and change live, and a saved compact state starts as the rail at any window width. When the full sidebar does not fit beside the content (one column, or the preview and its minimum when a preview is present), a sidebar that is not compact by choice rails automatically; stepping from hidden to full shows the full sidebar anyway, and that stays until the window or the preview next runs out of room. Space that returns releases only an automatic rail. Off by default; not exposed in Settings. The portal chooser keeps its own unsaved compact state. |
 | Modified date format | Modified-time labels read the saved format at every render; already-open labels re-render live. Properties uses full absolute local timestamps for Relative, while preserving ISO 8601 and Long. |
-| Folder colors/custom icons | Icon resolution reads the manager; existing customization refreshes notify rendered icons, including local sidebar folders, customization previews, and Properties. Sidebar folder icons retain their customization in collapsed mode and across row rebuilds. Local sidebar folders expose the shared Customize action. Entries are keyed by absolute local path, and file operations performed in Strata update them item by item as each item lands, saving once the burst of changes settles. Renames, moves, and their undo/redo carry the item's entries and those of everything under it to the real destination (including a Keep both name), even when a later operation superseded the one that moved them, or a failure or cancel stopped it partway. A move to a remote location drops them. Replace, for a move or a copy, takes the replaced item's entries at and under the destination with it to Trash; a moved item then brings its own. Merge keeps the destination folder's own entry; destination files it moves to Trash take their entries with them, as Replace does, and a merged move carries the merged folder's descendants over same-named destination entries. Trash removes the entries from `settings.toml` and keeps them in memory for the session, at most 10,000 entries (the oldest go first). Put back or undo re-applies them only to the same item, recognised by its mount's [identity rule](filesystem-compatibility.md#identity), at exactly the path it was trashed from; another item that left that path stays plain. Permanent delete removes them. Copies, including duplicates, start uncustomized, and a new item at a path whose item Strata moved or removed starts plain; entries left behind by changes outside Strata, or by an uncustomized item replacing another where Trash is unsupported, still apply to whatever appears at that path. Changes made outside Strata (shell commands, other applications, batch-rename actions, or an open folder renamed underneath a window) are not followed, nor are items that land after the operation's window closed, entries for missing paths are not pruned at startup, so unmounted volumes keep theirs, and a FAT-family destination that renames a moved folder's descendants leaves their entries at names that cannot exist there. |
-| Device display labels | `device_labels` stores Strata-only labels by filesystem UUID, with mount URI fallback when a UUID is unavailable. Sidebar device rows and Properties bind at construction, update across open windows, and reapply on row rebuilds. Set label… edits the label; blank restores the system-provided name. Filesystem labels, mount/boot configuration, and other applications remain unchanged. Label editors retain their local draft while their Save action follows the latest shared value. Send-to menus and destructive Format confirmations retain system-provided drive names. No Settings page is required. |
+| Folder colors/custom icons | Icon resolution reads the manager; existing customization refreshes notify rendered icons, including local sidebar folders, customization previews, and Properties. Sidebar folder icons retain their customization in collapsed mode and across row rebuilds. Local sidebar folders expose the shared Customize action. Entries are keyed by absolute local path, and file operations performed in Files update them item by item as each item lands, saving once the burst of changes settles. Renames, moves, and their undo/redo carry the item's entries and those of everything under it to the real destination (including a Keep both name), even when a later operation superseded the one that moved them, or a failure or cancel stopped it partway. A move to a remote location drops them. Replace, for a move or a copy, takes the replaced item's entries at and under the destination with it to Trash; a moved item then brings its own. Merge keeps the destination folder's own entry; destination files it moves to Trash take their entries with them, as Replace does, and a merged move carries the merged folder's descendants over same-named destination entries. Trash removes the entries from `settings.toml` and keeps them in memory for the session, at most 10,000 entries (the oldest go first). Put back or undo re-applies them only to the same item, recognised by its mount's [identity rule](filesystem-compatibility.md#identity), at exactly the path it was trashed from; another item that left that path stays plain. Permanent delete removes them. Copies, including duplicates, start uncustomized, and a new item at a path whose item Files moved or removed starts plain; entries left behind by changes outside Files, or by an uncustomized item replacing another where Trash is unsupported, still apply to whatever appears at that path. Changes made outside Files (shell commands, other applications, batch-rename actions, or an open folder renamed underneath a window) are not followed, nor are items that land after the operation's window closed, entries for missing paths are not pruned at startup, so unmounted volumes keep theirs, and a FAT-family destination that renames a moved folder's descendants leaves their entries at names that cannot exist there. |
+| Device display labels | `device_labels` stores Files-only labels by filesystem UUID, with mount URI fallback when a UUID is unavailable. Sidebar device rows and Properties bind at construction, update across open windows, and reapply on row rebuilds. Set label… edits the label; blank restores the system-provided name. Filesystem labels, mount/boot configuration, and other applications remain unchanged. Label editors retain their local draft while their Save action follows the latest shared value. Send-to menus and destructive Format confirmations retain system-provided drive names. No Settings page is required. |
 | Recent Send-to destinations | `send_to_recent_destinations` stores up to three relative directory paths per stable removable-device ID. The selection menu lists those that a check on the device's lane last found inside its current canonical root, checks again each time it opens, and activation checks again; no Settings control is exposed. |
 | Restore open tabs | Plain launches reopen the previous tabs in strip order with the previously active tab selected, when the Startup toggle is on (the default). Explicit folder arguments, reveal requests, and unlock flows bypass restore. Toggle it under General → Startup; the toggle binds live across Settings windows. |
 | Window buttons (minimize, maximize, close) | Every window header binds at construction and updates live. Minimize and maximize are hidden by default; close is shown. The maximize button also restores a maximized window. |
@@ -157,7 +157,7 @@ own stores and are not fields in the application preferences schema. Udiskie
 encrypted-volume integration is stored in `$XDG_CONFIG_HOME/udiskie/config.yml`
 plus `$XDG_DATA_HOME/strata/udiskie-install/state.toml`.
 Synchronization between independently running application processes, or manual
-external edits to `settings.toml` while Strata runs, is not supported by this
+external edits to `settings.toml` while Files runs, is not supported by this
 in-process binding mechanism. External edits are read on the next launch.
 
 ## Per-folder sort and thumbnail size
@@ -195,10 +195,10 @@ a FUSE driver for local disks (`fuseblk`, such as ntfs-3g or exfat-fuse) count a
 local. Remote shares, other FUSE filesystems, Trash, Recent, Camera Photos, and
 paths that are not valid UTF-8 are not remembered: their sort stays with the open
 column, and a size change lasts while the folder is shown. Renames and moves
-performed in Strata, including undo and redo, carry a folder's values and those of
+performed in Files, including undo and redo, carry a folder's values and those of
 the folders inside it, following the Replace, Merge, Trash, Put back, and undo
 rules of folder colors (see [Consumers and intentional
-scopes](#consumers-and-intentional-scopes)); permanently deleting in Strata,
+scopes](#consumers-and-intentional-scopes)); permanently deleting in Files,
 including a deletion moved to the background, drops them. Opening a local folder
 that was deleted also drops them, but only when its parent still lists other
 entries and holds no mount points, so the folders of a drive that is not mounted
@@ -210,10 +210,10 @@ Values live in `$XDG_STATE_HOME/strata/folder-views.toml` (normally
 `~/.local/state/strata/folder-views.toml`), never in `settings.toml` or in the
 folders themselves. Writes are batched, so a burst of changes such as a slider drag
 is one write, and run on the settings writer, never on the click that made them;
-pending changes are written when Strata or the portal chooser quits. Saves from another Strata process, such as
+pending changes are written when Files or the portal chooser quits. Saves from another Files process, such as
 the portal chooser, are merged instead of overwritten, open views follow them, and
 **Forget all folder settings** clears them too. Open views also follow default
-sort and size changes saved by another Strata process. The file follows the
+sort and size changes saved by another Files process. The file follows the
 `settings.toml` recovery rules: a missing file starts empty; an unreadable file,
 invalid TOML, or an unknown `version` uses no saved values, logs a warning, and is
 never overwritten during that session, with a "Folder settings file can't be read"
@@ -275,7 +275,7 @@ The size is saved numerically, for example `text_size = 27`. Existing `"small"`,
 integers are clamped; unknown legacy names use 13 px.
 
 Desktop text scaling multiplies the chosen size once. GTK/compositor monitor
-scaling then converts logical coordinates to device pixels; Strata does not
+scaling then converts logical coordinates to device pixels; Files does not
 multiply widget geometry by a monitor's scale factor. Moving between monitors
 therefore does not overwrite the saved size. Toolbar/row icons and initial
 column widths follow typography. Grid captions reserve their measured space,
@@ -311,7 +311,7 @@ or `language = "auto"` to follow the system again. Missing and unknown language
 values recover to Auto-detect.
 
 Changes are saved immediately and synchronize across Settings windows. Use
-**Restart now**, or fully quit all Strata windows and reopen it, to apply the
+**Restart now**, or fully quit all Files windows and reopen it, to apply the
 new language. Until then, existing and newly opened application UI retains the
 startup language. Changing language never rebuilds an active browser or resets
 its navigation, selection, filters, or ongoing operations.
@@ -323,7 +323,7 @@ An explicit `C` or `POSIX` message locale means English and suppresses
 the supported base language (all Portuguese variants use Brazilian Portuguese,
 `zh_TW`, `zh_HK`, `zh_MO`, and any `zh-Hant` variant use Traditional Chinese,
 and every other Chinese locale, including bare `zh`, uses Simplified Chinese).
-Unsupported languages fall back to English. Strata does not modify the desktop
+Unsupported languages fall back to English. Files does not modify the desktop
 locale or the environment inherited by launched programs. System/provider error
 messages, externally supplied content, and toolkit-owned strings can therefore
 remain in the system language. Filenames, paths, user-defined names, scripts,
@@ -338,13 +338,13 @@ for catalog and contributor guidance.
 **Settings → Appearance → Rendering** offers **GTK default** (initial choice) and **Cairo**.
 Cairo avoids small-text artifacts on some systems but can use more CPU and reduce
 rendering performance. The choice is saved as `interface_renderer = "cairo"` or
-`"system"`. Use **Restart now** after changing the choice, or fully quit and reopen Strata,
+`"system"`. Use **Restart now** after changing the choice, or fully quit and reopen Files,
 including closing all windows. A caller-supplied `GSK_RENDERER` (even an empty value)
-takes precedence. Cairo selected by Strata is a process environment setting,
-so applications started by Strata may inherit it; it does not change desktop
+takes precedence. Cairo selected by Files is a process environment setting,
+so applications started by Files may inherit it; it does not change desktop
 or system-wide settings.
 
-Independently of the renderer choice, Strata switches GTK's `gtk-font-rendering`
+Independently of the renderer choice, Files switches GTK's `gtk-font-rendering`
 setting to **manual** for its own process. GTK's default automatic mode sizes GPU
 glyph atlas slots from unhinted glyph extents while rasterizing with slight
 hinting, so at some device pixel sizes (15px JetBrains Mono, for example) the GL

@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-This document defines how Strata turns a key press into a shortcut on every
+This document defines how Files turns a key press into a shortcut on every
 keyboard layout, and how code must read key input. It covers every surface that
 handles keys: browser windows, the file chooser, previews, Settings, and dialogs.
 What individual keys do is documented with each feature, for example in
@@ -71,8 +71,8 @@ Shortcuts follow the key's label first, then its physical position:
   (Bopomofo), Cangjie or Quick for Traditional Chinese.
 - **An unfinished composition sees each key first.** While the focused text
   field shows an input method's unfinished text (the preedit, such as pinyin
-  waiting for a candidate), each key goes to the input method before any Strata
-  command. A key it uses never reaches Strata: Space and digits pick a
+  waiting for a candidate), each key goes to the input method before any Files
+  command. A key it uses never reaches Files: Space and digits pick a
   candidate, Enter commits the typed letters, Escape cancels, and arrows, Tab
   and Backspace work in the composition. So Escape does not cancel a rename or
   close the filter, the location bar, a footer prompt, global search, or the
@@ -82,19 +82,19 @@ Shortcuts follow the key's label first, then its physical position:
   arrows and Ctrl shortcuts, so one press both commits and runs the command.
   Keys the text field handles itself go to the field: Enter submits it, and
   cursor keys move in it. On Wayland the input method runs in the compositor
-  and Strata never receives the keys it uses. Input methods that GTK loads into
-  Strata (`GTK_IM_MODULE=fcitx` or `ibus`, and every input method on X11),
+  and Files never receives the keys it uses. Input methods that GTK loads into
+  Files (`GTK_IM_MODULE=fcitx` or `ibus`, and every input method on X11),
   GTK's own dead keys, and the Compose key would otherwise get each key after
-  Strata's handlers.
+  Files' handlers.
 - **Input method switch keys reach the focused text field.** **Ctrl+Space**
   (fcitx5), **Super+Space** (IBus), **Shift** and **Shift+Space** go to the input
-  method in every text field, the F1 search included. Strata's own
+  method in every text field, the F1 search included. Files' own
   **Ctrl+Space** toggles selection only in a file list.
 - **Zhuyin starts syllables with digit and punctuation keys.** Zhuyin input
   methods, such as chewing, type initials and finals on the digit row and on
   `-` `,` `.` `/` `;`, and tones with 3, 4, 6, 7 and Space. Array30 and
   Boshiamy codes use punctuation keys too. While a text field has focus, no
-  Strata command takes a plain digit or punctuation key, so the first key of a
+  Files command takes a plain digit or punctuation key, so the first key of a
   syllable reaches the input method and the composition then sees the rest. New
   bindings on these keys must keep it that way.
 - **Hanyu Pinyin with AltGr dead keys** (`cn(altgr-pinyin)`): AltGr+1 to
@@ -265,7 +265,7 @@ listeners are needed.
 
 ### Built on GTK
 
-The hard parts come from GDK, which Strata already uses. `ui::keys` adds only
+The hard parts come from GDK, which Files already uses. `ui::keys` adds only
 what GTK lacks.
 
 - `KeyEvent::match_()` handles Caps Lock, consumed modifiers, and case folding.
@@ -277,14 +277,14 @@ what GTK lacks.
 GTK lacks three things: a fallback when no configured layout is Latin,
 position-based digits (its own matching misses **Ctrl+1** on AZERTY), and a
 single answer per event. `KeyEvent::matches()` is not called per binding:
-Strata's dispatcher tries bindings in order, so a physical-key match checked
+Files' dispatcher tries bindings in order, so a physical-key match checked
 first could beat an exact match checked later, and each non-exact check looks
 up the keymap again.
 
 Labels do not use `gtk::accelerator_get_label()` or `GtkShortcutLabel`
 (deprecated since GTK 4.18). GTK puts Shift first, capitalizes plain letters so
 **j** and **J** look the same, spells out arrows and symbols, leaves some names
-untranslated, and translates with the system locale rather than Strata's
+untranslated, and translates with the system locale rather than Files'
 language setting. Its translations are still a useful reference when filling in
 the key-name table.
 

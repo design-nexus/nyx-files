@@ -71,13 +71,10 @@ stable for `scripts/benchmark-delete.sh`. For example,
 selects replacement safety cases. Preserve independently named filesystem races,
 symlink, non-UTF8, cancellation, and conflict scenarios when sharing setup.
 
-Window regressions have policy owners under `src/ui/window/tests/` for keyboard
-classification, sidebar places, bookmarks, devices, and trash. Startup and live
-preference cases stay in `preferences`; real key-routing scenarios stay in
-`keyboard_dispatch` and `type_to_search`. The `ui::window::` filter covers these
-owners and the adjacent window modules. When moving a GTK case, update its
-`gtk_test` subprocess name to match its compiled test path and verify that the
-child actually executes the case; an unchanged outer test count is not enough.
+GTK cases that need their own process use `test_support::gtk_test`. When moving
+one, update its `gtk_test` subprocess name to match its compiled test path and
+verify that the child actually executes the case; an unchanged outer test count is
+not enough.
 
 A filter must collect at least one test; use Cargo's output or a collection
 check to verify that it did. `scripts/quality.sh` only accepts `all`, `fmt`,
@@ -155,7 +152,7 @@ runs unmask `/proc/*` inside the test container so bubblewrap can mount its own
 private `/proc`; the decoder's sandbox and the container's seccomp policy remain
 enabled. Docker's outer seccomp/AppArmor profiles and system-path masks must be
 disabled for the nested namespace and mount operations. This applies only to the
-disposable E2E container; Strata still launches its normal bubblewrap decoder
+disposable E2E container; Files still launches its normal bubblewrap decoder
 sandbox. Neither engine uses privileged mode or mounts desktop sockets.
 Updating the image inputs is an intentional rendering
 environment change and requires reviewing the visual baselines.
@@ -371,7 +368,7 @@ are not inherited.
 
 ## Writing a scenario
 
-Scenarios talk to `harness.browser.Strata`, which locates controls by
+Scenarios talk to `harness.browser.Files`, which locates controls by
 accessible role, name, and state:
 
 ```python
@@ -464,7 +461,7 @@ to new entries beyond the initial viewport in large directories.
 
 ### Accessible names are product surface
 
-The harness finds an entry because Strata names it. Those names live in
+The harness finds an entry because Files names it. Those names live in
 `src/ui/accessibility.rs` and exist for screen readers first: an entry row is
 labeled with its name and described as `Folder` or `File`, a pane is labeled
 with its directory and described with its presentation, the focusable surface
@@ -646,7 +643,7 @@ and helper and `foreign` processes a step starts keep the twin's environment,
 without the variable. And `scripts/qa.sh` mounts a tmpfs on the container's
 `/tmp`, which holds every run's fixture, HOME, and runtime directory, where
 `scripts/e2e.sh` keeps the image's overlay. `/tmp` is then a mount point of
-its own, the one Strata resolves for a path there instead of `/`, and a
+its own, the one Files resolves for a path there instead of `/`, and a
 directory may list its entries in another order; but tmpfs and overlay are
 both virtual file systems, and fixtures and HOME share one device on both
 sides, so Trash and its restore behave alike, and `/dev/shm` is still another
@@ -806,7 +803,7 @@ fails the scenario before it runs.
 | `{"open_menu":TARGET,"until":PREDICATE,"message":"..."}` | process | `open_appearance_menu`: clicks, and clicks again each second the menu stays closed while the target is not checked; `"open_states":["checked","pressed"]` counts either state as open, as `test_accessibility._open_choice` does |
 | `{"adopt":"PNG conversion test","timeout_ms":20000,"message":"..."}` | process | a portal run's chooser: waits for a showing application window with this title, as `application.find(name=title)`, and reads state, resolves targets, and logs input relative to it from then on |
 | `{"reveal_control":{"role":"spin button","name":"Text size in pixels"}}` | process | `test_text_size._reveal_page_control`: finds the control presented (`"{name} control"`), then while its scroll pane does not show all of it turns the wheel 16 pixels inside the pane's right edge at its middle height, `min(12, max(1, int(distance / height) * 3))` clicks toward it (`"reachable {name} control"`), and settles it |
-| `{"reveal":{"role":"button","name":"Modified date format"}}` | process | `Strata.reveal`: finds the control presented; unless the window and its scroll pane show it, turns the wheel three clicks at the window's centre up to twelve times, toward it, settling it once shown, then waits for it to be on screen (GTK's bridge declines the `scroll_into_view` before the loop) |
+| `{"reveal":{"role":"button","name":"Modified date format"}}` | process | `Files.reveal`: finds the control presented; unless the window and its scroll pane show it, turns the wheel three clicks at the window's centre up to twelve times, toward it, settling it once shown, then waits for it to be on screen (GTK's bridge declines the `scroll_into_view` before the loop) |
 | `{"keep":[0,0,240,80],"as":"foreign"}` | process | keeps a box on the X screen for `kept` targets; the runner sends it for a `foreign` drag source's button |
 | `{"activate":{"role":"toggle button","name":"..."},"message":"..."}` | process | `Node.activate`: the default action, no pointer input; a role target without `within` may be scrolled away; one with `within`, or a `{"dialog_button":"Close dialog"}`, is looked up on screen first |
 | `{"holds":PREDICATE}` | process | `true` or `false` in `result`, never a failure |
@@ -923,7 +920,7 @@ that long after a press that started a navigation.
 | `{"role":["check box","toggle button","switch"],"name":"Confirm"}` | `next(node for node in find_all(name=...) if node.role in {...})`: a role list matches any of them |
 | `{"role":"*","states":["selected"],"within":{"preview":true}}`, `{"role":"list item","has":{"role":"label","name":"top.txt"}}`, `{"role":"button","name":"Settings","rendered":false}` | `preview.find(states={"selected"})`: `*` is any role; a match that has a rendered widget the inner role target finds at or below it, as `archive_row` picks the row holding a label; `find(..., rendered=False)`, presented but perhaps scrolled away, which `state`, `description`, `activate`, and `remember` then read as it is |
 | `{"row":"readme.md"}` | `test_chooser_selection._find_row`: the first rendered list item with the name, else the first table cell |
-| `{"other_window":"Strata"}` | a showing application window with this title other than the one the run started with, as a reveal opens a second browser window |
+| `{"other_window":"Files"}` | a showing application window with this title other than the one the run started with, as a reveal opens a second browser window |
 | `{"toplevel":"Copy to"}`, `{"field":true,"within":{"toplevel":"Copy to"}}` | `destination_chooser(title)`: an application window by its title, outside the browser window; `chooser.find(role="text", states={"editable", "focused"})`, which `remember` keeps as a field |
 | `{"sidebar":"Home"}`, `{"header":"Choose sort field"}` | `sidebar_button`, `header_button` |
 | `{"menu_item":"New File"}` | `menu_item`: in the open menu if there is one |
@@ -1023,7 +1020,7 @@ Predicates mirror the page object's accessors:
 | `{"children":{"comm_prefix":"xdg-terminal-ex","count":0}}` | `test_terminal._launcher_children`: how many of the application's child processes have a command name with the prefix |
 | `{"list_sections":{"within":{"dialog":true},"section":"Recommended Applications","names":NAMES}}` | the selectable list items under each unselectable heading row, named by the row's first named child, as `test_open_with` groups them |
 | `{"text":{"target":TARGET,"text":"batch-rename"}}` | `node.text`, the text interface: a label's or entry's text, a text view's buffer |
-| `{"some_window":{"title":"Strata","holds":PREDICATE}}`, `{"windows":{"title":"Strata","count":6}}` | `any(... for window in application.find_all(role="frame", name="Strata"))`: the predicate read in each showing application window with the title as its own tree; how many there are |
+| `{"some_window":{"title":"Files","holds":PREDICATE}}`, `{"windows":{"title":"Files","count":6}}` | `any(... for window in application.find_all(role="frame", name="Files"))`: the predicate read in each showing application window with the title as its own tree; how many there are |
 | `{"child_names":{"of":{"parent":{"sidebar":"Home"}},"role":"button","names":NAMES}}` | `[row.name for row in node.children if row.role == "button"]`, the target's visible children, as `_place_names` lists the sidebar's places |
 | `{"focus_outside":TARGET}`, `{"focused_widget_is":TARGET}` | `test_accessibility._focus_outside`: the focused widget has a name and is neither the target nor inside it; `strata.focused_node() == target` |
 | `{"alive":"rename"}`, `{"subtree_text":{"target":{"dialog":true},"contains":"...","strip_newlines":true}}` | `node.alive` for a widget `remember` kept: it still belongs to a window; `" ".join(node.text for _, node in dialog.walk() if node.text)` contains the part, after `.replace("\n", "")` with `strip_newlines` |
@@ -1493,16 +1490,16 @@ QA run, 13 and 11 times. Both always pass; every other event is compared.
 
 ## Main-thread I/O audit
 
-Strata must not touch the disk on the GTK main thread (see
+Files must not touch the disk on the GTK main thread (see
 [`docs/architecture.md`](architecture.md)). Runtime asserts catch calls that go
-through Strata's own seams; two opt-in tools catch the rest, including GLib and
+through Files' own seams; two opt-in tools catch the rest, including GLib and
 GTK internals and closes triggered by drops. Neither is a CI job: run them before
 pushing a change that moves work on or off the UI thread.
 
 `scripts/trace-main-io.py` runs an E2E selection (every scenario by default)
-through the canonical runner with each Strata launch wrapped in `strace`: the
+through the canonical runner with each Files launch wrapped in `strace`: the
 application, the portal backend and the second instances some scenarios start.
-Harness code that starts Strata goes through `harness.main_io.launch`. Only the
+Harness code that starts Files goes through `harness.main_io.launch`. Only the
 initial thread, which runs GTK's main loop, is traced, so workers keep their
 normal timing:
 
@@ -1519,9 +1516,9 @@ call is classified by its path, after resolving descriptors and `*at` folders:
 - **user**: the scenario's fixture tree, `HOME`, the Trash, the user's
   `gtksourceview-5` and `gstreamer-1.0` folders, `/tmp`, `/run/media`, `/media`,
   `/mnt` and GVfs mounts. Always a violation.
-- **settings**: Strata's own settings, state, caches and runtime files (`strata`
+- **settings**: Files' own settings, state, caches and runtime files (`strata`
   under the XDG folders, the shared thumbnail cache, GTK bookmarks, portal files,
-  Omarchy's theme state and Strata's install folder). A violation unless a
+  Omarchy's theme state and Files' install folder). A violation unless a
   documented exception below covers it.
 - **toolkit**: system paths and the toolkit's own files (fonts, icons, Mesa,
   audio configuration, GTK settings, MIME associations, recently
@@ -1540,13 +1537,13 @@ non-zero when it finds a violation. `tests/e2e/main-io-allowlist.toml` holds
 only documented exceptions, each with its reason; the script refuses entries for
 user paths. The documented exceptions are:
 
-- Strata's reads of its settings and state at startup, which stay synchronous.
-- The bundled font, which Strata writes at startup and fontconfig reads whenever
+- Files' reads of its settings and state at startup, which stay synchronous.
+- The bundled font, which Files writes at startup and fontconfig reads whenever
   it lays out text.
 - GIO's checks of an application's program while it lists or launches
   applications (`GDesktopAppInfo`), a toolkit exception.
 
-`--stacks` adds the Strata frames of every reported call, named from the binary's
+`--stacks` adds the Files frames of every reported call, named from the binary's
 symbol table; it leaves plain `read` and `write` untraced and is slow, so use it
 on a selection.
 
@@ -1554,7 +1551,7 @@ Limits: page faults on mapped files and waits on another thread, such as a
 synchronous D-Bus call or a mutex held by a worker, make no traced call. The stall
 watchdog covers those. Set `STRATA_UI_STALL_MS` (for example `250`) to start a
 thread that posts to the main context every 100 ms; when the main loop has not run
-it within the limit, Strata logs the call the UI thread is blocked in, read from
+it within the limit, Files logs the call the UI thread is blocked in, read from
 `/proc`:
 
 ```text
@@ -1563,7 +1560,7 @@ UI thread ran again after 2400 ms
 ```
 
 The watchdog is off unless the variable is set. The E2E runner forwards it to
-every Strata launch, and `--stall-ms` passes it to an audit run, whose report
+every Files launch, and `--stall-ms` passes it to an audit run, whose report
 lists the logged stalls per scenario. Debug builds stall at start-up while the
 first window is built, and more so under `strace`.
 
@@ -1672,7 +1669,7 @@ index fetch. Source builds attach the public input digest as an output image lab
 not an environment variable or secret-looking build argument.
 
 A stub application
-warms dependencies only; its executable and all Strata fingerprints are removed
+warms dependencies only; its executable and all Files fingerprints are removed
 before the real source is copied and compiled. The bundle is tied to the checked-out
 commit, source/resource contents (including local edits), rendering inputs, binary
 checksum, and plan checksum. The runtime image's input label must match too; it cannot be replaced
@@ -1779,7 +1776,7 @@ critical-path summary rather than raising the time limit.
 ### Measured fresh-revision run
 
 [CI run 34235908938](https://github.com/lgse/strata/actions/runs/34235908938)
-(`84d8e82`, 2026-09-08) compiled Strata again and passed all 581 cases exactly once
+(`84d8e82`, 2026-09-08) compiled Files again and passed all 581 cases exactly once
 on 30 runners in **172 seconds**, measured from the initial E2E queue/attempt start
 through the aggregate job's completed timestamp. The internal measurement was
 168.7 seconds before teardown. The runtime archive was cached; the new segmented
@@ -1787,7 +1784,7 @@ dependency cache missed, so this run exercised the GHA dependency-cache fallback
 while the separate warmer published the new format. This was not an identical
 binary-cache rerun or a completely cold package bootstrap.
 
-Attempt 2 of the same run restored both segmented caches and **recompiled Strata
+Attempt 2 of the same run restored both segmented caches and **recompiled Files
 in 7.51 seconds**. All 581 cases passed exactly once: **139 seconds** from initial
 E2E queue to completion, **141 seconds** from attempt start, and 137.4 seconds at
 the internal measurement. This is same-revision recompilation, not a second new

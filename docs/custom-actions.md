@@ -5,7 +5,7 @@ Custom actions add your own scripts to the file and folder context menus. In
 ten matching actions on the focused item or filled selection.
 
 They are ordinary programs running with your permissions. There is no sandbox and
-no install step beyond enabling an action. Strata validates the definition and the
+no install step beyond enabling an action. Files validates the definition and the
 files around it, prepares private invocation files, and reports progress and
 results; it does not restrict what a script may do.
 
@@ -71,7 +71,7 @@ language, purpose, run mode/input scope, and required tools:
 | Count lines | Bash + `wc` (coreutils) | Log each file's newline count and the total, without changing files |
 
 Python recipes need Python 3 but no pip packages; Bash recipes do not need
-Python. Strata does not install tools.
+Python. Files does not install tools.
 Conversion outputs go into fresh, private folders **beside each original**;
 conversions never overwrite originals. EXIF stripping instead edits the working
 photo after making a private backup, as described below. Existing checksum files
@@ -97,7 +97,7 @@ The documented Python starter and every Python recipe include the same maintaine
 [`context()` reference](../data/actions/context-api.txt) as a module docstring.
 Examples are starting points: edit the output format, quality, resize limit,
 FFmpeg flags, or filters before saving. Shared rename-recipe code is embedded
-into the inserted script, so saved recipes do not depend on files in Strata's
+into the inserted script, so saved recipes do not depend on files in Files'
 source checkout.
 
 **EXIF stripping:** only regular, non-symlink photos are accepted. Each original
@@ -121,10 +121,10 @@ Its per-file context provides:
 - `filename`: original name including its extension.
 - `stem` and `suffix`: name without its last extension, and that extension with
   its leading dot (empty if absent).
-- `index`: **1-based** position in Strata's supplied selection order, not click
+- `index`: **1-based** position in Files' supplied selection order, not click
   order; `total`: number of files in the job.
 - `path`: original absolute `pathlib.Path`.
-- `batch`: the full Strata `context()` object documented below, including logging
+- `batch`: the full Files `context()` object documented below, including logging
   and progress methods. These per-file fields belong to this recipe, not the
   general helper.
 
@@ -346,7 +346,7 @@ Icon-only buttons retain tooltips; controls retain accessible names. **Minimize*
 and **Clear finished** removes finished history without disturbing active work.
 
 Cancelling stops the work that has not happened yet. It does not roll back changes
-already written to disk, and Strata does not retry a failed or cancelled action.
+already written to disk, and Files does not retry a failed or cancelled action.
 
 ## Trust model
 
@@ -354,7 +354,7 @@ already written to disk, and Strata does not retry a failed or cancelled action.
   or network boundary; a script can do anything you can do.
 - Imported actions arrive **disabled**. Review the script before enabling it.
   Import copies only `action.toml` and its entrypoint.
-- Strata never discovers or runs scripts found in browsed folders, and never
+- Files never discovers or runs scripts found in browsed folders, and never
   installs runtimes, interpreters, or packages. A missing interpreter or program
   leaves the action visible but disabled, with the reason in its accessible description.
 - Manifests and generated scripts are written owner-only (0600) inside an
@@ -371,7 +371,7 @@ already written to disk, and Strata does not retry a failed or cancelled action.
 - There is no sandbox, no restart/resume, and no built-in parameter form; a script
   that needs options reads them from its own file or environment.
 - Editing an action's script from Settings replaces the whole file; keep large
-  scripts in version control if you edit them outside Strata.
+  scripts in version control if you edit them outside Files.
 
 ## Testing an action
 
@@ -380,12 +380,12 @@ dashboard shows the invocation, its output, and its exit status. A definition th
 cannot load appears under **Settings → Actions → Problems** with the reason, and
 never silently disappears from the menus.
 
-Strata reads and writes the actions folder on its background settings writer, never
+Files reads and writes the actions folder on its background settings writer, never
 on the interface thread. A menu, the 10xer action chord and **Settings → Actions**
 show the actions as last read and read the folder again in the background, so an
-action changed outside Strata appears once that read finishes, usually from the
+action changed outside Files appears once that read finishes, usually from the
 next opening. Choosing an action reads its definition again first: an action
-changed or removed since the menu or chord listed it does not run, and Strata says
+changed or removed since the menu or chord listed it does not run, and Files says
 the actions changed. Programs and interpreters are looked up, and actions imported
 or exported, on a separate worker through the same per-mount limits as folder
 loads, so a server that stops answering never holds up saving settings.

@@ -1,6 +1,6 @@
 # SFTP locations
 
-Strata reaches `sftp://` locations through GIO/GVfs, the same URI-native path it
+Files reaches `sftp://` locations through GIO/GVfs, the same URI-native path it
 uses for every other remote scheme. This page covers what the client supports
 and how to exercise it against a disposable server.
 
@@ -17,16 +17,16 @@ stripped from the URI, used once for the connection, and never saved.
 
 ## Authentication
 
-The SFTP backend decides which credentials it needs and asks Strata for them:
+The SFTP backend decides which credentials it needs and asks Files for them:
 
-- **Password** — the backend requests a username and password. Strata shows a
+- **Password** — the backend requests a username and password. Files shows a
   sign-in dialog with only the fields the backend asked for, so SMB's domain and
   anonymous options do not appear on an SFTP prompt.
 - **SSH key** — the agent or an unencrypted key answers without any prompt.
 - **Encrypted key** — `ssh-add` can unlock it in your agent before connecting.
-  If GVfs asks Strata for the key's passphrase, Strata labels that field
+  If GVfs asks Files for the key's passphrase, Files labels that field
   "Passphrase" rather than "Password". Not every GVfs/OpenSSH configuration
-  sends a key-passphrase request to Strata.
+  sends a key-passphrase request to Files.
 
 Wrong credentials reopen the prompt with a message naming only the fields the
 prompt is showing. Cancelling returns to the previous location without recording
@@ -34,7 +34,7 @@ history.
 
 ## Host keys
 
-When GVfs asks about an unrecognized or changed host key, Strata's themed trust
+When GVfs asks about an unrecognized or changed host key, Files' themed trust
 dialog presents the backend's question and choices without answering for you.
 The backend may not supply a fingerprint (it can report `???`); verify the
 server's SSH host key through a trusted channel before choosing to continue.
@@ -62,7 +62,7 @@ directory that is deleted when the server stops. Nothing is written to `~/.ssh`.
 $ ./scripts/sftp-fixture.sh --port 2222
 Disposable SFTP fixture is listening on 127.0.0.1:2222
 
-  Open in Strata:   sftp://you@127.0.0.1:2222/tmp/strata-sftp-XXXXXX/served
+  Open in Files:   sftp://you@127.0.0.1:2222/tmp/strata-sftp-XXXXXX/served
   Client key:       /tmp/strata-sftp-XXXXXX/client_ed25519
   Encrypted key:    /tmp/strata-sftp-XXXXXX/client_ed25519_encrypted (passphrase: strata)
 ```
@@ -85,10 +85,10 @@ GVfs needs a live session bus.
 | --- | --- | --- |
 | Unknown host key | Connect for the first time | Themed host-key dialog with backend question and choices; no automatic acceptance |
 | Declined host key | Answer Cancel | Returns to the previous location, no sign-in prompt |
-| Accepted host key | Verify the fingerprint outside Strata if the backend omits it, then answer the accepting choice | Connection continues |
+| Accepted host key | Verify the fingerprint outside Files if the backend omits it, then answer the accepting choice | Connection continues |
 | Key authentication | `ssh-add` the client key, reconnect | Browses with no prompt |
-| Encrypted key via SSH agent | `ssh-add` the encrypted key, then reconnect | `ssh-add` asks for the passphrase; Strata browses without an additional prompt |
-| Backend key-passphrase request | If your GVfs/OpenSSH setup emits one | Strata labels the field "Passphrase" (not observed with this fixture in the isolated local probe) |
+| Encrypted key via SSH agent | `ssh-add` the encrypted key, then reconnect | `ssh-add` asks for the passphrase; Files browses without an additional prompt |
+| Backend key-passphrase request | If your GVfs/OpenSSH setup emits one | Files labels the field "Passphrase" (not observed with this fixture in the isolated local probe) |
 | Wrong backend passphrase | If GVfs requests a passphrase, answer incorrectly | Prompt reopens with the retry message |
 | Cancelled sign-in | Escape the prompt | Previous location, no history entry |
 | Non-default port | Use `sftp://user@127.0.0.1:PORT/path` | Browses normally |

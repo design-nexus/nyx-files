@@ -1,6 +1,6 @@
 # Diagnostics
 
-**Settings → Diagnostics** checks the runtime components Strata relies on but
+**Settings → Diagnostics** checks the runtime components Files relies on but
 does not link against, so users can find why previews, locations, devices, or
 desktop integration fail. Nothing runs until the user selects **Run**, and no
 check changes or installs anything.
@@ -25,7 +25,7 @@ binary:
   links and the highest-ranked audio sink.
 - **GVfs** checks that GIO's default VFS is GVfs, and each backend looks for
   its URI scheme among the schemes GVfs supports. `GIO_USE_VFS=local` means
-  the startup probe found GVfs unresponsive and restarted Strata without it.
+  the startup probe found GVfs unresponsive and restarted Files without it.
 - **Removable drives**, the **desktop portal**, and **password storage** look
   for owned or activatable names on the session and system D-Bus buses.
 - The **update server** check requests `https://api.github.com/rate_limit`,
@@ -34,8 +34,8 @@ binary:
   actions run on the GTK thread; everything else runs on worker threads and
   streams results to the page as they finish.
 
-Libraries Strata links against, such as GTK, Poppler, and GStreamer core,
-cannot be diagnosed in-app: the dynamic loader fails before Strata starts.
+Libraries Files links against, such as GTK, Poppler, and GStreamer core,
+cannot be diagnosed in-app: the dynamic loader fails before Files starts.
 
 Each result is passed, warning, or problem. A failed check names the package
 that fixes it, with an install command for the distribution detected from
@@ -63,5 +63,5 @@ before posting.
 
 Tests inject the background checks through `diagnostics_page_with`, so the
 page's tests never start sandboxes or contact the network. Probes that need the
-real Strata executable, such as the sandbox checks, fail inside the test binary
+real Files executable, such as the sandbox checks, fail inside the test binary
 because the sandbox re-executes the current executable as its helper.

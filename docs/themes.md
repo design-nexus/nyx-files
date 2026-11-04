@@ -1,28 +1,28 @@
 # Themes
 
-Strata styles the interface with nine semantic color tokens. Bundled themes are the fallback on any Linux desktop; Tokyo Night is the default, and Azure Glow is used when a saved theme ID is not recognized. Settings presents all 95 bundled themes in one searchable, light/dark-filterable scrolling catalog.
+Files styles the interface with nine semantic color tokens. Bundled themes are the fallback on any Linux desktop; Tokyo Night is the default, and Azure Glow is used when a saved theme ID is not recognized. Settings presents all 95 bundled themes in one searchable, light/dark-filterable scrolling catalog.
 
-Tinted Base16 entries map colors to Strata tokens as follows: `base00` to background, `base01` to surface, `base05` to text, `base0D` to accent, `base08` to danger, `base02` to muted and highlight, `base03` to border, and `base04` to dim text. A few bundled entries override the mapped foreground values so body text stays readable: text is at least 4.5:1 on background and 3:1 on surface; the catalog comments each override next to the value. Where the upstream dim text is also unreadable, loading the bundled theme lifts it to the same floors, stopping as soon as they are met so it stays dimmer than text. Source revision and licensing details are recorded in [`THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md).
+Tinted Base16 entries map colors to Files tokens as follows: `base00` to background, `base01` to surface, `base05` to text, `base0D` to accent, `base08` to danger, `base02` to muted and highlight, `base03` to border, and `base04` to dim text. A few bundled entries override the mapped foreground values so body text stays readable: text is at least 4.5:1 on background and 3:1 on surface; the catalog comments each override next to the value. Where the upstream dim text is also unreadable, loading the bundled theme lifts it to the same floors, stopping as soon as they are met so it stays dimmer than text. Source revision and licensing details are recorded in [`THIRD_PARTY_LICENSES.md`](../THIRD_PARTY_LICENSES.md).
 
 ## GTK CSS precedence
 
-Strata defines its named colors as `@strata_bg`, `@strata_surface`,
+Files defines its named colors as `@strata_bg`, `@strata_surface`,
 `@strata_accent`, and other `@strata_*` tokens. These replace the former
 `@theme_*` names; user stylesheets referencing those names must be updated.
 Custom theme TOML keys are unchanged.
 
-Strata isolates its appearance from desktop GTK styling:
+Files isolates its appearance from desktop GTK styling:
 
-- The GTK theme setting is pinned to an empty theme bundled with Strata. A
+- The GTK theme setting is pinned to an empty theme bundled with Files. A
   desktop theme selected through the settings portal, `settings.ini`, or
   `GTK_THEME` is ignored; `GTK_THEME` is dropped from the environment before
   GTK starts.
-- The built-in theme's light or dark variant follows the active Strata theme's
+- The built-in theme's light or dark variant follows the active Files theme's
   background, not the desktop color scheme, and the high-contrast variant is
   never used.
-- Above GTK's user priority, Strata unsets every property and restates GTK's
+- Above GTK's user priority, Files unsets every property and restates GTK's
   built-in `Default` theme before its own stylesheets, so
-  `~/.config/gtk-4.0/gtk.css` cannot change any property of Strata's widgets.
+  `~/.config/gtk-4.0/gtk.css` cannot change any property of Files' widgets.
 - Interface icons are bundled. GTK controls that would otherwise draw icons
   from the desktop icon theme, such as dropdown arrows and spin button steps,
   use bundled symbolic icons instead. Application icons in Open With still
@@ -34,14 +34,14 @@ redefinitions in a user stylesheet.
 
 ## User stylesheet
 
-To restyle Strata itself, create an optional stylesheet at:
+To restyle Files itself, create an optional stylesheet at:
 
 ```text
 ~/.config/strata/style.css
 ```
 
-It is loaded above every stylesheet Strata ships, including the active theme,
-so its rules win over Strata's own. The `@strata_*` colors of the active theme
+It is loaded above every stylesheet Files ships, including the active theme,
+so its rules win over Files' own. The `@strata_*` colors of the active theme
 are available, which keeps overrides in step with theme changes:
 
 ```css
@@ -61,7 +61,7 @@ are available, which keeps overrides in step with theme changes:
 }
 ```
 
-Strata re-reads the file when it changes, so edits apply to open windows
+Files re-reads the file when it changes, so edits apply to open windows
 without a restart; deleting it restores the default appearance. Rules GTK
 cannot parse are skipped and logged as warnings. Class names are not a stable
 interface and may change between releases.
@@ -89,7 +89,7 @@ border = "#315b75"
 dim_text = "#6f8da3"
 ```
 
-Strata discovers valid `.toml` files in this directory on startup, re-reads them when they change (see [Live updates](#live-updates)), and displays them under **Your themes**. If a custom filename matches a bundled theme ID, the custom theme replaces that bundled entry so saved preferences and selection always use the user’s palette. Colors load as `#rrggbb`, or `#rrggbbaa` when translucent, so GTK-only forms such as 9-digit hex still apply; the file is not rewritten. Interface icons ignore the alpha.
+Files discovers valid `.toml` files in this directory on startup, re-reads them when they change (see [Live updates](#live-updates)), and displays them under **Your themes**. If a custom filename matches a bundled theme ID, the custom theme replaces that bundled entry so saved preferences and selection always use the user’s palette. Colors load as `#rrggbb`, or `#rrggbbaa` when translucent, so GTK-only forms such as 9-digit hex still apply; the file is not rewritten. Interface icons ignore the alpha.
 
 The configurator derives a new file's ID from the theme name, lowercased, keeping ASCII letters and digits and joining the rest with `-` (for example `Ocean Blue` becomes `ocean-blue.toml`). Names without ASCII letters or digits are saved as `custom-theme.toml`. The `name` field keeps the name exactly as typed, so names such as `日本語` are still shown as written.
 
@@ -97,7 +97,7 @@ Theme files may be symlinks into a dotfiles repository. The configurator never r
 
 ## Live updates
 
-Strata watches `~/.config/strata/themes/` while it runs. When a `.toml` file changes there, the custom themes are read again; if the theme currently selected resolves to different colors, it is re-applied to every open window, including icon colors and code-preview syntax colors. No restart is needed.
+Files watches `~/.config/strata/themes/` while it runs. When a `.toml` file changes there, the custom themes are read again; if the theme currently selected resolves to different colors, it is re-applied to every open window, including icon colors and code-preview syntax colors. No restart is needed.
 
 This makes dynamic themes work: a generator can rewrite a theme file in place, for example a [matugen](https://github.com/InioX/matugen) template that follows the wallpaper and writes `~/.config/strata/themes/matugen.toml` on every change. Select that theme once (Settings → Appearance, or `theme = "matugen"` in `settings.toml`) and open windows follow the file.
 
@@ -127,7 +127,7 @@ These fields accept GTK CSS color formats. Omitted fields retain the previous ac
 
 ## Omarchy Quattro
 
-On Omarchy Quattro, Strata detects the active theme from:
+On Omarchy Quattro, Files detects the active theme from:
 
 ```text
 ~/.local/state/omarchy/current/theme.name
@@ -144,8 +144,8 @@ Under **Settings → Appearance → Follow Omarchy**, **Omarchy variant** offers
 
 The variants keep palette hues and adjust brightness where necessary; they do not invert colors or substitute another theme. Darker and High contrast derive muted/hover surfaces from the same palette, adjust semantic foregrounds for at least 4.5:1 contrast against those surfaces, and adapt preview syntax colors. High contrast targets 7:1 for primary text and 3:1 for borders. These are semantic-token targets, not a guarantee for every composited or disabled widget state.
 
-The choice is saved as `omarchy_variant = "original"`, `"darker"`, or `"high_contrast"` in Strata's `settings.toml`. It applies before Settings opens and live across windows, menus, dialogs, icons, and previews. Changing the active Omarchy theme retains the variant. Turning off Follow Omarchy disables the selector but remembers its value; bundled and custom themes are unaffected.
+The choice is saved as `omarchy_variant = "original"`, `"darker"`, or `"high_contrast"` in Files' `settings.toml`. It applies before Settings opens and live across windows, menus, dialogs, icons, and previews. Changing the active Omarchy theme retains the variant. Turning off Follow Omarchy disables the selector but remembers its value; bundled and custom themes are unaffected.
 
 Syntax colors follow Quattro's named `magenta`, `green`, `orange`, `cyan`, and `yellow` colors. Older terminal palettes can supply `color5` for keywords, `color2` for strings, `color9` for constants, and `color3` for types. Missing colors retain the existing source-palette or derived fallback. Quattro values load in the same canonical hex form as custom theme files; values GTK cannot parse count as missing.
 
-The system option is not shown when a valid Quattro current-theme state is unavailable. If that state disappears while Strata is running, following turns off and Strata returns to the selected built-in theme. If it only becomes invalid, for example midway through an Omarchy theme switch, the last applied Omarchy palette stays in use until the next valid change. Legacy Omarchy theme layouts and alacritty-based color extraction are intentionally unsupported.
+The system option is not shown when a valid Quattro current-theme state is unavailable. If that state disappears while Files is running, following turns off and Files returns to the selected built-in theme. If it only becomes invalid, for example midway through an Omarchy theme switch, the last applied Omarchy palette stays in use until the next valid change. Legacy Omarchy theme layouts and alacritty-based color extraction are intentionally unsupported.

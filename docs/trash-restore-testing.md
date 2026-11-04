@@ -1,6 +1,6 @@
 # Trash restore safety and testing
 
-Trash metadata is untrusted. Strata resolves the physical GVfs item, validates
+Trash metadata is untrusted. Files resolves the physical GVfs item, validates
 its destination against the mount hosting the item, and asks for confirmation
 of the full destination before restoring. Undo uses the same validator without
 an additional confirmation. Relative volume paths resolve against the volume
@@ -16,7 +16,7 @@ and never replaces an item already at the destination. It uses an atomic
 `RENAME_NOREPLACE` where the filesystem offers one. Where it does not (some NFS
 and FUSE configurations), a file is hard-linked to the destination and its
 trash name is removed only once the link is proven, and a folder is renamed
-over an empty placeholder that Strata has just created. Where hard links are
+over an empty placeholder that Files has just created. Where hard links are
 unusable too, as on sshfs and vboxsf, the restore takes the
 [reserved-name step](filesystem-compatibility.md#the-reserved-name-step-and-its-risk),
 which has one narrow window. Only where no step can place the item, for example
@@ -29,7 +29,7 @@ the Trash with the item's trash metadata and are reported. If something already
 exists at the destination, or the outcome cannot be confirmed, the payload and
 its trash metadata remain intact.
 
-Deleting or trashing a folder in Strata removes its sidebar pin and pins inside
+Deleting or trashing a folder in Files removes its sidebar pin and pins inside
 it from GTK's shared bookmarks file and every open sidebar. Only confirmed
 deletions remove pins; failed and unattempted items keep theirs. Unavailable
 drives and network locations stay pinned. Restoring a folder, including Undo,
@@ -38,7 +38,7 @@ does not restore its former pins; pin it again if needed.
 Pin cleanup runs in the deletion provider as one bookmarks update when the
 deletion or restore run ends, however it ends, so it does not depend on the
 originating window staying open. Pins identify paths; deleting a symlink does
-not remove pins to its target. If updating bookmarks fails, Strata reports that
+not remove pins to its target. If updating bookmarks fails, Files reports that
 separately and does not revert a completed deletion. Cleanup is not guaranteed
 if the process exits before the provider confirms the deletion, or before the
 settings writer saves it (quitting waits up to 10 seconds for queued saves).
@@ -101,7 +101,7 @@ The tests create their own temporary payloads and metadata. They cover:
   folders (`adapters::trash_support::tests`); the retryable result on FUSE but
   not on a local disk (`adapters::local_operations::tests::deletion`); and the
   up-front confirmation after a recorded refusal until Reload
-  (`ui::window::tests::keyboard_dispatch::file_commands`).
+  (`interface::menus::delete_permanently`, checked by hand).
 
 Run the real keyboard and drag/drop regressions in the pinned E2E container:
 

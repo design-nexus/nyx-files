@@ -1,6 +1,6 @@
 # Hardened configuration
 
-Strata's defaults already isolate the riskiest work: previews and thumbnails are
+Files' defaults already isolate the riskiest work: previews and thumbnails are
 parsed inside a [bubblewrap sandbox](preview-sandbox.md) with no network, no
 session bus, and resource limits. This page lists the further choices
 available to users who prefer a smaller attack surface over convenience or
@@ -66,7 +66,7 @@ you have read, and run actions that modify files on copies first.
 
 ## Remote locations
 
-Strata connects to a remote location only when you open it. Remote image and
+Files connects to a remote location only when you open it. Remote image and
 video previews are copied to a private, size-limited temporary file and parsed by
 the same sandbox as local files. To keep network browsing out of the way, turn
 off **Show Network in sidebar** under **Items shown in sidebar** in

@@ -1,6 +1,6 @@
-# Strata system file chooser
+# Files system file chooser
 
-Strata can serve the XDG Desktop Portal FileChooser interface for portal-aware applications. Native file pickers and applications that do not use the portal are unchanged.
+Files can serve the XDG Desktop Portal FileChooser interface for portal-aware applications. Native file pickers and applications that do not use the portal are unchanged.
 
 The chooser is deliberately limited to local files and folders. It uses the main app's sidebar, Columns/Icons/List views, List type grouping, filters, metadata, previews, and themed controls. Recent appears when enabled in sidebar preferences and supported by the desktop's recent-files backend; only local targets are listed. Overwrite confirmation uses the same in-window modal as the app.
 
@@ -14,11 +14,11 @@ File-open requests include a **Name** field. Type an existing filename in the cu
 
 Downloads are named from `Content-Disposition` or the URL path and persist under a `strata-download-*` folder in the temp directory after the chooser closes, so the requesting app can still open them. Folders older than a day are swept when the portal starts or a new download begins. URLs with credentials and automatic redirects are rejected; use the direct file URL.
 
-If a downloaded JPEG, BMP, single-frame GIF or static WebP has no canonical filename matching the **selected filter**, but PNG would match, Strata validates the image in its sandbox and offers **Convert to PNG** / **Cancel**. Detection uses file contents, not the URL extension or HTTP content type. BMP detection requires `BM`, zero reserved bytes in its file header and a known DIB header size (12, 40, 52, 56, 108 or 124 bytes); `BM` alone is not enough.
+If a downloaded JPEG, BMP, single-frame GIF or static WebP has no canonical filename matching the **selected filter**, but PNG would match, Files validates the image in its sandbox and offers **Convert to PNG** / **Cancel**. Detection uses file contents, not the URL extension or HTTP content type. BMP detection requires `BM`, zero reserved bytes in its file header and a known DIB header size (12, 40, 52, 56, 108 or 124 bytes); `BM` alone is not enough.
 
 Extension repair runs only when the bytes sniff as a supported image and a canonical filename for that kind matches the selected filter. If neither that kind's canonical name nor a PNG name matches, the normal filename filter still judges the download: it can be returned under its original server-provided name, such as JPEG bytes named `attachment.pdf` with a `*.pdf` filter. A `.png` name alone does not satisfy a PNG-only filter: JPEG, BMP, static WebP and single-frame GIF bytes still offer conversion, and unrecognized non-image bytes are rejected. Bytes sniffed as PNG open without conversion or sandbox validation, after any filename repair; that includes APNG and corrupt PNG data with a PNG signature. The helper retains its separate PNG validation as defense in case `ConvertImage` is ever handed a PNG; the chooser never sends an accepted PNG to it.
 
-Conversion preserves full resolution, transparency, orientation and compatible embedded colour profiles; animation and other conversion inputs (including TIFF, SVG, AVIF and HEIC) are unsupported. An embedded ICC profile recognized by its `acsp` signature must have a colour space matching the decoded image, or conversion aborts. This intentionally rejects grayscale JPEGs carrying RGB profiles and CMYK profiles even when the JPEG decoder has emitted RGB pixels. An unprofiled CMYK JPEG skips that check and can be converted using the decoder's RGB output; Strata does not add colour conversion or strip incompatible profiles.
+Conversion preserves full resolution, transparency, orientation and compatible embedded colour profiles; animation and other conversion inputs (including TIFF, SVG, AVIF and HEIC) are unsupported. An embedded ICC profile recognized by its `acsp` signature must have a colour space matching the decoded image, or conversion aborts. This intentionally rejects grayscale JPEGs carrying RGB profiles and CMYK profiles even when the JPEG decoder has emitted RGB pixels. An unprofiled CMYK JPEG skips that check and can be converted using the decoder's RGB output; Files does not add colour conversion or strip incompatible profiles.
 
 Image processing is cancellable and limited to 32 MiB input, 16 megapixels, 16,384 pixels per edge and the sandbox's memory/CPU/time limits. The separate 32 MiB encoded PNG output cap also applies: 16 megapixels of RGBA exceeds 32 MiB before compression, so an image within the pixel cap can still fail with “The converted PNG exceeds the 32 MiB output limit”. Either cap can reject conversion. The decoder's 128 MiB allocation budget is best-effort, not a hard memory bound; pre-decode dimensions and sandbox process limits provide the resource boundary.
 
@@ -28,14 +28,14 @@ Folder-only requests hide regular files in both directory listings and recursive
 
 In Save dialogs, selecting a file copies its name into the name input without accepting the dialog. Names that are not valid UTF-8 display with replacement characters, but Save still targets the selected file's exact name while the name input shows it unchanged. The automatic initial selection does not change the suggested name or destination. Selecting a folder changes the destination without changing the name. In Recent, select a file to save in its containing folder, or navigate to a local folder first.
 
-Resizing a Miller column or a List heading in the chooser saves that width as the chooser default, so the next request opens with it. Dragging or double-clicking a Miller column edge stops at the dialog's file area beside the sidebar, and a saved width wider than that area opens narrowed to it. Regular Strata windows also remember widths, using separate browser defaults.
+Resizing a Miller column or a List heading in the chooser saves that width as the chooser default, so the next request opens with it. Dragging or double-clicking a Miller column edge stops at the dialog's file area beside the sidebar, and a saved width wider than that area opens narrowed to it. Regular Files windows also remember widths, using separate browser defaults.
 
 Wayland applications can provide an exported parent handle. X11 parent handles are not attached; these requests appear as standalone windows.
 
 ### Initial size in split-window layouts
 
 On Hyprland, requests with a Wayland parent and an application ID can use the
-requesting application's window size as an initial sizing hint. Strata queries
+requesting application's window size as an initial sizing hint. Files queries
 Hyprland's local IPC socket before loading the requested directory, and uses the
 hint only when exactly one window's current or initial class matches the app ID
 (case-insensitively). The query is read-only, limited to 100 ms and a 1 MiB reply,
@@ -53,10 +53,10 @@ and the controls' minimum usable size continue to apply.
 
 On native Wayland under Hyprland, floating choosers open at the center of their
 monitor by default, rather than at the center of the calling application. The portal process identifies its
-windows as `io.github.lgse.Strata.FileChooser`, separate from the normal file
-manager's `io.github.lgse.Strata` identity.
+windows as `io.github.lgse.Files.FileChooser`, separate from the normal file
+manager's `io.github.lgse.Files` identity.
 
-Before showing a chooser, Strata registers the named runtime rule
+Before showing a chooser, Files registers the named runtime rule
 `strata-file-chooser-center` through Hyprland's IPC socket. The rule matches only
 the chooser identity and sets `center`; it does not force floating, resize the
 window, or remove its parent/modal relationship. No Hyprland configuration files
@@ -70,15 +70,15 @@ not require identifying the calling application's size.
 
 ## Opt in through the app or installer
 
-On the first normal launch after updating to a version with this feature, Strata
+On the first normal launch after updating to a version with this feature, Files
 asks once whether to replace your Open and Save dialogs. **Nothing changes without
 consent.** “Not now”, Escape, closing the offer, or clicking outside it keeps your
 current chooser. Portal requests themselves never show the offer.
 
-You can always enable Strata later through **Settings → General → Desktop
+You can always enable Files later through **Settings → General → Desktop
 integration → System file manager → Complete setup**. **Restore default** in the
-same row restores your previous chooser when Strata is configured. File chooser
-replacement is separate from making Strata the default file manager, folder
+same row restores your previous chooser when Files is configured. File chooser
+replacement is separate from making Files the default file manager, folder
 handler, or “Open file location” handler.
 
 The installer asks separately, defaulting to **No**, after placing the binary at
@@ -98,17 +98,17 @@ Ensure `xdg-desktop-portal` is installed. The Arch/Omarchy installer includes it
 when file chooser integration is selected. Close active file dialogs before
 enabling or restoring the chooser: setup restarts the portal frontend.
 
-Install Strata at a stable absolute path, then run:
+Install Files at a stable absolute path, then run:
 
 ```bash
 strata --install-portal
 ```
 
-This installs the portal metadata and D-Bus activation service below `$XDG_DATA_HOME`, makes Strata the preferred FileChooser while retaining the active backends as fallbacks, reloads D-Bus, and restarts the portal frontend. If no user portal configuration exists, Strata copies the active desktop configuration before changing the FileChooser preference. The command records whether that user override was created or modified so it can be removed safely later.
+This installs the portal metadata and D-Bus activation service below `$XDG_DATA_HOME`, makes Files the preferred FileChooser while retaining the active backends as fallbacks, reloads D-Bus, and restarts the portal frontend. If no user portal configuration exists, Files copies the active desktop configuration before changing the FileChooser preference. The command records whether that user override was created or modified so it can be removed safely later.
 
-The chooser backend is activated on demand and exits after about two minutes without an active request (checked every 10 seconds). An open dialog (including a pending request) keeps it running; closing the last dialog starts the idle countdown again. In-app updates stop old Strata windows and chooser backends, then automatically relaunch the updating window with the replacement binary. External package-manager updates and manual binary replacements do not invoke the in-app retirement step; restart remaining Strata processes or log out after those updates.
+The chooser backend is activated on demand and exits after about two minutes without an active request (checked every 10 seconds). An open dialog (including a pending request) keeps it running; closing the last dialog starts the idle countdown again. In-app updates stop old Files windows and chooser backends, then automatically relaunch the updating window with the replacement binary. External package-manager updates and manual binary replacements do not invoke the in-app retirement step; restart remaining Files processes or log out after those updates.
 
-The generated D-Bus service contains the absolute path of the command being run. Move Strata to its permanent location before installing the portal. For safe activation, every component of the canonical executable path must be owned by the current user or root and must not be writable by other users. D-Bus service-file argument parsing is not shell quoting, so the installer also rejects executable paths containing whitespace, quotes, or backslashes.
+The generated D-Bus service contains the absolute path of the command being run. Move Files to its permanent location before installing the portal. For safe activation, every component of the canonical executable path must be owned by the current user or root and must not be writable by other users. D-Bus service-file argument parsing is not shell quoting, so the installer also rejects executable paths containing whitespace, quotes, or backslashes.
 
 ### Manual installation
 
@@ -137,9 +137,9 @@ gdbus call --session \
   --method org.freedesktop.DBus.ReloadConfig
 ```
 
-The generated D-Bus service must contain an absolute `Exec=` path. If that path contains whitespace, quotes, or backslashes, install Strata somewhere else; D-Bus service-file argument parsing is not shell quoting.
+The generated D-Bus service must contain an absolute `Exec=` path. If that path contains whitespace, quotes, or backslashes, install Files somewhere else; D-Bus service-file argument parsing is not shell quoting.
 
-Open `$config_home/xdg-desktop-portal/portals.conf`, preserve its existing `[preferred]` section and settings, and merge Strata into the FileChooser preference:
+Open `$config_home/xdg-desktop-portal/portals.conf`, preserve its existing `[preferred]` section and settings, and merge Files into the FileChooser preference:
 
 ```ini
 [preferred]
@@ -206,7 +206,7 @@ cargo test chooser_context_menus_and_rename_work_in_every_view -- --ignored
 
 ## Verification
 
-Confirm that D-Bus can activate Strata and that it advertises FileChooser version 4:
+Confirm that D-Bus can activate Files and that it advertises FileChooser version 4:
 
 ```bash
 gdbus introspect --session \
@@ -221,7 +221,7 @@ gdbus call --session \
 
 The second command should report `uint32 4`. Then open or save a file from a portal-aware application. Only local locations appear in the picker; entering a remote URI in the address bar shows an unsupported-location error. File-open requests accept direct `http(s)` URLs through the Name field.
 
-Portal backend selection happens before a request is sent. Keeping the existing backend after `strata;` lets the frontend choose it when Strata's `.portal` metadata is absent. It does not provide live failover if an already-selected Strata backend crashes during a request.
+Portal backend selection happens before a request is sent. Keeping the existing backend after `strata;` lets the frontend choose it when Files' `.portal` metadata is absent. It does not provide live failover if an already-selected Files backend crashes during a request.
 
 ## Local test tools
 
@@ -237,7 +237,7 @@ CHOOSER_ARGS="--choices --theme classic-light" mise run chooser-dev
 
 This task disables accessibility integration only for the test session, whose private bus does not provide a working accessibility registry. `mise run dev` still launches the normal app.
 
-You can also build Strata and run the dedicated client directly:
+You can also build Files and run the dedicated client directly:
 
 ```bash
 cargo build
@@ -254,7 +254,7 @@ python3 scripts/portal-test.py savefiles --binary target/debug/strata --choices
 
 Use the `png` case to test image conversion: its only filter is **PNG images**, so a pasted JPEG, BMP, static WebP or single-frame GIF URL should offer conversion to PNG. The general `filters` case starts with **Text files**; its **Images** option accepts both JPEG and PNG and therefore does not offer JPEG conversion. To serve your own test images locally, run `python3 -m http.server 8765 --bind 127.0.0.1 --directory /path/to/images`, then paste a direct URL such as `http://127.0.0.1:8765/photo.jpg` into **Name** and click **Open**.
 
-Use `--folder /absolute/path` for your own files, `--theme classic-light` for a light theme, or `--cancel-after 1` to exercise `Request.Close`. Omit `--binary` to call an already-running Strata backend on your session bus. This client tests the backend directly, not portal frontend routing.
+Use `--folder /absolute/path` for your own files, `--theme classic-light` for a light theme, or `--cancel-after 1` to exercise `Request.Close`. Omit `--binary` to call an already-running Files backend on your session bus. This client tests the backend directly, not portal frontend routing.
 
 Check these interactions:
 
@@ -274,7 +274,7 @@ The five-case page from the original PR is checked in at [`scripts/portal-test.h
 python3 -m http.server 8765 --bind 127.0.0.1 --directory scripts
 ```
 
-Open `http://localhost:8765/portal-test.html` in a portal-aware Chromium browser **after enabling Strata as the preferred FileChooser**. It exercises single open, multiple open, directory selection, image/text filters, and saving `strata-portal-demo.txt`. The SaveFile button explicitly writes a short test file to the destination you choose. Each row reports success, cancellation, or an error; the page shows the returned filenames.
+Open `http://localhost:8765/portal-test.html` in a portal-aware Chromium browser **after enabling Files as the preferred FileChooser**. It exercises single open, multiple open, directory selection, image/text filters, and saving `strata-portal-demo.txt`. The SaveFile button explicitly writes a short test file to the destination you choose. Each row reports success, cancellation, or an error; the page shows the returned filenames.
 
 The browser must expose the File System Access API, and its Linux file picker must use the portal. If a different chooser appears, check browser portal support and the configured frontend backend preference. Browsers do not expose the portal's `SaveFiles` or application-defined choices; use the dedicated client for those cases.
 
@@ -286,13 +286,13 @@ Run the matching per-user command:
 strata --uninstall-portal
 ```
 
-It removes Strata's metadata and activation service and restores the previous user portal configuration. If the configuration changed after installation, it preserves those changes and removes only Strata from the FileChooser preference. It then reloads D-Bus and restarts the portal frontend. If the frontend cannot be restarted automatically, log out and back in.
+It removes Files' metadata and activation service and restores the previous user portal configuration. If the configuration changed after installation, it preserves those changes and removes only Files from the FileChooser preference. It then reloads D-Bus and restarts the portal frontend. If the frontend cannot be restarted automatically, log out and back in.
 
-For a complete Strata uninstall, also remove the application binary and desktop entry as described in the main installation guide.
+For a complete Files uninstall, also remove the application binary and desktop entry as described in the main installation guide.
 
 ### Manual uninstall
 
-Remove the Strata metadata and activation service:
+Remove the Files metadata and activation service:
 
 ```bash
 data_home="${XDG_DATA_HOME:-$HOME/.local/share}"

@@ -1,6 +1,6 @@
 # Performance Baseline
 
-This document defines the reproducible local performance check for Strata. Results are machine-specific and should be compared against earlier runs on the same system rather than treated as universal benchmarks.
+This document defines the reproducible local performance check for Files. Results are machine-specific and should be compared against earlier runs on the same system rather than treated as universal benchmarks.
 
 ## Fixtures
 
@@ -26,7 +26,7 @@ Default logs contain request IDs, backend names, counts, and timings without bro
 Remote URI user-info, authentication parameters, queries, and fragments remain redacted at every
 level. Review diagnostic logs before sharing them.
 
-Strata accepts a startup directory on the command line. Structured logs report:
+Files accepts a startup directory on the command line. Structured logs report:
 
 - Time until the application window is presented
 - First provider batch latency
@@ -43,7 +43,7 @@ STRATA_BINARY=target/release/strata \
   ./scripts/profile-fixture.sh target/fixtures/100000
 ```
 
-Close other Strata instances before profiling so GApplication does not forward the request to an existing process. The script samples until the complete model has been published, not merely until enumeration finishes. PSS is included because RSS charges each process for shared GTK, graphics, and font pages in full.
+Close other Files instances before profiling so GApplication does not forward the request to an existing process. The script samples until the complete model has been published, not merely until enumeration finishes. PSS is included because RSS charges each process for shared GTK, graphics, and font pages in full.
 
 ## Initial baseline — 2026-08-29
 
@@ -112,9 +112,9 @@ generated under `target/scroll-bench/fixtures`:
 
 Other options:
 
-- `--cpu-quota PERCENT` runs Strata in a transient user systemd scope limited to that share of one
-  CPU; 25 makes it roughly four times slower. The limit includes Strata's thumbnail workers. The
-  scope is created through the user's systemd manager; Strata itself keeps the private bus.
+- `--cpu-quota PERCENT` runs Files in a transient user systemd scope limited to that share of one
+  CPU; 25 makes it roughly four times slower. The limit includes Files' thumbnail workers. The
+  scope is created through the user's systemd manager; Files itself keeps the private bus.
 - `--perf scroll` or `--perf idle` records a perf call graph of the measured pass or the idle
   window.
 - `--no-animations` turns GTK animations and CSS transitions off.
@@ -136,7 +136,7 @@ summary reports:
 - **Idle wakeups/s and idle frames/s:** main-thread context switches and frame clock cycles while
   nothing happens. An idle GTK application should be near zero on both.
 
-Strata renders with Cairo here, so drawing happens on the main thread. A GPU renderer moves
+Files renders with Cairo here, so drawing happens on the main thread. A GPU renderer moves
 that cost elsewhere. Older releases differ in row heights and defaults, so compare numbers across
 releases loosely. Other load on the machine only adds time, so when the machine is busy, compare
 the fastest rounds rather than the medians.

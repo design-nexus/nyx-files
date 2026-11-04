@@ -1,19 +1,19 @@
 # Filesystem compatibility
 
-Strata works on local disks, removable media, network mounts (NFS, SMB/CIFS), FUSE filesystems
+Files works on local disks, removable media, network mounts (NFS, SMB/CIFS), FUSE filesystems
 (sshfs, ntfs-3g, exfat-fuse, rclone, gvfsd-fuse), virtualization shares (9p, virtiofs, vboxsf)
 and stacked filesystems (overlayfs, eCryptfs, mergerfs). They disagree about renames, links,
-case, names and Trash. This document records what Strata guarantees on every mount, how local
+case, names and Trash. This document records what Files guarantees on every mount, how local
 file operations adapt to what a mount supports, and how to test that.
 
-Strata reaches GVfs locations (`smb://`, `sftp://`, `mtp://`) through GIO, so most of their
+Files reaches GVfs locations (`smb://`, `sftp://`, `mtp://`) through GIO, so most of their
 semantics come from the GVfs backend. This document covers them only where it says so: the
 [names](#names) they get by their address, the links they refuse, and how a native item moved to
 one is deleted.
 
 ## Guarantees
 
-- **Never replace a concurrent arrival.** An item that appears at a destination while Strata is
+- **Never replace a concurrent arrival.** An item that appears at a destination while Files is
   working is never overwritten, with one narrow exception where `RENAME_NOREPLACE` is missing and
   the item cannot be hard-linked (on mounts without usable hard links, or for a file whose own link
   is refused), described in
@@ -23,7 +23,7 @@ one is deleted.
   the mount's identity rule: device, type and inode where the mount keeps inode numbers, the birth
   time where it reports one, and a file's size and times where neither tells (see
   [Identity](#identity)).
-- **Never remove a name on a guess.** A name is unlinked only after Strata has proven which inode
+- **Never remove a name on a guess.** A name is unlinked only after Files has proven which inode
   it holds. When the outcome of a step cannot be proven, both names are kept and the operation
   reports that the result could not be confirmed.
 - **Never delete what a copy does not hold.** A move that has to copy deletes a source entry only
@@ -33,14 +33,14 @@ one is deleted.
 - **Show only complete copies.** A copy appears under its final name once it is complete, except
   on mounts where nothing can be placed; see [Publishing a copy](#publishing-a-copy).
 - **Never remove what an interrupted operation may have left of the user's data.** A crash or an
-  unplugged device can leave Strata's hidden names behind, and an original set aside always keeps
-  its own name inside one. Strata shows them where the user looks and offers to restore them; by
+  unplugged device can leave Files' hidden names behind, and an original set aside always keeps
+  its own name inside one. Files shows them where the user looks and offers to restore them; by
   itself it removes only its own empty probes, and it deletes an incomplete copy only when the user
   asks. See [Leftovers after a crash or unplug](#leftovers-after-a-crash-or-unplug).
 - **Never stand in an operation's way, and never remove another program's open file.** Before an
-  operation changes an item, Strata stops its own previews, thumbnails and background reads of it
+  operation changes an item, Files stops its own previews, thumbnails and background reads of it
   and of everything inside it. A file another program still has open, which NFS, SMB and FUSE keep
-  under a hidden leftover name until it is closed, is never deleted, renamed or copied when Strata
+  under a hidden leftover name until it is closed, is never deleted, renamed or copied when Files
   finds it inside a folder: the folder stays, and the error names the program where it can. See
   [Files that are still open](#files-that-are-still-open).
 - **Keep file calls off the interface thread.** Apart from the exceptions listed under
@@ -72,11 +72,11 @@ that applies:
 | 2 | files, symlinks, special files | `linkat`, then remove the old name once the new one reports the item's identity | creating a link fails if the name exists, on the server for NFS and SMB |
 | 3 | folders | create an empty placeholder folder with `mkdirat`, then rename over it | a rename can only replace an empty folder; a filled or swapped placeholder fails with `ENOTEMPTY` or `ENOTDIR` |
 | 4 | symlinks | create a symlink with the same target, then remove the old one | creating a symlink fails if the name exists |
-| 5 | files, symlinks and special files that steps 2 and 4 cannot place, and folders that step 3 cannot place on mounts without usable hard links, once a probe has settled that `RENAME_NOREPLACE` is missing; folders whose name ntfs-3g would cut | the [reserved-name step](#the-reserved-name-step-and-its-risk) | a file is renamed only over Strata's own empty placeholder, checked just before, and a folder only to a name just found free; see the step's narrow window |
+| 5 | files, symlinks and special files that steps 2 and 4 cannot place, and folders that step 3 cannot place on mounts without usable hard links, once a probe has settled that `RENAME_NOREPLACE` is missing; folders whose name ntfs-3g would cut | the [reserved-name step](#the-reserved-name-step-and-its-risk) | a file is renamed only over Files' own empty placeholder, checked just before, and a folder only to a name just found free; see the step's narrow window |
 | 6 | — | copy, then delete | only for a cross-device move (`EXDEV`), a move or restore from Trash that no step above can place, or a staged copy whose stage no step can place, which is copied again from the stage |
 
 `EEXIST` and `ENOTEMPTY` always mean the destination is taken. `EINVAL` from step 1 has three
-possible meanings, and Strata never treats it as "copy instead":
+possible meanings, and Files never treats it as "copy instead":
 
 - moving a folder into itself, which is checked before any fallback, or found from the fallback
   step's own `EINVAL` once `RENAME_NOREPLACE` is known to be missing;
@@ -96,7 +96,7 @@ it.
 Residual limits:
 
 - Where `RENAME_NOREPLACE` is missing and an item cannot be hard-linked, a program that overwrites
-  a destination name just before Strata renames over its placeholder loses its write, and so does
+  a destination name just before Files renames over its placeholder loses its write, and so does
   an item created at the name, even exclusively, after something else removed the placeholder in
   that window; see [The reserved-name step and its risk](#the-reserved-name-step-and-its-risk).
 - Where the operation knows which item it moves (restore, Replace's source and the original it
@@ -104,13 +104,13 @@ Residual limits:
   name is refused before anything moves. Another item found at the destination just after the
   move is left there and reported as unconfirmed: it may be one another program put there, so it
   is never moved back. An item swapped in at the source name between that check and the rename
-  is therefore left at the destination too; where that is a hidden name Strata chose (an original
+  is therefore left at the destination too; where that is a hidden name Files chose (an original
   set aside, a case-only rename's temporary name), the error names it.
 - ext4, ntfs3, NFS and SMB give a freed inode number straight to the next item created. Birth
   times tell the new item apart, and where NFS and ext2, ext3 and ext4 report none, the file
   handle does (see [Identity](#identity)). On ntfs-3g and exfat-fuse, which report neither, an item
   deleted and recreated at the same name with the same type passes for the original.
-- Undo and restore find an item Strata moved to Trash by its original path and the newest deletion
+- Undo and restore find an item Files moved to Trash by its original path and the newest deletion
   date. Undo reads the Trash folders itself, the home Trash and the `.Trash/$uid` and
   `.Trash-$uid` folders of the item's mount, so it needs no GVfs. As in GLib, a mount's Trash
   folder counts only when it is a folder the user owns, not a link. The mount's identity rule is
@@ -137,13 +137,13 @@ Residual limits:
   inode numbers off for the whole mount once a folder is looked up under a second spelling, as the
   check before a case-only folder rename does ("Autodisabling the use of server inode numbers" in
   the kernel log). On any SMB mount it does the same once another client renames a folder this
-  client has looked up. Hard links then report different inode numbers, so Strata stops using them
+  client has looked up. Hard links then report different inode numbers, so Files stops using them
   there, as on sshfs; `RENAME_NOREPLACE` still places items there. A paste never looks a name up
   under a second spelling there, as it numbers names that differ only in case before copying.
 - After a lost reply while placing over a placeholder (to the placeholder's `mkdir` or exclusive
-  create, or to the rename over it), an empty folder or file Strata created can remain at the
+  create, or to the rename over it), an empty folder or file Files created can remain at the
   destination name. Where the mount's type is known to keep inode numbers, a placeholder the rename
-  left in place proves the rename never happened: Strata removes it and reports the error itself.
+  left in place proves the rename never happened: Files removes it and reports the error itself.
   On FUSE and vboxsf the moved item can report the placeholder's number, so nothing is removed
   there, nor on a mount of another type or one whose type cannot be read.
 
@@ -159,7 +159,7 @@ s3fs and libfuse2 builds of exfat-fuse. There, every operation that places an it
 step: moves, renames, undo, restore, staged copies, archive extraction and creation, and Replace
 and Merge without Trash.
 
-It runs only after the steps above give up, and only once a probe on Strata's own names, or a
+It runs only after the steps above give up, and only once a probe on Files' own names, or a
 definitive errno, has shown that the mount lacks `RENAME_NOREPLACE` and has settled whether hard
 links work. Then:
 
@@ -176,7 +176,7 @@ ntfs-3g and 9p, take it only for a file whose own link is refused, and ntfs-3g a
 named with 237 UTF-16 units or more. Where a probe cannot settle what a mount supports, the step
 does not run.
 
-For a file, Strata creates an empty placeholder at the destination with `O_CREAT | O_EXCL`, checks
+For a file, Files creates an empty placeholder at the destination with `O_CREAT | O_EXCL`, checks
 that the name still holds that placeholder (same inode, a regular file, still empty), then renames
 the item over it. For a folder, it checks that the name is free, then renames. If the rename
 fails with an errno that shows it did not happen, the placeholder is removed only while the name
@@ -185,7 +185,7 @@ the like), nothing is removed: the item counts as placed only if its old name is
 one reports its identity, and otherwise the result is reported as unconfirmed. sshfs keeps a
 name's inode number when a rename's reply is lost, so the placeholder's number there proves
 nothing. The empty placeholder therefore stays at the destination name after an unconfirmed
-rename, a check that cannot read the name, a lost reply to its creation, or if Strata stops before
+rename, a check that cannot read the name, a lost reply to its creation, or if Files stops before
 the rename.
 
 What it risks, and why that is low:
@@ -202,7 +202,7 @@ What it risks, and why that is low:
   race only decides which of the two writes survives. An item created at the name after something
   else removed the placeholder in that window is replaced too, even if it was created exclusively.
 - **The window is one rename call** for processes using the same mount, one network round trip on
-  sshfs: a change they make before the check makes Strata treat the name as taken. A writer on the
+  sshfs: a change they make before the check makes Files treat the name as taken. A writer on the
   server or on another client shows only by a change of type or size, because vboxsf and sshfs
   keep the placeholder's inode number for whatever the name then holds, and sshfs may answer the
   check from its attribute cache; for such writers the window runs from the placeholder's creation
@@ -211,7 +211,7 @@ What it risks, and why that is low:
   missing, check that the name is free and then rename: any item created at the name in between is
   replaced, even by a program that creates it exclusively.
 - **A folder is renamed only to a name just found free.** A rename cannot put a folder over a file
-  or a non-empty folder, and this mount refused to rename it over Strata's empty placeholder, so an
+  or a non-empty folder, and this mount refused to rename it over Files' empty placeholder, so an
   item that arrives in between makes the rename fail. An `EPERM` refusal also leads here although
   it is not learned for the mount; if it was specific to the item, an empty folder that arrives in
   that instant could be replaced. ntfs-3g renames a folder over an empty one, so there an empty
@@ -226,7 +226,7 @@ Replace and Merge without Trash, would still be refused on these mounts.
 
 ## What a mount supports
 
-Strata learns capabilities per mount instead of trusting the filesystem type. The cache lives in
+Files learns capabilities per mount instead of trusting the filesystem type. The cache lives in
 `src/adapters/volume/mount_capabilities.rs`. It is keyed by the mount id from `statx`:
 `STATX_MNT_ID_UNIQUE`, which is never reused, on Linux 6.8 and later, otherwise `STATX_MNT_ID` with
 the device number. Entries are dropped whenever the mount table changes.
@@ -236,7 +236,7 @@ the device number. Entries are dropped whenever the mount table changes.
   file sizes and of [identity](#identity): FAT holds no file of 4 GiB or more, so a paste that
   selects one fails before copying anything.
 - A capability is recorded only from a definitive answer (`ENOSYS`, `EOPNOTSUPP`, or a rejected
-  exchange), from Strata's own placeholder, or from a probe on Strata's own temporary names
+  exchange), from Files' own placeholder, or from a probe on Files' own temporary names
   (`.strata-probe-*`) in the destination. An `EINVAL` or `EPERM` from placing a user's item never
   marks a mount as unsupported, because it can also mean an invalid name or a protected file. Only
   a mount whose type does not show its name rules remembers which rules a refused name needed; see
@@ -253,7 +253,7 @@ the device number. Entries are dropped whenever the mount table changes.
 
 ## Identity
 
-Strata often has to tell whether an item it read earlier is still the one at a name: before Replace
+Files often has to tell whether an item it read earlier is still the one at a name: before Replace
 removes its target, before a move deletes a source, when it puts an original back, when Undo looks
 for an item in the Trash, and when an open folder was renamed. Mounts disagree about what can prove
 that. vfat, exFAT, FUSE daemons and SMB without server inode numbers give an entry a new inode
@@ -290,12 +290,12 @@ The rule weighs what both readings carry, in this order:
 | ntfs-3g, and other FUSE daemons whose probe link keeps the number | renewed until such a probe, then kept | no | device, type and inode; a reused number passes |
 | vfat, exFAT files | renewed | yes, 10 ms | device, type and birth time, and the size and modification time a site recorded |
 | exFAT folders | renewed | reset by every rename into or within the folder | device and type; their entries are checked one by one |
-| SMB | the server's while the mount shows `serverino`, both when the item was read and when Strata decides | the server's creation time, which Samba may make up | birth time, plus the number while `serverino` shows; once it is gone, a file also the size and times its site recorded |
+| SMB | the server's while the mount shows `serverino`, both when the item was read and when Files decides | the server's creation time, which Samba may make up | birth time, plus the number while `serverino` shows; once it is gone, a file also the size and times its site recorded |
 | sshfs, exfat-fuse, rclone and other FUSE daemons, vboxsf, msdos | renewed | none | files: size and modification time; folders: type only; single items are held (below) |
 | 9p, virtiofs, ceph, eCryptfs, overlayfs, HFS+, and other types | kept | where reported | device, type, inode and any birth time |
 
 - **File handles.** On NFS and on ext2, ext3 and ext4 without birth times (or with a zero one),
-  Strata reads the file handle right after each stat of an item it records, at no extra round
+  Files reads the file handle right after each stat of an item it records, at no extra round
   trip, and keeps a 64-bit digest of it. The lab saw the handle change in every one of 198 reuses
   of an NFSv3 fileid, and stay put across renames, moves between folders and eviction. FUSE
   handles change once an entry is evicted, so they are never read there, and exFAT and SMB refuse
@@ -365,7 +365,7 @@ Limits of the rule:
   a sibling folder made in the same tick after the open folder was deleted; this only moves the
   view.
 - **SMB copies after a switch-off.** Once `serverino` is gone, neither the check that a moved copy
-  is still the one Strata made nor the removal of what an operation made or set aside compares the
+  is still the one Files made nor the removal of what an operation made or set aside compares the
   change time: whether a fresh SMB copy's change time stays put was not measured, and setting an
   original aside changes it. A same-size replacement that keeps the modification time, made by
   another client in the meantime, passes.
@@ -478,7 +478,7 @@ filesystems, Replace's staging copy, merges, and restores from Trash where nothi
 It runs on worker threads, opens every entry through a descriptor beneath a pinned folder
 (`openat2` with `RESOLVE_BENEATH` and no symlinks), and makes every call through the `FsOps` seam.
 It never replaces an entry. Copies to or from GVfs locations stay on GIO, except that a native
-item moved to one is deleted by Strata, as described under
+item moved to one is deleted by Files, as described under
 [Moves across filesystems](#moves-across-filesystems).
 
 ### Publishing a copy
@@ -512,7 +512,7 @@ item moved to one is deleted by Strata, as described under
   unconfirmed publish, both names are kept and no other number is tried.
 
 A crash or an unplugged device can leave a `.strata-copy-*` stage behind. It holds only a copy
-whose source still exists, and is safe to delete. Strata never removes it by itself; the folder's
+whose source still exists, and is safe to delete. Files never removes it by itself; the folder's
 [leftover review](#leftovers-after-a-crash-or-unplug) offers to delete it.
 
 ### Data
@@ -637,7 +637,7 @@ Names of one file within one copied item stay one file where the destination kee
 with `cp -a` and cross-filesystem `mv`. Only the first name is copied. Once every file of the item
 is written, each other name is linked to that copy exclusively, before folders get their final
 modes. Whether the destination keeps links comes from the mount's learned capabilities, or from a
-probe on Strata's own `.strata-probe-*` names in the destination, never inside the copy. Links
+probe on Files' own `.strata-probe-*` names in the destination, never inside the copy. Links
 that report their own inode number, as on sshfs, count as missing. Where a link is refused, that
 name and every later one are copied from the first copy, on the same device.
 
@@ -719,7 +719,7 @@ while mount points inside the target are.
 ### Moves across filesystems
 
 A move within one filesystem is a rename. Across filesystems, or where nothing can place the item,
-Strata copies the item and records for each source entry what the copy read: its identity, link
+Files copies the item and records for each source entry what the copy read: its identity, link
 count, size, and modification and change times. It records names only and holds no descriptors.
 After the destination is flushed (see [Durability](#durability)), each source entry is deleted only
 if it is still what the copy read:
@@ -733,12 +733,12 @@ if it is still what the copy read:
 - **The check.** A forced stat (`AT_STATX_FORCE_SYNC`, which revalidates NFS and SMB) must show the
   same type, size and modification time and, where inode numbers are stable, the same inode, change
   time and link count. Removing one name of a hard-linked file changes the other names' change time
-  and link count, so Strata counts the names it removed itself, across every item of a paste, a
+  and link count, so Files counts the names it removed itself, across every item of a paste, a
   restore or an undo, and accepts only those link counts. Right after removing a name, it reads the
   file's change time through another name of it in the same item, and the file's later names must
   show that change time. Before Linux 6.13, a change within the clock tick of that removal shows
   the same change time. A name in another item (two selected or restored items that share a
-  file) is accepted with any change time once Strata removed one of the file's names, as long as
+  file) is accepted with any change time once Files removed one of the file's names, as long as
   its size and modification time still match, except on cifs without server inode numbers (see
   **Relaxed identity**).
 - **SMB change times.** The SMB client answers a stat from the attributes it cached for a file
@@ -755,8 +755,8 @@ if it is still what the copy read:
   compared only for files with one link. On SMB, whose client keeps a replaced name's cached number
   and creation time, every file keeps the change time and link count check above. A name the copy
   recorded under another number than the file's other names stays as changed, as the link counts
-  no longer add up. Once Strata removed one name of a file, a later name is deleted only if it
-  shows the change time Strata read through another name in the same item right after that
+  no longer add up. Once Files removed one name of a file, a later name is deleted only if it
+  shows the change time Files read through another name in the same item right after that
   removal, whatever numbers the client reports now, so a name in another item stays as changed.
   See [Identity](#identity).
 - **SMB.** The check before deleting reads the mount's options again, once per moved item, and
@@ -813,7 +813,7 @@ As in Git's "racily clean" check: where a filesystem's timestamps are coarse, a 
 the same size within one tick keeps its modification time, and FAT keeps no change time at all, so
 no stat can show the rewrite. On those mounts, a file whose modification time falls within one
 tick of when the copy read it is copied with reads and writes while a SHA-256 digest of the bytes
-is taken. Before the move deletes it, Strata waits until a rewrite would have moved its time, reads
+is taken. Before the move deletes it, Files waits until a rewrite would have moved its time, reads
 the source again, up to one byte past the size it copied, and keeps it as changed if it differs.
 It is deleted only if its name still holds the file it compared. Its copy is read back too, without
 waiting, and must hold the same bytes: a file put in the copy's place within the tick can match
@@ -850,7 +850,7 @@ source's own times need no comparison.
 
 ### Durability
 
-Before Strata deletes anything that only a copy holds, it flushes the copy to the destination's
+Before Files deletes anything that only a copy holds, it flushes the copy to the destination's
 device. That covers the source of a move that copied, an original that Replace exchanged or set
 aside, a merge's set-aside originals, an archive's replaced original, and the Trash copy after a
 restore copy. The flush goes through a folder opened before the copy wrote, because since Linux 5.8
@@ -954,7 +954,7 @@ the second puts the first back by a rename.
 
 ### The completion report
 
-After a transfer, or an archive's compression or extraction, Strata reports what it could not do
+After a transfer, or an archive's compression or extraction, Files reports what it could not do
 as asked:
 
 - names the destination doesn't allow or that are too long for it, names it took for another (case
@@ -985,8 +985,8 @@ reported.
 - **exFAT folders.** The kernel's exFAT driver sets a folder's birth time again, on disk, at every
   rename whose destination is the folder: an entry renamed into or within it or over one of its
   entries, or a folder moved into it. So there a folder is known by its device and type wherever
-  its entries are checked one by one or only an empty folder, or one at a hidden name of Strata's
-  own, is removed: a move's source folders and the folders of its copy, Strata's merge folder and
+  its entries are checked one by one or only an empty folder, or one at a hidden name of Files'
+  own, is removed: a move's source folders and the folders of its copy, Files' merge folder and
   the folders putting originals back empties. Where another program renames a merged folder away
   and makes another at its name, a move onto exFAT still deletes its sources, whose copies stay in
   the renamed folder, and an empty folder another program makes at a moved folder's name once the
@@ -1009,7 +1009,7 @@ reported.
   extensions, the mount options decide modes, and nothing reports what was lost. On SMB with POSIX
   extensions, a file opened right after `chmod 0444` reports 0755, so any copier copies 0755.
 - **Alias order.** Aliases are numbered in byte order where names are claimed. They are numbered
-  in the order their copies finish where the destination takes two names for one that Strata's
+  in the order their copies finish where the destination takes two names for one that Files'
   fold keeps apart, and on XFS's deprecated `ascii-ci` format, which no casefold flag shows. In a
   merge, a name another program takes at the same moment is decided by timing.
 - **sshfs.** The 3 s window covers a server clock up to 2 s behind; a server further behind can hide
@@ -1023,16 +1023,16 @@ reported.
   without a check of each entry, except the links it left out. A selected link moved from a GVfs
   location is left out only where the destination is known to hold no links.
 - **SMB sources.** Opening two names of one hard-linked file at once fails with `EINVAL` on the
-  kernel client, so Strata opens one name of a file at a time when it reads from SMB, whatever link
+  kernel client, so Files opens one name of a file at a time when it reads from SMB, whatever link
   count the share reports. After this machine writes a file on a share, opening another name of it
   fails the same way, for any program, until the client's deferred close expires (`closetimeo` in
-  the mount's options, one second by default). Strata retries an open of an SMB source that fails
+  the mount's options, one second by default). Files retries an open of an SMB source that fails
   with `EINVAL`, backing off, for that time plus half a second but at most ten seconds, and
   cancelling stops the wait at once. Opens still refused after that, as while the writer keeps the
   file open, fail with "Could not copy". Other errors and other filesystems are not retried.
 - **SMB read-only folders.** Without POSIX extensions, the client decides a folder's read-only
   attribute from cached attributes, so write access given back right after it was taken does
-  nothing until the folder is revalidated. Strata revalidates before giving it back; other programs
+  nothing until the folder is revalidated. Files revalidates before giving it back; other programs
   may not. Folder access times come back as the modification time.
 - **ntfs-3g and exfat-fuse** are recognised only from the host's udev records. Without them, as in
   containers, they keep per-file syncs and the 2 s comparison window, and get Windows name rules
@@ -1046,7 +1046,7 @@ reported.
 
 Mounts disagree about which names they store, and many change or refuse a name without a clear
 error: vfat drops a trailing dot, SMB stores `:` as a private-use character that other clients
-show, and exfat-fuse can corrupt its volume on a malformed name. Strata takes each mount's rules
+show, and exfat-fuse can corrupt its volume on a malformed name. Files takes each mount's rules
 from what the mount shows, fixes the names an item brings from another filesystem before anything
 is created, reports every fix, and refuses a name the user types that the location would store as
 another.
@@ -1086,7 +1086,7 @@ cached with the mount's [capabilities](#what-a-mount-supports), so a remount, su
 - **Mapped:** with `mapposix`, the cifs client's default, the client stores the characters Windows
   refuses, and trailing dots and spaces, as the private-use characters U+F001 to U+F029, which
   other clients show, and reads those back as what they stand for, so a name that really holds
-  U+F022 would list as `x:y`. Strata sends neither: the characters become `_` by the Windows rule,
+  U+F022 would list as `x:y`. Files sends neither: the characters become `_` by the Windows rule,
   and so do those private-use characters, except U+F026, which the client reads back unchanged.
   With `mapchars`, the same holds for U+F02A, U+F03A, U+F03C, U+F03E, U+F03F and U+F07C.
 - **Trailing dots and spaces** are dropped, repeatedly (`notes. .` becomes `notes`), and a name
@@ -1127,7 +1127,7 @@ start of the grapheme cluster it falls in, by at most eight characters, so flags
 accented letters, Hangul syllables and, with Pango 1.54 or later, consonants joined by a virama
 stay whole; a longer cluster is cut inside. The stem keeps at least its first character, so `x.txt`
 never becomes the hidden `.txt`, and no marker is added: the name stays a prefix of the original.
-Trailing dots and spaces and device names are then checked again. Every number Strata adds to a
+Trailing dots and spaces and device names are then checked again. Every number Files adds to a
 name, for Keep Both, aliases, names taken meanwhile, new files and folders, archive members and new
 archives, cuts the stem the same way to fit ` (n)`, and `.tar` stays before ` (1).gz`.
 
@@ -1227,7 +1227,7 @@ location cannot hold: the characters, each quoted and given by code point where 
 its own (`U+0009`, `U+0301`), a leading space (MTP) or a trailing space or period, a device name
 Windows reserves, or the length. The 10xer create and rename prompts check the name off the GTK
 thread before they close and stay open with that message. A rename is held to the length of a file,
-since Samba's shorter limit for folders applies only to the folders it creates. Names Strata
+since Samba's shorter limit for folders applies only to the folders it creates. Names Files
 chooses itself, such as "new folder", are not checked.
 
 ### Limits of the name rules
@@ -1236,11 +1236,11 @@ chooses itself, such as "new folder", are not checked.
   SMB and sshfs refuse paths of about 4 KB, since every request carries the whole path from the
   share or the server's root, and Windows' 260-character `MAX_PATH`, which Linux drivers do not
   enforce, is not predicted.
-- **Case and normalization.** Strata plans case aliases only on FAT, exFAT and SMB without POSIX
+- **Case and normalization.** Files plans case aliases only on FAT, exFAT and SMB without POSIX
   extensions, and elsewhere leaves them to the destination's "exists" (see [Folders, names and
   case aliases](#folders-names-and-case-aliases)). NTFS keeps `Makefile` and `makefile` apart on
   Linux, though Windows takes them for one name. No lab mount normalizes Unicode, except that NFC
-  and NFD forms are one name in casefolded ext4 folders, and Strata never normalizes a name.
+  and NFD forms are one name in casefolded ext4 folders, and Files never normalizes a name.
 - **Windows 10** cannot open files such as `aux.c` or `con.txt`, which FAT, exFAT and ntfs3 keep
   under the Windows 11 rule.
 - **Legacy code pages are not supported.** vfat mounted without `utf8` and with an `iocharset`
@@ -1250,7 +1250,7 @@ chooses itself, such as "new folder", are not checked.
   convert, which no rule fixes, so the item fails. udisks mounts vfat with `utf8` and exFAT with
   `iocharset=utf8`.
 - **msdos** keeps 8.3 names and refuses names that start with a dot unless mounted with
-  `dotsOK=yes`, so Strata's hidden `.strata-*` names fail there, and so does every copy that needs
+  `dotsOK=yes`, so Files' hidden `.strata-*` names fail there, and so does every copy that needs
   a stage. Only an explicit `-t msdos` mounts it.
 - **HFS+** stores names decomposed and turns characters it cannot map into `?`, without an error.
 - **GVfs.** Rules come from the address alone, not from the share or device behind it, and a copy
@@ -1290,7 +1290,7 @@ Local renames go through the same routine instead of GIO's check-then-rename.
 Other locations are renamed through GIO. GLib (2.88.3, and its main branch in October 2026) calls a
 location's rename without checking that its backend has one, and the stand-in GIO uses for an
 address no backend serves, as `smb://` is without a running GVfs, has none, so that call would end
-the process. Strata checks first and reports the backend missing instead.
+the process. Files checks first and reports the backend missing instead.
 
 ## Trash
 
@@ -1308,14 +1308,14 @@ GIO decides where Trash is available. It reports Trash as unsupported for:
 There, Delete offers permanent deletion and Replace and Merge use the order above.
 
 GLib 2.86.0 to 2.88.4 can report success without trashing anything on FUSE filesystems that do not
-report entry types (GLib issue #4060). Strata therefore checks that a trashed local item is gone
+report entry types (GLib issue #4060). Files therefore checks that a trashed local item is gone
 before reporting success or recording Undo: an item still at its name by the mount's identity
 rule, or held across the call where only a descriptor tells it (see
 [Replace and merge](#replace-and-merge)), was not trashed, whatever number the kernel gave it.
-GLib trashes whatever holds the name when it gets there. Strata holds the item at the name across
+GLib trashes whatever holds the name when it gets there. Files holds the item at the name across
 the call, except on NFS, where a held file another program removes stays under a `.nfs` name, and
 reports that item only once the kernel shows it inside a Trash. Replace stops as changed when the
-held item is not the target it checked. If another item took the name after the hold, Strata
+held item is not the target it checked. If another item took the name after the hold, Files
 reports the newest Trash entry GLib made for that path instead, so Undo and saved views follow what
 actually went to Trash.
 
@@ -1324,12 +1324,12 @@ actually went to Trash.
 On NFS, SMB and FUSE mounts, a file unlinked while a program still has it open stays under a
 hidden name until the last close, and its folder cannot be removed meanwhile. On SMB, a folder with
 a file open below it cannot be renamed, moved or trashed either. Local disks drop the name at once.
-Strata makes sure its own reads are never what is in the way, waits briefly for a file that is
+Files makes sure its own reads are never what is in the way, waits briefly for a file that is
 about to close, and otherwise leaves the file where it is and says which program holds it.
 
-### Releasing Strata's own reads
+### Releasing Files' own reads
 
-`src/services/file_activity.rs` registers the reads Strata holds and the operations that run. Every
+`src/services/file_activity.rs` registers the reads Files holds and the operations that run. Every
 read of a user's file goes through it, on a worker: previews and thumbnails with their sandboxes,
 media playback, waveform and storyboard decodes, metadata probes, the small in-process reads
 (content sniffing, text, Markdown images), and background listings (item counts, folder art,
@@ -1363,7 +1363,7 @@ incomplete ("Some folders or entries couldn't be read."). When nothing is held u
 release costs one lookup of the folder's real path per folder and one lock.
 
 A sandboxed renderer has the user's file bound into its namespace. After bubblewrap exits, killed
-or not, Strata waits, at most 1 s, on a descriptor of the namespace's first process, opened when
+or not, Files waits, at most 1 s, on a descriptor of the namespace's first process, opened when
 the sandbox started, until the kernel has torn the namespace and its bind down. In the lab,
 bubblewrap 0.12.0's namespace was still alive after nearly every exit: an unlink right after left
 a leftover after 372 of 380 kills, and after 4 of 100 normal exits on NFSv4.2. With the wait it
@@ -1412,36 +1412,36 @@ budget once more. A folder that empties goes at once and costs no wait.
 
 ### Naming what holds it
 
-A folder still refused after the wait is reported as still open. Strata then looks for the holder,
+A folder still refused after the wait is reported as still open. Files then looks for the holder,
 once per folder, on the worker:
 
-1. A read Strata holds, or another of its operations, inside the folder makes the holder Strata,
-   without reading `/proc`. This also covers Strata's sandboxes, whose binds show in no descriptor.
+1. A read Files holds, or another of its operations, inside the folder makes the holder Files,
+   without reading `/proc`. This also covers Files' sandboxes, whose binds show in no descriptor.
 2. Otherwise it reads the descriptor links of every process it may read (`/proc/<pid>/fd`) and
    keeps those inside the folder: the `.nfs…` name on NFS, `<original> (deleted)` on SMB and FUSE.
    Each is confirmed by the mount id and inode in `/proc/<pid>/fdinfo`, which match the leftover
-   (from Linux 5.14; earlier kernels keep the path match). Strata never calls `stat` through
+   (from Linux 5.14; earlier kernels keep the path match). Files never calls `stat` through
    another process's descriptors, which could call into a mount that does not answer.
 3. If no descriptor matched, files mapped without one, by device and inode in `/proc/<pid>/maps`.
 
 The first match wins, and the search stops after 200 ms. The program is named by its app where its
 process says which one, through its systemd app unit (as GNOME, KDE and uwsm launch apps) or GIO's
 launch variable and the app's desktop file, and otherwise by its process name. A program started
-from a terminal app is therefore named after the terminal. Strata's own process, a helper it
+from a terminal app is therefore named after the terminal. Files' own process, a helper it
 started in a process group of its own (previews, custom actions), and another process running
-Strata's executable count as Strata; a terminal or program Strata opens for the user is named like
+Files' executable count as Files; a terminal or program Files opens for the user is named like
 any other.
 
 | Holder | Delete, the folder's line | Move report |
 | --- | --- | --- |
 | a program | A file in it is still open in %{program}. Close it there and try again. | “%{name}” was left in “%{folder}”, as a file in it is still open in %{program} |
-| Strata | A file in it is still in use by Strata. Try again when its other operation or search ends. | “%{name}” was left in “%{folder}”, as a file in it is still in use by Strata |
+| Files | A file in it is still in use by Files. Try again when its other operation or search ends. | “%{name}” was left in “%{folder}”, as a file in it is still in use by Files |
 | none found, NFS or FUSE | A file in it is still open in another program. Close it and try again. | “%{name}” was left in “%{folder}”, as a file in it is still open in another program |
 | none found, SMB | A file in it is still open in a program on this or another computer. | as above |
 | none found, SMB with POSIX extensions | Permission denied | Could not delete “%{name}”: Permission denied |
 
 On SMB with POSIX extensions an open file leaves no name, so an empty folder that refuses `rmdir`
-looks the same as one the user may not remove: Strata waits the SMB budget, then keeps the system's
+looks the same as one the user may not remove: Files waits the SMB budget, then keeps the system's
 error unless it finds a holder on this computer.
 
 ### SMB renames
@@ -1464,9 +1464,9 @@ directory handle from a listing never blocked a rename in the lab.
 - **Leftovers nobody holds.** A leftover orphaned by a crashed NFS client, or a file with a
   leftover's name that nothing holds, keeps its folder until someone removes it by hand.
 - **SMB deletes refused elsewhere.** Unlinking a file that a program on another computer holds
-  without sharing delete access fails with `EIO`, which Strata reports as an I/O error, since it
+  without sharing delete access fails with `EIO`, which Files reports as an I/O error, since it
   cannot be told apart from a real one.
-- **SMB before Linux 6.17** keeps a deleted open file under its own name, pending deletion. Strata
+- **SMB before Linux 6.17** keeps a deleted open file under its own name, pending deletion. Files
   does not recognise it as a leftover (unverified), so removing its folder fails with the system's
   error.
 - **A single file another program has open** is deleted without a report, as on local disks: its
@@ -1476,13 +1476,13 @@ directory handle from a listing never blocked a rename in the lab.
   system's error.
 - **GVfs.** Empty Trash and deletions on GVfs locations go through GVfs's own recursive delete,
   which meets another program's leftover with GVfs's error.
-- **The holder search** sees only processes on this computer that Strata may read, and its 200 ms
+- **The holder search** sees only processes on this computer that Files may read, and its 200 ms
   limit is an estimate.
 
 ## Leftovers after a crash or unplug
 
-A crash, a killed process or a device pulled out during an operation can leave Strata's hidden
-names in a folder. Strata recognises them when it lists that folder, offers to restore what may be
+A crash, a killed process or a device pulled out during an operation can leave Files' hidden
+names in a folder. Files recognises them when it lists that folder, offers to restore what may be
 the user's data, and removes nothing by itself except its own empty probes.
 
 ### What an interrupted operation leaves
@@ -1508,7 +1508,7 @@ In the lab, 932 kills during Replace and Merge on NFSv3, NFSv4.2, SMB and sshfs,
 (through a device-mapper error target) during Replace without Trash on vfat, exFAT and ntfs3, lost
 no original: each was intact, or deleted only once its replacement was durable at its name, and
 Restore emptied every folder it met. Earlier builds (released ones and #1615's nightlies) also left
-originals under flat hidden names, and stages that an exchange could turn into the original; Strata
+originals under flat hidden names, and stages that an exchange could turn into the original; Files
 still recognises those names and classes them as possible originals.
 
 ### Recognising them
@@ -1516,18 +1516,18 @@ still recognises those names and classes them as possible originals.
 - **By the whole name.** A known prefix followed by a UUID, or for the two older stage prefixes the
   6-character suffix older builds used. `.strata-copy-notes` or an unknown `.strata-x-<uuid>` is an
   ordinary file. The table is `src/model/hidden_names.rs`.
-- **From the listing Strata makes anyway**, in memory, with no extra scan or file call; a folder
+- **From the listing Files makes anyway**, in memory, with no extra scan or file call; a folder
   nobody opens is never looked at.
 - **Where the user looks.** In a browser window, not the portal chooser, in a folder the view shows
   rather than a peek, on native folders and GVfs locations other than the Trash and Recent, once its
   listing has settled.
-- **Not while they may be live.** While an operation of this Strata process changes a folder or
+- **Not while they may be live.** While an operation of this Files process changes a folder or
   writes into it, in any window, and anywhere below a merge's targets while it runs, its hidden
-  names are not shown; they appear the moment the operation ends. Another process (another Strata
+  names are not shown; they appear the moment the operation ends. Another process (another Files
   instance or file manager, or another computer on a share) cannot be seen, so the review says
   another program or computer may still be using them.
 - **Never another program's.** `.nfs…`, `.fuse_hidden…`, `.__smbfile_silly…` and ntfs-3g's cut
-  names are not Strata's and are never listed as leftovers (see
+  names are not Files' and are never listed as leftovers (see
   [Files that are still open](#files-that-are-still-open)).
 
 ### Where they show
@@ -1619,7 +1619,7 @@ probe only costs that probe its answer.
 | `.strata-replacement-*` with 6 characters | released builds' Replace stage | a copy, or after an exchange the original | **may be the user's original**; Restore as "Recovered item" |
 | `.strata-compression-*` with 6 characters, `.strata-symlink-*` | released builds' archive and symbolic link stages | a copy | an incomplete copy |
 
-The prefixes live in `src/model/hidden_names.rs`. Strata never deletes or renames by itself a name
+The prefixes live in `src/model/hidden_names.rs`. Files never deletes or renames by itself a name
 that may hold user data.
 
 ## Changes made elsewhere
@@ -1627,7 +1627,7 @@ that may hold user data.
 A folder's change monitor sees only changes made through this computer's kernel. Another computer
 writing to an NFS export or an SMB share, a program on an sshfs server, or a sync client writing
 into the backing folder of a FUSE overlay sends no event: the lab saw none for 300 such changes
-on NFS, SMB and sshfs. So Strata checks the folders it shows on those mounts, in
+on NFS, SMB and sshfs. So Files checks the folders it shows on those mounts, in
 `src/app/browser/freshness.rs`.
 
 ### Which folders are checked
@@ -1655,7 +1655,7 @@ a GVfs location, and keeps its modification time, change time and [identity](#id
 folder's stamp. A check reads the same stamp again, as background work on the mount's
 [request lane](#request-lanes), and compares:
 
-| The check finds | Strata |
+| The check finds | Files |
 | --- | --- |
 | the same stamp | nothing to do |
 | a stamp that moved | re-lists the folder in the background |
@@ -1716,7 +1716,7 @@ without multigrain timestamps (before Linux 6.13) were not measured.
 Some mounts never move a folder's stamp: 9p with `cache=loose`, object stores served by FUSE
 (rclone or s3fs on a bucket), and servers that do not update folder times. When a load finds a
 folder's stamp as the previous load left it, outside its coarse window, but its complete listing
-holds other names, Strata marks that mount for the session. Its checked folders are then
+holds other names, Files marks that mount for the session. Its checked folders are then
 re-listed instead of checked, at most every 15 s, and less often while nothing changes, under the
 same duty cycle and lane rules. A stamp that moved while the names stayed the same is never taken
 as evidence, and sshfs is never marked. The mark follows the mount's id, so a mount that later gets
@@ -1761,12 +1761,12 @@ folder. A GVfs check is one D-Bus call and one backend request.
 - **Compositors.** A window on another workspace is treated as hidden only where the compositor
   reports it as suspended (not verified on Hyprland and GNOME); elsewhere it keeps the 15 s
   interval.
-- **No change notifications.** Strata does not ask SMB servers for change notifications.
+- **No change notifications.** Files does not ask SMB servers for change notifications.
 
 ## Unresponsive mounts
 
 When an NFS or SMB server stops, an sshfs connection hangs, a FUSE daemon stops or a GVfs backend
-hangs, every call into that mount waits, often until the server comes back. Strata keeps those
+hangs, every call into that mount waits, often until the server comes back. Files keeps those
 waits off the interface thread and bounds how many workers they can hold.
 
 ### Off the interface thread
@@ -1800,10 +1800,10 @@ worker:
   same link is still there and gives it its image extension on a worker; Open waits for that step.
 - Programs and terminals are resolved and started on a worker, since starting a child waits until
   it has entered its working folder.
-- Once it has resolved its command-line paths, Strata makes `/` its working folder, so libraries
-  that look files up relative to the working folder never wait on the folder Strata was started
+- Once it has resolved its command-line paths, Files makes `/` its working folder, so libraries
+  that look files up relative to the working folder never wait on the folder Files was started
   from. A program that Open With starts without a working folder of its own starts in `/` too.
-- Strata's own settings and state files are saved by one background writer and read again there
+- Files' own settings and state files are saved by one background writer and read again there
   after another program changes them; see [Saved preferences](preferences.md).
 - An enumerator or stream the interface lets go of is closed in the background
   (`src/adapters/gio_close.rs`), as GLib would otherwise close it in place. With the server
@@ -1814,13 +1814,13 @@ worker:
 
 The exceptions are:
 
-- The reads at start, before the first window shows: Strata's settings and state files, GTK's
-  bookmarks file, the install marker beside Strata's executable and the check for a Flatpak
-  sandbox. The bundled font Strata writes at start is read by fontconfig whenever it lays out
+- The reads at start, before the first window shows: Files' settings and state files, GTK's
+  bookmarks file, the install marker beside Files' executable and the check for a Flatpak
+  sandbox. The bundled font Files writes at start is read by fontconfig whenever it lays out
   text.
-- GLib's volume monitor, which works only on the main thread. Strata takes it once, in the primary
+- GLib's volume monitor, which works only on the main thread. Files takes it once, in the primary
   instance's start-up, right after checking that GVfs answers and before the first window shows.
-  Strata skips that check while the marker it wrote after the last passing check still matches the
+  Files skips that check while the marker it wrote after the last passing check still matches the
   running `gvfsd` processes. The marker does not list GVfs's volume monitors
   (`gvfs-udisks2-volume-monitor` and the like), which this first use asks, so neither a `gvfsd`
   process that hangs without restarting nor a volume monitor that hangs, restarted or not, is
@@ -1920,26 +1920,26 @@ Measured in the lab over loopback, with the server stopped:
   `AT_STATX_DONT_SYNC` by path is no exception, as it walks the path and revalidates expired
   components. Through an `O_PATH` descriptor it answered at once on every dead mount.
 - **Caches are per process.** The NFS client keys its access cache by the calling process, so
-  helpers Strata starts (preview sandboxes, terminals, programs it launches) begin cold and block
-  on a dead server even in a folder Strata just listed.
+  helpers Files starts (preview sandboxes, terminals, programs it launches) begin cold and block
+  on a dead server even in a folder Files just listed.
 - **NFSv4.2 delegations.** A forced stat of a recently used folder can be answered by the client
   under a directory delegation, also while the server is dead.
 - **The mount table stays live.** Reading `/proc/self/mountinfo` never waited on a server (446 µs
   at most over 4,974 reads during six outages, an SMB reconnect included), and `poll` on it woke at
-  once on a change. Strata's mount watcher (`src/adapters/volume/mount_watch.rs`) reads it on its
+  once on a change. Files' mount watcher (`src/adapters/volume/mount_watch.rs`) reads it on its
   own thread, waits 50 ms for a burst of changes to end, and publishes the table to readers that
   do no I/O: a burst of 3,000 changes cost 3 reads, and sustained churn 0.6 to 0.8 % of one core.
 - **GVfs was not stopped.** The lab stopped no GVfs backend and no `gvfs-udisks2` volume monitor.
   How GVfs folder monitors and stream closes behave while their backend is stopped, whether a GVfs
   folder's monitor, made off the interface thread, delivers its events to it, and how long the
-  first use of the volume monitor waits when `gvfs-udisks2` is stopped before Strata starts are
+  first use of the volume monitor waits when `gvfs-udisks2` is stopped before Files starts are
   unverified.
 
 ### Folder monitors
 
 A folder's change monitor is created once the folder's load has answered, never on a stalled lane.
 One serial worker creates and cancels every monitor, through the lanes: those of open folders, the
-Trash, Strata's settings files, custom themes and the Omarchy theme folders. GLib's inotify backend
+Trash, Files' settings files, custom themes and the Omarchy theme folders. GLib's inotify backend
 creates, cancels and delivers every monitor in a process under one lock, and creating a monitor
 walks its path, which blocks on a dead mount like any lookup. So while a creation is stuck on a
 mount that stopped answering, monitors on every folder deliver nothing, and later creations and
@@ -1980,8 +1980,8 @@ libfuse high-level daemons without `use_ino`, sshfs among them, give each hard l
 number, so a link cannot prove that it holds the item. A FUSE daemon whose probe link keeps the
 file's number and counts two links, as ntfs-3g passes the volume's inode numbers on, counts from
 then on as keeping inode numbers, so its entries are compared by number rather than held or known
-by their size and times. Once a probe on Strata's own names confirms that links get numbers of
-their own, Strata stops using links on that mount, and files take the
+by their size and times. Once a probe on Files' own names confirms that links get numbers of
+their own, Files stops using links on that mount, and files take the
 [reserved-name step](#the-reserved-name-step-and-its-risk). A link to a user's item made before
 that confirmation is removed by the identity it reported right after linking, if its type,
 permissions, size and modification time match the item's, and the file then takes that step.
@@ -2007,7 +2007,7 @@ lookups, invalid names, unsupported or lying Trash, reused inode numbers, hard l
 inode numbers, missing birth times (where the base reports none, the vfat and exFAT presets record
 one per file that renumbering keeps, as FAT does), lost replies (on sshfs, a lost rename reply
 leaves the target name reporting its old inode number) and racing processes, before or after a call.
-On emulated ext and NFS mounts without birth times Strata reads file handles: the seam reports the
+On emulated ext and NFS mounts without birth times Files reads file handles: the seam reports the
 mount type under the kernel's id of the real mount and the missing birth time, and the handle comes
 from the real filesystem. Where that filesystem gives none (exfat, cifs), or gives each name of a
 hard link its own (FUSE, where high-level daemons such as ntfs-3g keep a node per name), the seam
@@ -2070,7 +2070,7 @@ ntfs-3g renames over an entry through, and a filesystem mounted inside another w
 its own. Presets for the lab's mounts (`Quirks::vfat()`, `exfat()`, `exfat_fuse()`, `ntfs3()`,
 `ntfs3_windows_names()`, `ntfs_3g()`, `cifs()`, `cifs_nocase()`, `cifs_posix()`, `sshfs()`) carry
 each mount's mountinfo line and udev format, so the name rules come from the real derivation, and
-their refusals are written from the lab's results, not from Strata's rules. Run them with:
+their refusals are written from the lab's results, not from Files' rules. Run them with:
 
 ```bash
 ./scripts/test-headless.py local_operations::
@@ -2115,16 +2115,16 @@ smbd or sftp-server.
 
 A preset reports the lab mount's mountinfo type unless it names `mount_type`, the mount's
 `statfs` type unless it names `fs_type`, and the mount's udev format only when it names neither a
-mount type nor a device format. `Quirks::default()` names none of them, so Strata applies the lab
+mount type nor a device format. `Quirks::default()` names none of them, so Files applies the lab
 mount's rules there, and a preset that names only a mount type keeps the base's `statfs` type,
 which decides exchanges. On a FUSE base the seam refuses an exchange with `EINVAL`, as a refusing
 mount does, whatever the preset's type: exfat-fuse overwrites the target instead of swapping it.
 The presets of real filesystems, and rows that need one's rules (`on_ext4`), name both. On an SMB
-base the seam refuses `O_TMPFILE` with `EOPNOTSUPP`, as Strata never opens one there: with POSIX
+base the seam refuses `O_TMPFILE` with `EOPNOTSUPP`, as Files never opens one there: with POSIX
 extensions the client reports the unnamed file with inode number 1<<32, no links and a wrong size
 until it revalidates. On a kernel exFAT base, which stamps a folder's birth time at each rename into
 it, a preset whose rule keeps folder birth times sees the first one the seam read for each folder.
-The Replace row that substitutes the target Strata holds for its Trash check skips on NFS, where
+The Replace row that substitutes the target Files holds for its Trash check skips on NFS, where
 nothing is held ("skipped on an NFS base").
 
 Unit tests layer quirks on a fully featured filesystem, so on a limited mount some of them fail by

@@ -1,7 +1,7 @@
 # External file providers (protocol 1)
 
 File providers add state-dependent context actions and file decorations without
-loading provider code into Strata. Examples include cloud availability and
+loading provider code into Files. Examples include cloud availability and
 version-control status. Providers are opt-in trusted programs, **not sandboxes**;
 they run with the user's permissions and receive visible native paths. Only
 install a provider from a source you trust.
@@ -29,7 +29,7 @@ Install one directory per provider under `$XDG_CONFIG_HOME/nyx-files/providers/`
 
 Save this as `example/provider.json`. The id must match the directory name.
 The optional `name` supplies the human-readable menu group heading; without it,
-Strata uses the id. Names must contain non-whitespace plain text, at most 64 UTF-8
+Files uses the id. Names must contain non-whitespace plain text, at most 64 UTF-8
 bytes, without control characters. The optional `icon` names one of the declared
 icons and is drawn before that heading and on the provider's **Send to…**
 submenu. Without one, that submenu uses an icon for the optional `category`
@@ -50,7 +50,7 @@ only declared icon ids in replies. PNG artwork lives beside the manifest (plain
 filenames, no subdirectories), at most 64 KiB and 256×256 per image, up to 16 icons.
 It is loaded once from trusted configuration, never from selected file content or
 URLs. Branded artwork preserves its colors; use artwork legible on both light and
-dark backgrounds. Strata's own interface continues to use themed Lucide icons.
+dark backgrounds. Files' own interface continues to use themed Lucide icons.
 
 ## Transport
 
@@ -88,7 +88,7 @@ row. Badges share the thumbnail/icon rendering used by Columns, List and Icons.
 
 Return an empty `actions` array for ineligible selections. No placeholder or
 disabled global menu item is inserted. Unless placed in **Send to…** (below),
-Strata keeps each provider's root entries together in an inline section with a
+Files keeps each provider's root entries together in an inline section with a
 small, muted, non-interactive heading. This is not an extra submenu: providers
 choose flat actions, recursive submenus, or a mixture within their section:
 
@@ -110,7 +110,7 @@ their models on refresh. Removed leaves are disabled before removal, including
 when their containing section or branch is withdrawn or the menu closes.
 
 A root action that names a *destination*, such as a paired phone, can ask
-to appear inside Strata's **Send to…** submenu instead of the provider section:
+to appear inside Files' **Send to…** submenu instead of the provider section:
 
 ```json
 {"version":1,"id":2,"actions":[{"id":"pixel","label":"Pixel","icon":"phone","placement":"send-to","context":"opaque-selection-token"},{"id":"tablet","label":"Tablet","icon":"tablet","placement":"send-to","context":"opaque-selection-token"}]}
@@ -132,7 +132,7 @@ with its own label, and with the provider's icon when it declares none:
 {"version":1,"id":2,"actions":[{"id":"open","label":"LocalSend","placement":"send-to-entry","context":"opaque-selection-token"}]}
 ```
 
-The provider chooses its presentation; Strata never collapses a submenu that
+The provider chooses its presentation; Files never collapses a submenu that
 holds one `send-to` destination. A `send-to-entry` action is drawn as an entry
 only while it is the provider's sole Send to… action and has no `children`;
 otherwise it joins that provider's submenu like a `send-to` destination.
@@ -141,14 +141,14 @@ otherwise it joins that provider's submenu like a `send-to` destination.
 background (folder) menus and in menus without a Send to… entry, where the
 action stays in the provider section. Unrecognized values also keep the section,
 so a provider that uses `placement` degrades to a heading section on older
-Strata versions without a handshake; Strata versions before `send-to-entry`
+Files versions without a handshake; Files versions before `send-to-entry`
 treat it that way.
 
 Each menu and activation describes the whole selection, never a silently filtered
 subset. An adapter may support cross-account selections; otherwise return no
 actions. For parent/child selections, define whether a recursive operation covers
 descendants and report counts against the original selection. Deduplication or
-batching inside the adapter must preserve those semantics. Above 200 items Strata
+batching inside the adapter must preserve those semantics. Above 200 items Files
 offers no provider actions; it does not truncate a menu or activation selection.
 Selections must also fit within a request frame: the JSON-escaped path array has
 a budget of 1 MiB minus 16 KiB reserved for the envelope and context. Larger
@@ -167,7 +167,7 @@ its `context`, if provided:
 to act on a replaced file, renamed path or new mount incarnation. Bind context to
 the exact selection, account/collection/item identities and mount incarnation;
 reject stale tokens. Enforce identity at the service's operation boundary, not
-just during a prior path lookup. Strata echoes the token unchanged and replaces
+just during a prior path lookup. Files echoes the token unchanged and replaces
 it when the same leaf receives new context. A context can also be an adapter's
 idempotency token; the host neither interprets it nor manufactures replay safety.
 Adapters without tokens must still guarantee safe identity revalidation.
@@ -218,7 +218,7 @@ roots overlap selections in either ancestor/descendant direction, at component
 boundaries; paths use lexical spelling, so adapters should consistently normalize
 their native roots without resolving selected content or symlinks.
 
-Strata preserves wire order across events and replies. A change emitted *after*
+Files preserves wire order across events and replies. A change emitted *after*
 a valid snapshot marks it dirty for another refresh, while retaining presentation.
 This guarantees progress for coherent snapshots under sustained activity, without
 treating a reply older than a preceding relevant event as current. Once any revision
@@ -227,7 +227,7 @@ process session need revisions; invalidation revisions cannot decrease. A proces
 restart begins a new session and may restart its counter at zero.
 
 Legacy unversioned events are refresh hints. Their query/menu replies must still
-be coherent snapshots at emission time; Strata accepts them while retaining the
+be coherent snapshots at emission time; Files accepts them while retaining the
 need to refresh if a hint crossed the request. Without revisions the host cannot
 detect an adapter emitting an obsolete snapshot. New adapters should use revisions
 and scoped invalidations rather than global hints for unrelated account activity.
@@ -260,7 +260,7 @@ or a capabilities request. A future optional negotiation must preserve that base
 ## Bounds and failure behavior
 
 At most eight registrations are loaded (from at most 64 directory entries), with
-one child per provider. Strata sends **one request at a time** on each connection;
+one child per provider. Files sends **one request at a time** on each connection;
 serial adapters are supported, and events may arrive at any time. It queues up to
 16 speculative query/menu requests and eight activations separately. User actions
 have dispatch priority after the current request; pending refreshes for the same
@@ -287,7 +287,7 @@ completed bounded batches on its main loop. Each provider cache holds at most
 tracked. Only mapped slots are queried. Unmapped slots lose their decoration and
 re-register on mapping; slots refused at capacity retry admission while mapped.
 
-Strata logs bounded static failure categories and validated provider ids for rejected
+Files logs bounded static failure categories and validated provider ids for rejected
 registrations, spawn/transport failures, timeouts and malformed output. Repeated
 transport diagnostics are rate-limited to once per ten seconds. Host saturation
 is a separate busy/unsent condition, not an adapter protocol fault. Raw stdout,
@@ -297,7 +297,7 @@ included in these diagnostics.
 This API does not authorize downloading file content to calculate presentation.
 Use cached metadata/service status and never inspect selected documents merely
 to draw a menu or badge. This is a provider obligation, not an enforced security
-boundary: a trusted child has the user's permissions. Strata's existing
+boundary: a trusted child has the user's permissions. Files' existing
 thumbnail/preview behavior is separate. Remote-only locations and non-UTF-8
 filenames are unsupported; no lossy conversion is performed.
 

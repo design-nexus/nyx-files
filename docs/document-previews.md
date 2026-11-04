@@ -1,6 +1,6 @@
 # Rendered document previews
 
-Strata can render local Markdown, a deliberately small HTML subset, RTF, CSV, and TSV with native GTK widgets. Each document preview has **Rendered** and **Source** views. **Render documents by default** under **Settings → General → Browsing** chooses the initial view for each newly opened document; switching the current preview does not change that preference.
+Files can render local Markdown, a deliberately small HTML subset, RTF, CSV, and TSV with native GTK widgets. Each document preview has **Rendered** and **Source** views. **Render documents by default** under **Settings → General → Browsing** chooses the initial view for each newly opened document; switching the current preview does not change that preference.
 
 Remote Markdown and HTML locations remain source-only. Rendered previews are selected from the local filename or content type:
 
@@ -15,7 +15,7 @@ Local DOCX documents render the same way and also have no Source view, since the
 
 ## Supported content
 
-Markdown uses `pulldown-cmark` with tables, strikethrough, and task lists enabled. Headings, paragraphs, emphasis, lists, block quotes, web links, fenced and inline code, rules, tables, and line breaks render natively. Known fenced-code language hints use Strata's existing, theme-aware GtkSourceView syntax highlighting. Raw HTML is displayed as inert text.
+Markdown uses `pulldown-cmark` with tables, strikethrough, and task lists enabled. Headings, paragraphs, emphasis, lists, block quotes, web links, fenced and inline code, rules, tables, and line breaks render natively. Known fenced-code language hints use Files' existing, theme-aware GtkSourceView syntax highlighting. Raw HTML is displayed as inert text.
 
 Markdown images with relative paths render PNG, JPEG, GIF (first frame), WebP, BMP, and SVG content. Percent-encoded filenames are supported. Image files must be inside the document's folder or its descendants; symlinks cannot escape that folder. Inline images appear below their containing paragraph or list item. Images in tables remain alt-text placeholders. Absolute paths, `file:` URLs, data URLs, and remote images are not loaded; remote URLs are discarded and a notice explains the restriction.
 
@@ -29,7 +29,7 @@ DOCX is read with `docx-rs` inside the [preview sandbox](preview-sandbox.md) and
 
 HTML uses `html5gum` tokenization and supports semantic containers, headings, paragraphs, emphasis, underline (`u`, `ins`), lists, block quotes, `http` and `https` links, `pre`/`code`, rules, simple tables, and line breaks. Normal flow whitespace is collapsed like HTML, while `pre` content remains exact. A known `language-*` class on `code` inside `pre` is used only as a syntax hint; it does not enable CSS. Entities are decoded before their text is escaped for Pango.
 
-CSS, classes, IDs, metadata, and other presentation attributes are ignored. Scripts, styles, forms, frames, objects, embedded content, images, media, event handlers, unsafe links, and resource-bearing tags or attributes are omitted. If a document still has useful safe content, Strata renders it with an omission warning. Link schemes are checked again when a link is activated before the existing external URI launcher is used.
+CSS, classes, IDs, metadata, and other presentation attributes are ignored. Scripts, styles, forms, frames, objects, embedded content, images, media, event handlers, unsafe links, and resource-bearing tags or attributes are omitted. If a document still has useful safe content, Files renders it with an omission warning. Link schemes are checked again when a link is activated before the existing external URI launcher is used.
 
 ## Limits and fallback
 

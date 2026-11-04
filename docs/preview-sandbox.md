@@ -1,6 +1,6 @@
 # Preview sandbox
 
-Strata treats files shown while browsing as untrusted. Original-file native
+Files treats files shown while browsing as untrusted. Original-file native
 parsing and decoding run inside bubblewrap, never in the application. The host
 starts bubblewrap from a trusted absolute path found under admin-managed system
 directories (FHS, NixOS/Guix system profiles, and NixOS wrappers), not inherited
@@ -17,7 +17,7 @@ and which runtime tree and helper paths the sandbox binds and runs inside.
 
 `STRATA_TRUSTED_COMMAND_PATH` is a colon-separated list of additional directories
 in which the host looks for helpers such as `bwrap`, `xdg-mime`, and the
-provider runtimes. It is read **only when compiling Strata**, so a package can
+provider runtimes. It is read **only when compiling Files**, so a package can
 point it at the `bin` directories of its runtime closure without requiring users
 to install those tools into a system profile:
 
@@ -38,8 +38,8 @@ closed.
 ### Sandbox runtime paths
 
 These variables select the runtime tree and helper paths inside the sandbox.
-Each one is resolved in this order: a value set **when launching Strata**, then
-a value embedded **when compiling Strata**, then the default.
+Each one is resolved in this order: a value set **when launching Files**, then
+a value embedded **when compiling Files**, then the default.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -223,7 +223,7 @@ finish and retires excess idle supervisors. This includes browser media-metadata
 probes, not preview playback or Properties inspection.
 
 Idle supervisors stop after **60 seconds without a job**, and the pool can shrink
-to zero while Strata stays open. `STRATA_THUMBNAIL_IDLE_SECONDS` overrides this at
+to zero while Files stays open. `STRATA_THUMBNAIL_IDLE_SECONDS` overrides this at
 startup (positive integer seconds, capped at 86,400; zero/invalid values use 60).
 Each completed lease resets that worker's idle clock; busy decoders are never
 interrupted by idle expiry. The existing lifetime launcher waits for the next
@@ -335,7 +335,7 @@ reuse: repeated cold files within the idle timeout should produce jobs, not a ne
 
 ## Bundled interface icons
 
-Strata's bundled Lucide SVGs are trusted application resources, not browser files.
+Files' bundled Lucide SVGs are trusted application resources, not browser files.
 They render directly to bounded in-memory pixels with `resvg`, avoiding synchronous
 GdkPixbuf/Glycin loader startup on the GTK thread during row binding and live theme
 changes. External and embedded image references are disabled; icon inputs and
@@ -392,7 +392,7 @@ HEIC/HEIF can use ImageMagick with libheif inside the image sandbox.
 
 Camera/PTP rows use the backend's `preview::icon` / `GLoadableIcon` interface.
 GVfs's gphoto2 implementation requests `GP_FILE_TYPE_PREVIEW`, not the original.
-Missing or failed previews leave the ordinary file icon; Strata does not fall
+Missing or failed previews leave the ordinary file icon; Files does not fall
 back to downloading full photos for thumbnails.
 
 Retrieval is asynchronous, limited to 1 MiB and 15 seconds. These jobs share the
@@ -477,7 +477,7 @@ Detailed RAW inspection does not run for browser thumbnails.
 One original local file (read-only)
   -> bubblewrap: ffprobe + FFmpeg video/audio decoding and scaling
   -> bounded, validated RGBA frames and PCM blocks
-  -> Strata GtkMediaStream: GTK MemoryTexture presentation
+  -> Files GtkMediaStream: GTK MemoryTexture presentation
                          + GStreamer appsrc raw-audio output
 ```
 
@@ -785,7 +785,7 @@ keep an unmounted filesystem alive. See
 - A thumbnail or metadata probe stopped or refused this way is not cached as a
   failure; thumbnails still bound are asked for again when the operation ends.
 - bubblewrap reports its namespace's first process through `--info-fd`, on the
-  sandbox's otherwise unused stderr, and Strata opens a pidfd on it while the
+  sandbox's otherwise unused stderr, and Files opens a pidfd on it while the
   sandbox runs. After every exit of bubblewrap, killed or normal, it waits on
   that pidfd, at most 1 second, until the kernel has reaped the namespace and
   dropped its bind of the user's file. With bubblewrap 0.12.0 the namespace was
@@ -798,7 +798,7 @@ Bubblewrap retains the existing namespace/mount policy:
 
 - new user, mount, PID, IPC, UTS, cgroup, and network namespaces;
 - read-only `/usr` (or the build-configured runtime tree), required runtime
-  libraries and font/ImageMagick configuration, the Strata executable, and
+  libraries and font/ImageMagick configuration, the Files executable, and
   exactly one canonicalized regular input file;
 - writable private mode-0700 output directories for image providers and a
   size-limited (512 MiB) private `/tmp`; media uses pipes, not output mounts;
@@ -833,7 +833,7 @@ GPU access still expands the helper's attack surface into driver code.
 GStreamer app/base development libraries are now direct build dependencies;
 installed systems need their runtime libraries and raw-audio/output plugins.
 In particular, the core and app/base libraries are now required to **launch**
-Strata, even when no preview is open. Minimal installations that self-update only
+Files, even when no preview is open. Minimal installations that self-update only
 the executable must install these packages before updating. Installer/AUR metadata
 retains the legacy codec-plugin recommendation for currently published binaries;
 the new player does not use those decoders.

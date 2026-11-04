@@ -1,6 +1,6 @@
 # Internationalization
 
-Strata uses `rust-i18n` with compiled-in UTF-8 JSON catalogs and English fallback.
+Files uses `rust-i18n` with compiled-in UTF-8 JSON catalogs and English fallback.
 The language preference is initialized before application UI and takes effect on restart;
 see [Language preferences](preferences.md#language) for detection and persistence.
 The application's language never changes filesystem paths, protocol identifiers,
@@ -29,7 +29,7 @@ Settings search target; their English value is the English alias list. All catal
 are build inputs: `build.rs` embeds them as static tables served by the
 `i18n::Catalogs` backend, so changing only a translation still rebuilds them.
 The installer embeds its messages from the same rust-i18n source catalog so it
-needs no translation files, Python, or installed Strata binary at runtime. It
+needs no translation files, Python, or installed Files binary at runtime. It
 uses the system locale with the same `LANGUAGE` and POSIX precedence rules as the
 application; the saved application language does not affect installation.
 
@@ -175,15 +175,15 @@ help text and destructive-operation confirmations.
 
 ### Accepted limitations
 
-The following text is outside Strata's catalogs or deliberately English:
+The following text is outside Files' catalogs or deliberately English:
 
 - GTK toolkit-owned text, such as the color chooser's "Custom", "Cancel" and swatch
   names, GtkNotebook "Page N", and the password entry's "Show Text". GTK translates
-  these from the process locale, not Strata's language setting.
+  these from the process locale, not Files' language setting.
 - GIO and MIME descriptions, such as content-type names in Properties and the List
   Type column, and Open With application descriptions.
 - External release notes, which are written upstream and shown verbatim.
-- Library parser details, such as a TOML syntax diagnostic after Strata's
+- Library parser details, such as a TOML syntax diagnostic after Files'
   translated prefix.
 - The custom-action starter template, whose comments and docstring are code that
   users edit.
@@ -197,13 +197,13 @@ Simplified Chinese needs one with Simplified Chinese glyphs, such as Noto Sans
 CJK SC, and Traditional Chinese needs one with Traditional glyphs, such as Noto
 Sans CJK TC. Chinese and Japanese text share Han code points, whose regional glyph
 forms Pango chooses from the text language. GTK takes that language from the
-process locale (`LC_CTYPE`), not from Strata's language setting. If the locale is
+process locale (`LC_CTYPE`), not from Files' language setting. If the locale is
 neither Chinese nor Japanese, Pango uses the first Chinese or Japanese entry in
 `PANGO_LANGUAGE` (or `LANGUAGE` when that is unset); without one, the forms are
 the defaults of whichever CJK font Fontconfig picks. A manual 简体中文 or 正體中文
 choice can therefore show another region's forms. To see Simplified or
-Traditional forms on a locale that is neither Chinese nor Japanese, run Strata
-with `PANGO_LANGUAGE=zh-cn` or `PANGO_LANGUAGE=zh-tw`. Strata does not download or install fonts. A minimal
+Traditional forms on a locale that is neither Chinese nor Japanese, run Files
+with `PANGO_LANGUAGE=zh-cn` or `PANGO_LANGUAGE=zh-tw`. Files does not download or install fonts. A minimal
 container without CJK fonts can expose correct accessible text while rendering
 missing-glyph boxes; check actual rendering with suitable fonts installed, rather
 than relying only on accessibility tests.

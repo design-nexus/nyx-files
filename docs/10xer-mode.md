@@ -572,7 +572,7 @@ window discards the previous query's pending hits; a view change keeps the
 search. A folder without a local path, such as Network, flashes
 `Nothing to search`.
 
-**z** (`jump ›`) and **Z** (`recent ›`) pick from the folders Strata has
+**z** (`jump ›`) and **Z** (`recent ›`) pick from the folders Files has
 opened, the same saved history as the default map's **Ctrl+Shift+K**, not a
 zoxide database. They match each folder's full path with the same terms as
 **s**: space-separated fuzzy terms in any order, `'exact`, `^prefix`,

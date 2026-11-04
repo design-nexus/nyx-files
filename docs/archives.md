@@ -7,7 +7,7 @@ folder with `../report.txt` unchanged, the filesystem would resolve the result
 beside that folder instead of inside it. This archive path-traversal pattern is
 also known as Zip Slip.
 
-Strata resolves parent components without allowing them to walk above the
+Files resolves parent components without allowing them to walk above the
 selected destination. For example, both `../report.txt` and
 `folder/../report.txt` become `report.txt`. Extraction then continues with later
 members instead of aborting the entire operation. Empty paths, absolute paths,
@@ -20,12 +20,12 @@ so two members that sanitize to `report.txt` become `report.txt` and
 
 ## Extraction output
 
-Strata writes members into a hidden `.strata-extraction-<id>` folder inside the
+Files writes members into a hidden `.strata-extraction-<id>` folder inside the
 destination, created when the first member is written. It is visible during
 extraction only when hidden files are shown. A crash or an unplugged device can
 leave it behind; it holds nothing the archive does not, and the folder's
 [leftover review](filesystem-compatibility.md#leftovers-after-a-crash-or-unplug)
-offers to delete it. When the archive has been read, Strata publishes the
+offers to delete it. When the archive has been read, Files publishes the
 folder:
 
 - A single top-level entry is moved up into the destination under its own
@@ -71,9 +71,9 @@ output.
 
 Publication never replaces an existing entry. Where the filesystem lacks
 atomic no-replace renames, a file is published through a hard link and a
-folder is moved whole over an empty placeholder Strata has just created. Where
+folder is moved whole over an empty placeholder Files has just created. Where
 a file cannot be hard-linked, as on sshfs and vboxsf, it is renamed over an
-empty file Strata has just created and checked, and where hard links are
+empty file Files has just created and checked, and where hard links are
 unusable, a folder that cannot be moved over a placeholder is renamed once its
 name is found free, as is a folder whose name ntfs-3g would cut.
 That step has one narrow window, described in
@@ -157,7 +157,7 @@ containing "password" cannot open the prompt.
 
 ## Archive creation
 
-Strata chooses compression according to the output container, not just the
+Files chooses compression according to the output container, not just the
 selected filename extension.
 
 | Output | Payload encoding | Password support |
@@ -197,7 +197,7 @@ extensions retain compression.
 
 Extensions are hints, not content validation: an MP4/MOV/MKV container can contain
 uncompressed streams, a PDF can contain plain data, and even a ZIP can contain
-stored members. Such exceptions may yield a larger output. Strata does not read
+stored members. Such exceptions may yield a larger output. Files does not read
 all payloads to estimate compressibility. The existing preflight walk opens
 entries to count members and classify names; payloads are streamed once during
 encoding. Directory recursion remains descriptor-relative and symlinks are not
