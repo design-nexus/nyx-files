@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-//! The sidebar's content: Places, Pinned folders and Devices, rebuilt when
-//! pins, drives or the shown places change.
+//! The sidebar's content: Places, Pinned folders, Cloud Storage and Devices,
+//! rebuilt when pins, drives, cloud accounts or the shown places change.
 
 use std::{
     cell::{Cell, RefCell},
@@ -45,6 +45,40 @@ pub(super) struct SidebarContent {
     keep: RefCell<Vec<Box<dyn std::any::Any>>>,
     /// The section rows being added belong to, for their icon color.
     section: Cell<&'static str>,
+    /// The accounts nyx-cloud last listed, drawn at once on each rebuild so
+    /// Cloud Storage keeps its place above Devices while a new listing loads.
+    cloud_listing: RefCell<Option<CloudListing>>,
+}
+
+#[derive(Clone)]
+enum CloudListing {
+    Unavailable,
+    Accounts(Vec<nyx_cloud::Remote>),
+}
+
+impl CloudListing {
+    fn from_result<E>(result: Result<anyhow::Result<Vec<nyx_cloud::Remote>>, E>) -> Self {
+        match result {
+            Ok(Ok(remotes)) => {
+                Self::Accounts(remotes.into_iter().filter(|r| r.storage_enabled).collect())
+            }
+            _ => Self::Unavailable,
+        }
+    }
+
+    /// Whether the sidebar would show the same rows for both.
+    fn same(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Unavailable, Self::Unavailable) => true,
+            (Self::Accounts(left), Self::Accounts(right)) => {
+                left.len() == right.len()
+                    && left.iter().zip(right).all(|(a, b)| {
+                        a.id == b.id && a.name == b.name && a.mount_path == b.mount_path
+                    })
+            }
+            _ => false,
+        }
+    }
 }
 
 fn standard(id: &str) -> Option<(&'static str, &'static str, glib::UserDirectory)> {
@@ -196,6 +230,7 @@ impl SidebarContent {
             monitor: gio::VolumeMonitor::get(),
             keep: RefCell::default(),
             section: Cell::new("places"),
+            cloud_listing: RefCell::default(),
         });
         let weak = Rc::downgrade(&content);
         let pins = bookmarks::watch_changes(move |result| {
@@ -716,48 +751,26 @@ impl SidebarContent {
         heading.set_visible(false);
         self.sidebar.append(&heading);
         self.sidebar.append(&holder);
-        let (weak, h, head) = (Rc::downgrade(self), holder.downgrade(), heading.downgrade());
+        let cached = self.cloud_listing.borrow().clone();
+        if let Some(listing) = cached {
+            self.show_cloud(&heading, &holder, &listing);
+        }
+        let weak = Rc::downgrade(self);
         glib::MainContext::default().spawn_local(async move {
             let remotes = gio::spawn_blocking(|| nyx_cloud::Client::connect()?.list()).await;
-            let (Some(content), Some(holder), Some(heading)) =
-                (weak.upgrade(), h.upgrade(), head.upgrade())
-            else {
+            let listing = CloudListing::from_result(remotes);
+            let Some(content) = weak.upgrade() else {
                 return;
             };
-            let Ok(Ok(remotes)) = remotes else {
-                heading.set_visible(true);
-                let note =
-                    nyx_ui::widgets::label(&crate::i18n::tr("Cloud Storage unavailable"), "dim");
-                note.set_xalign(0.0);
-                note.set_margin_start(10);
-                note.add_css_class("compact-hide");
-                holder.append(&note);
-                return;
-            };
-            let remotes: Vec<_> = remotes.into_iter().filter(|r| r.storage_enabled).collect();
-            heading.set_visible(!remotes.is_empty());
-            for remote in remotes {
-                let item =
-                    sidebar::nav_item("weather-overcast-symbolic", &remote.name, &remote.name);
-                item.button.add_css_class("section-icon-cloud");
-                let (w, r) = (Rc::downgrade(&content), remote.clone());
-                item.button.connect_clicked(move |b| {
-                    if let Some(c) = w.upgrade() {
-                        c.open_cloud(r.id.clone(), b.clone());
-                    }
-                });
-                holder.append(&item.button);
-                // Marked like other places while its folder is the one open.
-                if !remote.mount_path.is_empty() {
-                    content
-                        .rows
-                        .borrow_mut()
-                        .push((Location::local(&remote.mount_path), item.clone()));
-                }
+            let unchanged = content
+                .cloud_listing
+                .borrow()
+                .as_ref()
+                .is_some_and(|cached| cached.same(&listing));
+            if !unchanged {
+                content.cloud_listing.replace(Some(listing));
+                content.queue_rebuild();
             }
-            let current = content.current.borrow().clone();
-            content.mark(current.as_ref());
-            content.sidebar.refresh();
         });
         if !self.cloud_watch.get() {
             self.cloud_watch.set(true);
@@ -784,6 +797,36 @@ impl SidebarContent {
                     c.keep.borrow_mut().push(Box::new(subscription));
                 }
             });
+        }
+    }
+
+    fn show_cloud(self: &Rc<Self>, heading: &gtk::Box, holder: &gtk::Box, listing: &CloudListing) {
+        let CloudListing::Accounts(remotes) = listing else {
+            heading.set_visible(true);
+            let note = nyx_ui::widgets::label(&crate::i18n::tr("Cloud Storage unavailable"), "dim");
+            note.set_xalign(0.0);
+            note.set_margin_start(10);
+            note.add_css_class("compact-hide");
+            holder.append(&note);
+            return;
+        };
+        heading.set_visible(!remotes.is_empty());
+        for remote in remotes {
+            let item = sidebar::nav_item("weather-overcast-symbolic", &remote.name, &remote.name);
+            item.button.add_css_class("section-icon-cloud");
+            let (w, id) = (Rc::downgrade(self), remote.id.clone());
+            item.button.connect_clicked(move |b| {
+                if let Some(c) = w.upgrade() {
+                    c.open_cloud(id.clone(), b.clone());
+                }
+            });
+            holder.append(&item.button);
+            // Marked like other places while its folder is the one open.
+            if !remote.mount_path.is_empty() {
+                self.rows
+                    .borrow_mut()
+                    .push((Location::local(&remote.mount_path), item.clone()));
+            }
         }
     }
 

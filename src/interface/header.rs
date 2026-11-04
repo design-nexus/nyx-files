@@ -231,11 +231,29 @@ impl Actions {
     }
 }
 
-/// The path group: breadcrumbs (click the empty end, or Ctrl+L, to type a
-/// path) and a button that copies the folder's path.
+/// The gap after the crumbs opens the path for typing, so a folder with no
+/// arrows between crumbs, such as `/`, can still be typed over.
+pub(super) fn wire_path_edit(path: &nyx_ui::pathbar::PathBar) {
+    let mut stack = vec![path.root.clone().upcast::<gtk::Widget>()];
+    while let Some(widget) = stack.pop() {
+        let mut child = widget.first_child();
+        while let Some(c) = child {
+            stack.push(c.clone());
+            child = c.next_sibling();
+        }
+        if widget.has_css_class("pathbar-filler") {
+            widget.set_cursor_from_name(Some("text"));
+            widget.set_tooltip_text(Some(&crate::i18n::tr("Type a path")));
+        }
+    }
+}
+
+/// The path group: breadcrumbs (click the gap after them, an arrow between
+/// them, or Ctrl+L, to type a path) and a button that copies the folder's path.
 pub(super) fn path_group(path: &nyx_ui::pathbar::PathBar, window: &Rc<Window>) -> gtk::Box {
     let root = group();
     root.add_css_class("path-group");
+    wire_path_edit(path);
     root.append(&path.root);
     path.root.set_hexpand(true);
     let copy = button("edit-copy-symbolic", &crate::i18n::tr("Copy path"));

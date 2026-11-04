@@ -292,6 +292,7 @@ impl Chooser {
             header.start.append(button);
         }
         let path = PathBar::new();
+        super::header::wire_path_edit(&path);
         let clamp = nyx_ui::clamp::Clamp::new(&path.root, 720);
         clamp.set_start(true);
         clamp.set_margin_start(8);

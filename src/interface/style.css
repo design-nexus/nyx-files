@@ -546,6 +546,19 @@ window.files-window .pathbar .crumb-sep:hover {
   color: @theme_accent;
 }
 
+/* The gap after the crumbs also opens the path for typing, even at a root. */
+window.files-window .pathbar-filler,
+window.files-chooser .pathbar-filler {
+  min-width: 14px;
+  margin-left: 2px;
+  border-radius: var(--nyx-radius-small);
+}
+
+window.files-window .pathbar-filler:hover,
+window.files-chooser .pathbar-filler:hover {
+  background: alpha(@theme_text, 0.06);
+}
+
 /* "F1 Shortcuts" under the sidebar, quiet until hovered. */
 window.files-window button.sidebar-shortcuts {
   margin: 6px 10px 8px;

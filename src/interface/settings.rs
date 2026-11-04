@@ -797,8 +797,8 @@ fn sidebar(group: &Group) {
     for (section, title) in [
         ("places", "Places"),
         ("pinned", "Pinned"),
-        ("devices", "Devices"),
         ("cloud", "Cloud Storage"),
+        ("devices", "Devices"),
     ] {
         let strip = section_swatches(section, title);
         strip.set_halign(gtk::Align::Start);

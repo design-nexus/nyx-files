@@ -44,8 +44,8 @@ pub(super) fn install() {
 pub(super) const SECTIONS: &[(&str, &str)] = &[
     ("places", "blue"),
     ("pinned", "amber"),
-    ("devices", "green"),
     ("cloud", "teal"),
+    ("devices", "green"),
 ];
 
 thread_local! {
