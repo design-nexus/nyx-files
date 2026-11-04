@@ -11,11 +11,10 @@ use std::{
     time::Duration,
 };
 
-use gtk::{gdk, gio, glib, prelude::*};
+use gtk::{gio, glib, prelude::*};
 use nyx_ui::widgets;
 
 use crate::{
-    model::Location,
     services::{NavigationHistory, SearchEvent, SearchHandle, SearchItem},
     ui::{preferences::PreferenceManager, window::devices::global_search_roots},
 };
@@ -222,15 +221,19 @@ fn build(window: &Rc<Window>) -> Rc<Card> {
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak = Rc::downgrade(&state);
-    keys.connect_key_pressed(move |_, key, _, _| {
+    crate::ui::keys::on_press(&keys, move |_, press| {
+        use crate::ui::keys::bindings::{DOWN, ESCAPE, UP};
         let Some(card) = weak.upgrade() else {
             return glib::Propagation::Proceed;
         };
-        match key {
-            gdk::Key::Escape => card.close(),
-            gdk::Key::Down => card.step(1),
-            gdk::Key::Up => card.step(-1),
-            _ => return glib::Propagation::Proceed,
+        if press.is(ESCAPE) {
+            card.close();
+        } else if press.is(DOWN) {
+            card.step(1);
+        } else if press.is(UP) {
+            card.step(-1);
+        } else {
+            return glib::Propagation::Proceed;
         }
         glib::Propagation::Stop
     });
@@ -325,10 +328,4 @@ pub(super) fn open(window: &Rc<Window>, mode: Mode) {
     if mode == Mode::Folders {
         card.query();
     }
-}
-
-/// What a result opens: a folder, or the file (directly or previewed and
-/// shown in its folder, as "Open search results directly" says).
-pub(super) fn target(item: &SearchItem) -> (Location, bool) {
-    (Location::local(item.path.clone()), item.is_directory)
 }
