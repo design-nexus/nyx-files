@@ -14,6 +14,7 @@ mod list;
 mod model;
 mod mount;
 mod properties;
+mod search;
 mod settings;
 mod sidebar;
 mod tab;

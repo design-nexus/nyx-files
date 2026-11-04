@@ -44,6 +44,7 @@ pub(super) struct Window {
     tabs: RefCell<Vec<Rc<tab::Tab>>>,
     active: Cell<usize>,
     view_switch: RefCell<Vec<(BrowserMode, gtk::ToggleButton)>>,
+    filter: gtk::SearchEntry,
 }
 
 /// The window with focus, for keys that reach every window.
@@ -114,6 +115,11 @@ impl Window {
         clamp.set_margin_start(8);
         header.start.append(&clamp);
 
+        let filter = gtk::SearchEntry::new();
+        filter.add_css_class("header-search");
+        filter.set_placeholder_text(Some(&with_keys("Filter (%{keys})", bindings::FILTER)));
+        filter.set_valign(gtk::Align::Center);
+        filter.set_width_chars(16);
         let tab_row = TabRow::new(&with_keys("New tab (%{keys})", bindings::TAB_NEW));
         tab_row.set_hide_single(false);
 
@@ -163,6 +169,7 @@ impl Window {
             tabs: RefCell::new(Vec::new()),
             active: Cell::new(0),
             view_switch: RefCell::new(Vec::new()),
+            filter,
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
         this.window.connect_destroy(|window| {
@@ -174,6 +181,7 @@ impl Window {
                 settings::open(&w);
             }
         });
+        header.end.append(&this.filter);
         header.end.append(&this.build_view_switch());
         header.end.append(&super::appearance::button(&this));
         super::appearance::install(&this.window);
@@ -216,6 +224,21 @@ impl Window {
     }
 
     fn wire(self: &Rc<Self>) {
+        let weak = Rc::downgrade(self);
+        self.filter.connect_search_changed(move |entry| {
+            if let Some(tab) = weak.upgrade().and_then(|w| w.current())
+                && tab.filter_text() != entry.text().trim()
+            {
+                tab.set_filter(&entry.text());
+            }
+        });
+        let weak = Rc::downgrade(self);
+        self.filter.connect_stop_search(move |entry| {
+            entry.set_text("");
+            if let Some(tab) = weak.upgrade().and_then(|w| w.current()) {
+                tab.focus_view();
+            }
+        });
         let weak = Rc::downgrade(self);
         self.sidebar_toggle.connect_toggled(move |toggle| {
             if let Some(w) = weak.upgrade() {
@@ -327,6 +350,12 @@ impl Window {
             self.close_tab(self.active.get());
         } else if press.is(QUIT) {
             self.window.close();
+        } else if press.is(bindings::FILTER) {
+            self.filter.grab_focus();
+        } else if press.is(bindings::SEARCH) {
+            super::search::open(self, super::search::Mode::Everywhere);
+        } else if press.is(bindings::JUMP_TO_FOLDER) {
+            super::search::open(self, super::search::Mode::Folders);
         } else if press.is(bindings::LOCATION) {
             let (_, text) = tab.map(|t| t.crumbs()).unwrap_or_default();
             self.path.edit(&text);
@@ -493,6 +522,11 @@ impl Window {
                 ),
                 _ => return false,
             }
+        } else if press.is(bindings::ESCAPE) && tab.filtering() {
+            self.filter.set_text("");
+            tab.focus_view();
+        } else if press.is(bindings::FILTER_SLASH) {
+            self.filter.grab_focus();
         } else if press.is(bindings::ESCAPE) && tab.preview.is_open() {
             tab.preview.close();
         } else if tab.preview.handle_video_key(press) {
@@ -510,6 +544,15 @@ impl Window {
             for entry in selected.iter().filter(|e| e.is_directory()) {
                 self.add_tab(entry.location.clone());
             }
+        } else if let Some(c) = press
+            .text()
+            .filter(|c| !c.is_control() && !c.is_whitespace())
+            && press.modifiers().is_empty()
+            && PreferenceManager::shared().type_to_search()
+        {
+            self.filter.grab_focus();
+            self.filter.set_text(&format!("{}{c}", self.filter.text()));
+            self.filter.set_position(-1);
         } else {
             return false;
         }
@@ -590,6 +633,28 @@ impl Window {
         nyx_ui::menu::popup_at(widget, x, y, actions::sidebar_menu(self, target));
     }
 
+    /// A search result: folders open; files open directly or are previewed
+    /// and shown in their folder, as "Open search results directly" says.
+    pub(super) fn open_search_result(&self, item: crate::services::SearchItem) {
+        let Some(tab) = self.current() else { return };
+        let location = Location::local(item.path.clone());
+        if item.is_directory {
+            tab.browser.navigate(location);
+            return;
+        }
+        let Some(entry) = actions::entry_for(&location) else {
+            return;
+        };
+        if PreferenceManager::shared().search_open_files_directly() {
+            tab.open(&entry);
+            return;
+        }
+        if let Some(parent) = location.parent() {
+            tab.browser.reveal_locations(parent, vec![location]);
+        }
+        tab.preview.show(entry, tab.browser.active_depth());
+    }
+
     fn current(&self) -> Option<Rc<tab::Tab>> {
         self.tabs.borrow().get(self.active.get()).cloned()
     }
@@ -607,6 +672,12 @@ impl Window {
         tab.connect_context(move |entry, widget, x, y| {
             if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
                 w.show_menu(&t, entry, widget, x, y);
+            }
+        });
+        let weak = Rc::downgrade(self);
+        tab.connect_result_open(move |item| {
+            if let Some(w) = weak.upgrade() {
+                w.open_search_result(item);
             }
         });
         let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
@@ -710,6 +781,9 @@ impl Window {
         let Some(tab) = tabs.get(self.active.get()) else {
             return;
         };
+        if self.filter.text().trim() != tab.filter_text() {
+            self.filter.set_text(&tab.filter_text());
+        }
         let (crumbs, text) = tab.crumbs();
         self.path.set_crumbs(&crumbs, &text);
         self.back.set_sensitive(tab.browser.can_go_back());

@@ -43,7 +43,7 @@ mod recent_apps;
 mod resize_feedback;
 mod scrolling;
 mod search;
-mod search_session;
+pub(crate) mod search_session;
 pub(crate) mod settings;
 mod shortcut_footer;
 pub(crate) mod shortcut_reference;

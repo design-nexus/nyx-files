@@ -23,7 +23,7 @@ use std::{
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(in crate::ui) enum SearchScope {
+pub(crate) enum SearchScope {
     Folder,
     Subfolders,
     FolderTerms,
@@ -42,21 +42,21 @@ impl SearchScope {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct SearchInput {
-    pub(super) root: PathBuf,
-    pub(super) show_hidden: bool,
-    pub(super) scope: SearchScope,
-    pub(super) refused: RefusedFolders,
-    pub(super) within: Option<PathBuf>,
+pub(crate) struct SearchInput {
+    pub(crate) root: PathBuf,
+    pub(crate) show_hidden: bool,
+    pub(crate) scope: SearchScope,
+    pub(crate) refused: RefusedFolders,
+    pub(crate) within: Option<PathBuf>,
 }
 
-pub(super) struct SearchBatch {
-    pub(super) query: String,
-    pub(super) items: Vec<SearchItem>,
-    pub(super) indexing: bool,
-    pub(super) coverage: SearchCoverage,
-    pub(super) has_more: bool,
-    pub(super) candidates: usize,
+pub(crate) struct SearchBatch {
+    pub(crate) query: String,
+    pub(crate) items: Vec<SearchItem>,
+    pub(crate) indexing: bool,
+    pub(crate) coverage: SearchCoverage,
+    pub(crate) has_more: bool,
+    pub(crate) candidates: usize,
 }
 
 type Deliver = Rc<dyn Fn(SearchBatch)>;
@@ -100,14 +100,14 @@ impl Drop for State {
 }
 
 #[derive(Clone, Default)]
-pub(super) struct SearchSession(Rc<State>);
+pub(crate) struct SearchSession(Rc<State>);
 
 impl SearchSession {
-    pub(super) fn is_active(&self) -> bool {
+    pub(crate) fn is_active(&self) -> bool {
         self.0.worker.borrow().is_some() || self.0.admission.borrow().is_some()
     }
 
-    pub(super) fn awaiting_results(&self) -> bool {
+    pub(crate) fn awaiting_results(&self) -> bool {
         self.0.awaiting.get()
     }
 
@@ -126,7 +126,7 @@ impl SearchSession {
             .is_some_and(|admission| matches(&admission.input, admission.limits))
     }
 
-    pub(super) fn cancel(&self) {
+    pub(crate) fn cancel(&self) {
         self.0
             .generation
             .set(self.0.generation.get().wrapping_add(1));
@@ -181,7 +181,7 @@ impl SearchSession {
         });
     }
 
-    pub(super) fn set_show_hidden(&self, show_hidden: bool) {
+    pub(crate) fn set_show_hidden(&self, show_hidden: bool) {
         let input = self
             .0
             .worker
@@ -211,7 +211,7 @@ impl SearchSession {
         self.0.query.replace(query.trim().to_owned());
     }
 
-    pub(super) fn query(&self, query: &str) {
+    pub(crate) fn query(&self, query: &str) {
         self.expect_query(query);
         if let Some(worker) = self.0.worker.borrow().as_ref() {
             self.0.awaiting.set(true);
@@ -228,7 +228,7 @@ impl SearchSession {
     }
 
     /// Only folder pickers accept empty queries; other empty queries cancel.
-    pub(super) fn update(&self, input: SearchInput, query: &str, restart: bool, deliver: Deliver) {
+    pub(crate) fn update(&self, input: SearchInput, query: &str, restart: bool, deliver: Deliver) {
         if query.trim().is_empty() && input.scope != SearchScope::Folders {
             self.cancel();
             return;

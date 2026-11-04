@@ -53,7 +53,7 @@ mod composition;
 mod density_slider;
 mod device_labels;
 pub(crate) mod device_release;
-mod devices;
+pub(crate) mod devices;
 pub(crate) mod drive_dialogs;
 pub(crate) mod drive_ops;
 mod keyboard;

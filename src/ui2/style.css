@@ -282,3 +282,53 @@ window.files-window columnview.file-list .list-group {
   color: @theme_text_tertiary;
   font-size: 0.846em;
 }
+
+/* Search */
+
+window.files-window entry.header-search,
+window.files-window .header-search {
+  min-height: 30px;
+  margin-right: 6px;
+  background: @field;
+  border: none;
+  border-radius: var(--nyx-radius-small);
+  box-shadow: none;
+}
+
+window.files-window .header-search:focus-within {
+  box-shadow: inset 0 0 0 1px alpha(@theme_accent, 0.6);
+}
+
+.search-card {
+  padding: 12px;
+}
+
+.search-card searchentry {
+  min-height: 36px;
+  font-size: 1.08em;
+}
+
+window.files-window list.search-results {
+  background: transparent;
+}
+
+window.files-window list.search-results > row {
+  padding: 6px 10px;
+  border-radius: var(--nyx-radius-small);
+}
+
+window.files-window list.search-results > row:selected {
+  background: @nav_active;
+}
+
+window.files-window list.search-results > row:hover {
+  background: @row_hover;
+}
+
+.search-result .search-name {
+  font-weight: 500;
+}
+
+window.files-window list.filter-results {
+  padding: 4px 8px;
+}

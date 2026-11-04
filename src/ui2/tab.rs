@@ -39,6 +39,11 @@ pub(super) struct Tab {
     /// The views and the preview beside them.
     pub(super) root: gtk::Paned,
     pub(super) preview: crate::ui::preview::PreviewDrawer,
+    filter: crate::ui::search_session::SearchSession,
+    results: gtk::ListBox,
+    results_items: RefCell<Vec<crate::services::SearchItem>>,
+    filter_query: RefCell<String>,
+    result_open: RefCell<Option<Box<dyn Fn(crate::services::SearchItem)>>>,
     status: gtk::Label,
     mode: Cell<BrowserMode>,
     refresh_queued: Cell<bool>,
@@ -78,6 +83,15 @@ impl Tab {
         status.set_wrap(true);
         status.set_justify(gtk::Justification::Center);
         page.add_named(&status, Some("status"));
+        let results = gtk::ListBox::new();
+        results.add_css_class("search-results");
+        results.add_css_class("filter-results");
+        let results_scroll = gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .vexpand(true)
+            .child(&results)
+            .build();
+        page.add_named(&results_scroll, Some("results"));
         let backend = PreferenceManager::shared();
         let preview = crate::ui::preview::PreviewDrawer::new(
             Rc::new(crate::adapters::LocalPreviewProvider::new(Rc::new(
@@ -106,6 +120,11 @@ impl Tab {
             page,
             root,
             preview,
+            filter: Default::default(),
+            results,
+            results_items: RefCell::default(),
+            filter_query: RefCell::default(),
+            result_open: RefCell::new(None),
             status,
             mode: Cell::new(PreferenceManager::shared().browser_mode()),
             refresh_queued: Cell::new(false),
@@ -184,6 +203,16 @@ impl Tab {
         );
         tab.preview.observe_browser(&tab.browser);
         let weak = Rc::downgrade(&tab);
+        tab.results.connect_row_activated(move |_, row| {
+            let Some(tab) = weak.upgrade() else { return };
+            let item = usize::try_from(row.index())
+                .ok()
+                .and_then(|i| tab.results_items.borrow().get(i).cloned());
+            if let (Some(item), Some(open)) = (item, tab.result_open.borrow().as_ref()) {
+                open(item);
+            }
+        });
+        let weak = Rc::downgrade(&tab);
         tab.preview.set_stepper(move |delta| {
             let tab = weak.upgrade()?;
             let model = tab.active_model();
@@ -199,6 +228,83 @@ impl Tab {
         });
         tab.browser.navigate(location);
         tab
+    }
+
+    /// Where a filter result goes when activated.
+    pub(super) fn connect_result_open(&self, f: impl Fn(crate::services::SearchItem) + 'static) {
+        *self.result_open.borrow_mut() = Some(Box::new(f));
+    }
+
+    pub(super) fn filter_text(&self) -> String {
+        self.filter_query.borrow().clone()
+    }
+
+    pub(super) fn filtering(&self) -> bool {
+        !self.filter_query.borrow().is_empty()
+    }
+
+    /// Narrows the folder showing to `query` (into subfolders when the setting
+    /// says so); an empty query shows the folder again.
+    pub(super) fn set_filter(self: &Rc<Self>, query: &str) {
+        use crate::ui::search_session::{SearchInput, SearchScope};
+        *self.filter_query.borrow_mut() = query.trim().to_string();
+        let Some(root) = self
+            .location()
+            .and_then(|l| l.native_path().map(std::path::PathBuf::from))
+        else {
+            return;
+        };
+        if query.trim().is_empty() {
+            self.filter.cancel();
+            self.results_items.borrow_mut().clear();
+            self.show_page();
+            return;
+        }
+        let prefs = PreferenceManager::shared();
+        let input = SearchInput {
+            root,
+            show_hidden: self.shows_hidden(),
+            scope: if prefs.filter_include_subfolders() {
+                SearchScope::Subfolders
+            } else {
+                SearchScope::Folder
+            },
+            refused: Default::default(),
+            within: None,
+        };
+        let weak = Rc::downgrade(self);
+        self.filter.update(
+            input,
+            query,
+            false,
+            Rc::new(move |batch| {
+                if let Some(tab) = weak.upgrade()
+                    && batch.query.trim() == tab.filter_query.borrow().as_str()
+                {
+                    tab.show_results(batch.items);
+                }
+            }),
+        );
+        self.page.set_visible_child_name("results");
+    }
+
+    fn show_results(&self, items: Vec<crate::services::SearchItem>) {
+        while let Some(child) = self.results.first_child() {
+            self.results.remove(&child);
+        }
+        for item in items.iter().take(500) {
+            self.results.append(&super::search::row(item));
+        }
+        if items.is_empty() {
+            let empty = nyx_ui::widgets::label(&crate::i18n::tr("No matches"), "dim");
+            empty.set_margin_top(24);
+            empty.set_halign(gtk::Align::Center);
+            self.results.append(&empty);
+        } else if let Some(first) = self.results.row_at_index(0) {
+            self.results.select_row(Some(&first));
+        }
+        *self.results_items.borrow_mut() = items;
+        self.page.set_visible_child_name("results");
     }
 
     /// Navigation the browser refused (not mounted, missing, not allowed).
@@ -453,6 +559,10 @@ impl Tab {
     }
 
     fn show_page(&self) {
+        if self.filtering() {
+            self.page.set_visible_child_name("results");
+            return;
+        }
         if self.page.visible_child_name().as_deref() != Some("status") {
             self.page.set_visible_child_name(self.view_page());
         }
@@ -588,7 +698,7 @@ impl Tab {
             self.status.set_text(error);
             self.page.set_visible_child_name("status");
         } else {
-            self.page.set_visible_child_name(self.view_page());
+            self.show_page();
         }
         let key = (snapshot.location.clone(), snapshot.count);
         let moved = self.shown.borrow().as_ref().map(|(l, _)| l) != Some(&key.0);
@@ -617,6 +727,9 @@ impl Tab {
         }
         *self.shown.borrow_mut() = Some(key);
         if moved {
+            if self.filtering() {
+                self.set_filter("");
+            }
             self.requested.borrow_mut().clear();
             self.icons
                 .set_size(PreferenceManager::shared().icons_size_for(self.location().as_ref()));
