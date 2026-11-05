@@ -309,7 +309,7 @@ fn main() -> gtk::glib::ExitCode {
     );
 
     let application = gtk::Application::builder()
-        .application_id(APPLICATION_ID)
+        .application_id(application_id())
         .flags(
             gio::ApplicationFlags::HANDLES_OPEN
                 | gio::ApplicationFlags::HANDLES_COMMAND_LINE
@@ -477,8 +477,20 @@ fn leave_launch_folder() {
     }
 }
 
+/// The application ID; a test copy sets `NYX_FILES_APP_ID` so it runs apart
+/// from the real Files and compositor rules for it never match.
+fn application_id() -> &'static str {
+    static ID: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    ID.get_or_init(|| {
+        std::env::var("NYX_FILES_APP_ID")
+            .ok()
+            .filter(|id| !id.is_empty())
+            .unwrap_or_else(|| APPLICATION_ID.to_owned())
+    })
+}
+
 fn install_application_identity() {
-    glib::set_prgname(Some(APPLICATION_ID));
+    glib::set_prgname(Some(application_id()));
     glib::set_application_name("Files");
 }
 
@@ -489,7 +501,7 @@ fn install_x11_program_class() {
     let Ok(x11) = display.downcast::<gdk4_x11::X11Display>() else {
         return;
     };
-    x11.set_program_class(APPLICATION_ID);
+    x11.set_program_class(application_id());
 }
 
 fn run_preview_helper(arguments: &[OsString]) -> Result<(), String> {

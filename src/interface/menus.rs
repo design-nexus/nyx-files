@@ -540,6 +540,9 @@ pub(super) fn item_menu(
     let trashed = entries.iter().all(|e| in_trash(&e.location));
     let native = entries.iter().all(|e| e.location.native_path().is_some());
     let mut items = Vec::new();
+    if !trashed {
+        items.push(edit_icons(window, tab, &entries));
+    }
     {
         let (t, e) = (tab.clone(), entries.clone());
         items.push(
@@ -655,40 +658,7 @@ pub(super) fn item_menu(
         );
         return items;
     }
-    if let Some(recent) = one.as_ref().and_then(|e| e.recent_uri.clone()) {
-        items.push(
-            menu::item(&crate::i18n::tr("Remove from Recent"), move || {
-                let _ = gtk::RecentManager::default().remove_item(&recent);
-            })
-            .icon("edit-clear-symbolic"),
-        );
-    }
     items.push(menu::separator());
-    {
-        let e = entries.clone();
-        items.push(
-            menu::item(&crate::i18n::tr("Cut"), move || actions::copy(&e, true))
-                .icon("edit-cut-symbolic")
-                .key(&keys(bindings::CUT)),
-        );
-    }
-    {
-        let e = entries.clone();
-        items.push(
-            menu::item(&crate::i18n::tr("Copy"), move || actions::copy(&e, false))
-                .icon("edit-copy-symbolic")
-                .key(&keys(bindings::COPY)),
-        );
-    }
-    if let Some(folder) = folder.clone() {
-        let (w, t) = (window.clone(), tab.clone());
-        items.push(
-            menu::item(&crate::i18n::tr("Paste into folder"), move || {
-                actions::paste(&w, &t, folder.location.clone())
-            })
-            .icon("edit-paste-symbolic"),
-        );
-    }
     {
         let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
         items.push(
@@ -697,73 +667,25 @@ pub(super) fn item_menu(
                 .key(&keys(bindings::DUPLICATE)),
         );
     }
-    {
-        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
-        let (w2, t2, e2) = (window.clone(), tab.clone(), entries.clone());
-        let mut transfer = vec![
-            menu::item(&crate::i18n::tr("Move to…"), move || {
-                transfer_to(&w, &t, e.clone(), true)
-            })
-            .icon("go-jump-symbolic"),
-            menu::item(&crate::i18n::tr("Copy to…"), move || {
-                transfer_to(&w2, &t2, e2.clone(), false)
-            })
-            .icon("folder-symbolic"),
-        ];
-        if let Some(send) = send_to(window, tab, &entries) {
-            transfer.push(send);
-        }
-        items.extend(transfer);
+    items.push(copy_and_move(window, tab, &entries, native));
+    items.push(copy_as_text(&entries));
+    if let Some(archive) = archive(window, tab, &entries, one.as_ref(), native) {
+        items.push(archive);
     }
-    if native && tab.location().is_some_and(|l| !l.is_recent_location()) {
-        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
-        items.push(
-            menu::item(&crate::i18n::tr("New Folder with Selection"), move || {
-                new_folder_with_selection(&w, &t, e.clone())
-            })
-            .icon("folder-new-symbolic")
-            .key(&keys(bindings::NEW_FOLDER_WITH_SELECTION)),
-        );
+    if let (Some(inputs), Some(paths), Some(parent)) = (
+        crate::ui::actions::inputs_for_entries(&entries),
+        crate::ui::actions::native_paths(&entries),
+        tab.location()
+            .and_then(|l| l.native_path().map(PathBuf::from)),
+    ) {
+        if let Some(custom) = custom_actions(window, inputs, paths.clone(), parent, false) {
+            items.push(custom);
+        }
+        if let Some(provider) = providers(window, paths, false) {
+            items.push(provider);
+        }
     }
     items.push(menu::separator());
-    if let Some(entry) = one.clone() {
-        let t = tab.clone();
-        items.push(
-            menu::item(&crate::i18n::tr("Rename…"), move || {
-                actions::rename(&t, entry.clone())
-            })
-            .icon("document-edit-symbolic")
-            .key(&keys(bindings::RENAME)),
-        );
-    }
-    {
-        let e = entries.clone();
-        items.push(
-            menu::item(
-                &crate::i18n::tr(if entries.len() == 1 {
-                    "Copy path"
-                } else {
-                    "Copy paths"
-                }),
-                move || actions::copy_paths(&e),
-            )
-            .icon("edit-copy-symbolic"),
-        );
-    }
-    {
-        let names: Vec<String> = entries.iter().map(|e| e.display_name.clone()).collect();
-        items.push(
-            menu::item(
-                &crate::i18n::tr(if entries.len() == 1 {
-                    "Copy name"
-                } else {
-                    "Copy names"
-                }),
-                move || copy_text(&names.join("\n")),
-            )
-            .icon("edit-copy-symbolic"),
-        );
-    }
     if let Some(folder) = folder.clone() {
         let location = folder.location.clone();
         if super::sidebar::is_pinned(&location) {
@@ -783,47 +705,6 @@ pub(super) fn item_menu(
                 })
                 .icon("view-pin-symbolic"),
             );
-        }
-    }
-    if native {
-        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
-        items.push(
-            menu::item(&crate::i18n::tr("Compress…"), move || {
-                super::operations::compress(&w, &t, e.clone())
-            })
-            .icon("package-x-generic-symbolic"),
-        );
-    }
-    if let Some(entry) = one.clone()
-        && !entry.is_directory()
-        && crate::services::ArchiveFormat::from_extension(&entry.display_name).is_some()
-    {
-        let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
-        items.push(
-            menu::item(&crate::i18n::tr("Extract here"), move || {
-                super::operations::extract(&w, &t, e.clone(), None)
-            })
-            .icon("archive-extract-symbolic"),
-        );
-        let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
-        items.push(
-            menu::item(&crate::i18n::tr("Extract to…"), move || {
-                extract_to(&w, &t, e.clone())
-            })
-            .icon("folder-open-symbolic"),
-        );
-    }
-    if let (Some(inputs), Some(paths), Some(parent)) = (
-        crate::ui::actions::inputs_for_entries(&entries),
-        crate::ui::actions::native_paths(&entries),
-        tab.location()
-            .and_then(|l| l.native_path().map(PathBuf::from)),
-    ) {
-        if let Some(custom) = custom_actions(window, inputs, paths.clone(), parent, false) {
-            items.push(custom);
-        }
-        if let Some(provider) = providers(window, paths, false) {
-            items.push(provider);
         }
     }
     if let Some(entry) = one.as_ref()
@@ -855,17 +736,6 @@ pub(super) fn item_menu(
     {
         let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
         items.push(
-            menu::item(&crate::i18n::tr("Move to Trash"), move || {
-                actions::trash(&w, &t, e.clone())
-            })
-            .icon("user-trash-symbolic")
-            .key(&keys(bindings::DELETE))
-            .danger(),
-        );
-    }
-    {
-        let (w, t, e) = (window.clone(), tab.clone(), entries.clone());
-        items.push(
             menu::item(&crate::i18n::tr("Delete without Trash"), move || {
                 delete_permanently(&w, &t, e.clone())
             })
@@ -875,6 +745,159 @@ pub(super) fn item_menu(
         );
     }
     items
+}
+
+/// Cut, Copy, Paste (into a folder), Rename and Move to Trash, as icons at the top.
+fn edit_icons(window: &Rc<Window>, tab: &Rc<Tab>, entries: &[FileEntry]) -> menu::Entry {
+    let mut buttons = Vec::new();
+    let e = entries.to_vec();
+    buttons.push(
+        menu::icon_button("edit-cut-symbolic", &crate::i18n::tr("Cut"), move || {
+            actions::copy(&e, true)
+        })
+        .key(&keys(bindings::CUT)),
+    );
+    let e = entries.to_vec();
+    buttons.push(
+        menu::icon_button("edit-copy-symbolic", &crate::i18n::tr("Copy"), move || {
+            actions::copy(&e, false)
+        })
+        .key(&keys(bindings::COPY)),
+    );
+    if let [folder] = entries
+        && folder.is_directory()
+    {
+        let (w, t, l) = (window.clone(), tab.clone(), folder.location.clone());
+        buttons.push(menu::icon_button(
+            "edit-paste-symbolic",
+            &crate::i18n::tr("Paste into folder"),
+            move || actions::paste(&w, &t, l.clone()),
+        ));
+    }
+    if let [entry] = entries {
+        let (t, e) = (tab.clone(), entry.clone());
+        buttons.push(
+            menu::icon_button(
+                "document-edit-symbolic",
+                &crate::i18n::tr("Rename…"),
+                move || actions::rename(&t, e.clone()),
+            )
+            .key(&keys(bindings::RENAME)),
+        );
+    }
+    let (w, t, e) = (window.clone(), tab.clone(), entries.to_vec());
+    buttons.push(
+        menu::icon_button(
+            "user-trash-symbolic",
+            &crate::i18n::tr("Move to Trash"),
+            move || actions::trash(&w, &t, e.clone()),
+        )
+        .key(&keys(bindings::DELETE))
+        .danger(),
+    );
+    menu::icons(buttons)
+}
+
+/// Move to…, Copy to…, Send to… and New Folder with Selection.
+fn copy_and_move(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    entries: &[FileEntry],
+    native: bool,
+) -> menu::Entry {
+    let (w, t, e) = (window.clone(), tab.clone(), entries.to_vec());
+    let (w2, t2, e2) = (window.clone(), tab.clone(), entries.to_vec());
+    let mut items = vec![
+        menu::item(&crate::i18n::tr("Move to…"), move || {
+            transfer_to(&w, &t, e.clone(), true)
+        })
+        .icon("go-jump-symbolic"),
+        menu::item(&crate::i18n::tr("Copy to…"), move || {
+            transfer_to(&w2, &t2, e2.clone(), false)
+        })
+        .icon("folder-symbolic"),
+    ];
+    if let Some(send) = send_to(window, tab, entries) {
+        items.push(send);
+    }
+    if native && tab.location().is_some_and(|l| !l.is_recent_location()) {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.to_vec());
+        items.push(
+            menu::item(&crate::i18n::tr("New Folder with Selection"), move || {
+                new_folder_with_selection(&w, &t, e.clone())
+            })
+            .icon("folder-new-symbolic")
+            .key(&keys(bindings::NEW_FOLDER_WITH_SELECTION)),
+        );
+    }
+    menu::sub(&crate::i18n::tr("Copy and move"), items).icon("go-jump-symbolic")
+}
+
+/// Copy path(s) and Copy name(s).
+fn copy_as_text(entries: &[FileEntry]) -> menu::Entry {
+    let single = entries.len() == 1;
+    let e = entries.to_vec();
+    let names: Vec<String> = entries.iter().map(|e| e.display_name.clone()).collect();
+    menu::sub(
+        &crate::i18n::tr("Copy as text"),
+        vec![
+            menu::item(
+                &crate::i18n::tr(if single { "Copy path" } else { "Copy paths" }),
+                move || actions::copy_paths(&e),
+            )
+            .icon("edit-copy-symbolic"),
+            menu::item(
+                &crate::i18n::tr(if single { "Copy name" } else { "Copy names" }),
+                move || copy_text(&names.join("\n")),
+            )
+            .icon("edit-copy-symbolic"),
+        ],
+    )
+    .icon("edit-copy-symbolic")
+}
+
+/// Compress… on its own, or with Extract here and Extract to… for an archive.
+fn archive(
+    window: &Rc<Window>,
+    tab: &Rc<Tab>,
+    entries: &[FileEntry],
+    one: Option<&FileEntry>,
+    native: bool,
+) -> Option<menu::Entry> {
+    let mut items = Vec::new();
+    if native {
+        let (w, t, e) = (window.clone(), tab.clone(), entries.to_vec());
+        items.push(
+            menu::item(&crate::i18n::tr("Compress…"), move || {
+                super::operations::compress(&w, &t, e.clone())
+            })
+            .icon("package-x-generic-symbolic"),
+        );
+    }
+    if let Some(entry) = one
+        && !entry.is_directory()
+        && crate::services::ArchiveFormat::from_extension(&entry.display_name).is_some()
+    {
+        let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Extract here"), move || {
+                super::operations::extract(&w, &t, e.clone(), None)
+            })
+            .icon("archive-extract-symbolic"),
+        );
+        let (w, t, e) = (window.clone(), tab.clone(), entry.clone());
+        items.push(
+            menu::item(&crate::i18n::tr("Extract to…"), move || {
+                extract_to(&w, &t, e.clone())
+            })
+            .icon("folder-open-symbolic"),
+        );
+    }
+    if items.len() > 1 {
+        Some(menu::sub(&crate::i18n::tr("Archive"), items).icon("package-x-generic-symbolic"))
+    } else {
+        items.pop()
+    }
 }
 
 /// The menu for the folder showing (a right-click on empty space).
