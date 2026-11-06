@@ -246,6 +246,37 @@ pub(super) fn wire_path_edit(path: &nyx_ui::pathbar::PathBar) {
             widget.set_tooltip_text(Some(&crate::i18n::tr("Type a path")));
         }
     }
+    let entry = path.entry.clone();
+    path.root.connect_visible_child_name_notify(move |root| {
+        if root.visible_child_name().as_deref() != Some("entry") {
+            entry.set_size_request(-1, -1);
+            return;
+        }
+        let (text, _) = entry.create_pango_layout(Some(&entry.text())).pixel_size();
+        let width = root.width().max(text + 32).min(path_room(root));
+        entry.set_size_request(width, -1);
+    });
+}
+
+/// How wide the path can grow before it would push into the header's end.
+fn path_room(root: &gtk::Stack) -> i32 {
+    let Some(header) = root
+        .ancestor(gtk::CenterBox::static_type())
+        .and_downcast::<gtk::CenterBox>()
+    else {
+        return root.width();
+    };
+    let x = |widget: &gtk::Widget| {
+        root.compute_point(widget, &gtk::graphene::Point::zero())
+            .map_or(0, |p| p.x() as i32)
+    };
+    let trailing = root
+        .ancestor(nyx_ui::clamp::Clamp::static_type())
+        .map_or(0, |clamp| clamp.width() - x(&clamp) - root.width());
+    let end = header
+        .end_widget()
+        .map_or(0, |w| w.measure(gtk::Orientation::Horizontal, -1).0);
+    (header.width() - end - x(header.upcast_ref()) - trailing - 12).max(root.width())
 }
 
 /// The path group: breadcrumbs (click the gap after them, an arrow between
