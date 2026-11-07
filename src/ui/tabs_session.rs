@@ -70,8 +70,14 @@ pub(crate) fn remove() {
     ));
 }
 
+/// The saved tabs this system can open: a `trash:` or `smb:` tab needs GVfs, which
+/// may be missing or gone since the tab was saved.
 pub(crate) fn load_restorable() -> Option<RestoredSession> {
-    load_from(&session_path())
+    use gio::prelude::VfsExt;
+    let schemes = gio::Vfs::default().supported_uri_schemes();
+    load_where(&session_path(), |scheme| {
+        schemes.iter().any(|s| s.eq_ignore_ascii_case(scheme))
+    })
 }
 
 fn session_contents(tabs: &[Location], active: usize) -> io::Result<String> {
@@ -103,6 +109,10 @@ fn session_contents(tabs: &[Location], active: usize) -> io::Result<String> {
 }
 
 pub(crate) fn load_from(path: &Path) -> Option<RestoredSession> {
+    load_where(path, |_| true)
+}
+
+fn load_where(path: &Path, supported: impl Fn(&str) -> bool) -> Option<RestoredSession> {
     let contents = fs::read_to_string(path).ok()?;
     let stored: StoredSession = toml::from_str(&contents).ok()?;
     if stored.version != SESSION_VERSION {
@@ -111,6 +121,14 @@ pub(crate) fn load_from(path: &Path) -> Option<RestoredSession> {
     let mut tabs = Vec::new();
     let mut active = 0;
     for (index, tab) in stored.tabs.iter().enumerate() {
+        if tab.kind == KIND_URI
+            && !tab
+                .value
+                .split_once(':')
+                .is_some_and(|(scheme, _)| supported(scheme))
+        {
+            continue;
+        }
         if let Some(location) = restorable_location(&tab.kind, &tab.value) {
             if index <= stored.active {
                 active = tabs.len();

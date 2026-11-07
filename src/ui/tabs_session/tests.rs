@@ -112,6 +112,33 @@ fn uri_entries_keep_roots_and_reject_secrets_and_transients() {
 }
 
 #[test]
+fn tabs_this_system_cannot_open_are_skipped() {
+    let (directory, path) = session_file();
+    let home = existing_dir(directory.path(), "home");
+    save_to(
+        &path,
+        &[
+            Location::uri("trash:///"),
+            Location::local(&home),
+            Location::uri("smb://fileserver/share"),
+        ],
+        2,
+    )
+    .expect("save session");
+
+    let restored = load_where(&path, |scheme| scheme == "smb").expect("restored session");
+    assert_eq!(
+        restored.tabs,
+        vec![
+            Location::local(&home),
+            Location::uri("smb://fileserver/share")
+        ]
+    );
+    assert_eq!(restored.active, 1);
+    assert!(load_where(&path, |_| false).is_some_and(|s| s.tabs == vec![Location::local(home)]));
+}
+
+#[test]
 fn invalid_tab_before_active_preserves_the_selected_location() {
     let (directory, path) = session_file();
     let first = existing_dir(directory.path(), "first");
