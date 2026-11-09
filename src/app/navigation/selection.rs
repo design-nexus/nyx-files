@@ -24,6 +24,7 @@ impl From<HashSet<Location>> for SelectedLocations {
 }
 
 impl SelectedLocations {
+    #[cfg(test)]
     pub(super) fn all_visible(entries: &[FileEntry], show_hidden: bool) -> Self {
         Self {
             set: LocationSet::all_visible(entries, show_hidden),

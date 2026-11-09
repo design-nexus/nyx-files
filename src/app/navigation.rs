@@ -66,6 +66,7 @@ impl Default for LocationSet {
 }
 
 impl LocationSet {
+    #[cfg(test)]
     fn all_visible(entries: &[FileEntry], show_hidden: bool) -> Self {
         let excluded = if show_hidden {
             HashSet::new()
@@ -1299,6 +1300,7 @@ impl NavigationState {
         self.columns.get(depth)?.can_trash
     }
 
+    #[cfg(test)]
     pub fn can_delete_at(&self, depth: usize) -> Option<bool> {
         self.columns.get(depth)?.can_delete
     }
@@ -1362,6 +1364,7 @@ impl NavigationState {
         true
     }
 
+    #[cfg(test)]
     pub fn peek_target(&self) -> Option<(usize, Location)> {
         self.peek
             .as_ref()
@@ -1396,6 +1399,7 @@ impl NavigationState {
         true
     }
 
+    #[cfg(test)]
     pub fn select(&mut self, depth: usize, position: usize) -> bool {
         let Some(column) = self.columns.get_mut(depth) else {
             return false;
@@ -1412,6 +1416,7 @@ impl NavigationState {
         true
     }
 
+    #[cfg(test)]
     /// A load cursor is not a fill: the first Space adds that item.
     pub fn toggle_cursor_fill(&mut self) -> CursorToggle {
         let Some(depth) = self
@@ -1446,10 +1451,12 @@ impl NavigationState {
         }
     }
 
+    #[cfg(test)]
     pub fn select_visible(&mut self, depth: usize) -> Option<(usize, Vec<usize>)> {
         self.replace_visible(depth, true)
     }
 
+    #[cfg(test)]
     pub fn select_all(&mut self, depth: usize) -> Option<usize> {
         self.visual = None;
         self.selection_commit = false;
@@ -1468,10 +1475,12 @@ impl NavigationState {
         Some(focused)
     }
 
+    #[cfg(test)]
     pub fn invert_visible(&mut self, depth: usize) -> Option<(usize, Vec<usize>)> {
         self.replace_visible(depth, false)
     }
 
+    #[cfg(test)]
     fn replace_visible(&mut self, depth: usize, select_all: bool) -> Option<(usize, Vec<usize>)> {
         self.visual = None;
         let column = self.columns.get_mut(depth)?;
@@ -1501,6 +1510,7 @@ impl NavigationState {
         Some((focused, positions))
     }
 
+    #[cfg(test)]
     pub fn install_pane_fill(&mut self, depth: usize, positions: &[usize], cursor: usize) -> bool {
         let Some(column) = self.columns.get_mut(depth) else {
             return false;
@@ -1518,6 +1528,7 @@ impl NavigationState {
         true
     }
 
+    #[cfg(test)]
     /// Leaving a load cursor drops its uncommitted highlight.
     pub fn place_cursor(&mut self, depth: usize, position: usize) -> Option<bool> {
         let column = self.columns.get_mut(depth)?;
@@ -1529,6 +1540,7 @@ impl NavigationState {
         Some(cleared)
     }
 
+    #[cfg(test)]
     /// A load cursor is not included in the range's base fill.
     pub fn start_visual(
         &mut self,
@@ -1560,6 +1572,7 @@ impl NavigationState {
         self.refresh_visual(Some(&order))
     }
 
+    #[cfg(test)]
     /// A range whose pane, anchor, or cursor disappears keeps its last fill.
     pub fn refresh_visual(
         &mut self,
@@ -1610,6 +1623,7 @@ impl NavigationState {
         Some((depth, focused, column.selected_positions().to_vec()))
     }
 
+    #[cfg(test)]
     pub fn toggle_visual_cursor(
         &mut self,
         order: Option<&[usize]>,
@@ -1632,14 +1646,7 @@ impl NavigationState {
         self.refresh_visual(order)
     }
 
-    pub fn take_visual(&mut self) -> Option<VisualRange> {
-        self.visual.take()
-    }
-
-    pub fn restore_visual(&mut self, range: Option<VisualRange>) {
-        self.visual = range;
-    }
-
+    #[cfg(test)]
     pub fn leave_visual(&mut self) -> bool {
         self.visual.take().is_some()
     }
@@ -1746,6 +1753,7 @@ impl NavigationState {
         true
     }
 
+    #[cfg(test)]
     pub fn clear_active_selection(&mut self) -> Option<(usize, usize)> {
         let depth = self.active_depth()?;
         let column = self.columns.get_mut(depth)?;
@@ -1758,6 +1766,7 @@ impl NavigationState {
         Some((depth, focused))
     }
 
+    #[cfg(test)]
     pub fn extend_selection(&mut self, direction: i32) -> Option<(usize, usize, Vec<usize>)> {
         self.visual = None;
         let depth = self
@@ -1826,6 +1835,7 @@ impl NavigationState {
         Some((depth, focused, selected_positions))
     }
 
+    #[cfg(test)]
     pub fn extend_visual_selection(
         &mut self,
         depth: usize,
@@ -1861,6 +1871,7 @@ impl NavigationState {
         Some(positions)
     }
 
+    #[cfg(test)]
     pub fn selection_anchor_position(&self, depth: usize) -> Option<usize> {
         let column = self.columns.get(depth)?;
         let anchor = column.selection_anchor.as_ref()?;
@@ -1870,6 +1881,7 @@ impl NavigationState {
             .position(|entry| &entry.location == anchor)
     }
 
+    #[cfg(test)]
     pub fn set_selection_anchor(&mut self, depth: usize, position: usize) -> bool {
         let Some(column) = self.columns.get_mut(depth) else {
             return false;
@@ -1888,6 +1900,7 @@ impl NavigationState {
         column.selected_positions().to_vec()
     }
 
+    #[cfg(test)]
     pub fn active_selection_contains(&self, depth: usize, position: usize) -> bool {
         if self.active_column != Some(depth) {
             return false;
@@ -1922,6 +1935,7 @@ impl NavigationState {
             .collect()
     }
 
+    #[cfg(test)]
     /// The pane's committed fill in listing order. A load cursor is not a fill,
     /// and another pane's open-path marker is never a target.
     pub fn filled_entries(&self, depth: usize) -> Vec<FileEntry> {
@@ -1941,6 +1955,7 @@ impl NavigationState {
             .collect()
     }
 
+    #[cfg(test)]
     /// `filled_entries`, or the pane's cursor item when nothing is filled.
     pub fn command_entries(&self, depth: usize) -> Vec<FileEntry> {
         let filled = self.filled_entries(depth);
@@ -1966,6 +1981,7 @@ impl NavigationState {
             .is_some_and(|column| column.load_cursor.is_some())
     }
 
+    #[cfg(test)]
     pub fn move_selection(&mut self, direction: i32) -> Option<(usize, usize)> {
         let depth = self
             .active_column
@@ -2043,6 +2059,7 @@ impl NavigationState {
         Some((depth, position))
     }
 
+    #[cfg(test)]
     /// Moves the focus `page` visible entries at a time, clamped to the first and
     /// last visible entry, for page-sized keyboard navigation. `order` is the
     /// displayed source indices when the view is not in source order.
@@ -2056,6 +2073,7 @@ impl NavigationState {
             .map(|(depth, position, _)| (depth, position))
     }
 
+    #[cfg(test)]
     pub fn page_cursor(
         &mut self,
         direction: i32,
@@ -2065,6 +2083,7 @@ impl NavigationState {
         self.shift_cursor(direction, page, order, false)
     }
 
+    #[cfg(test)]
     pub fn extend_page_selection(
         &mut self,
         direction: i32,
@@ -2087,6 +2106,7 @@ impl NavigationState {
         Some((depth, position, positions))
     }
 
+    #[cfg(test)]
     fn page_target(
         &self,
         direction: i32,
@@ -2130,6 +2150,7 @@ impl NavigationState {
         Some((depth, visible, position))
     }
 
+    #[cfg(test)]
     fn shift_cursor(
         &mut self,
         direction: i32,
@@ -2169,6 +2190,7 @@ impl NavigationState {
         self.active_column = Some(depth);
     }
 
+    #[cfg(test)]
     pub fn focus_parent(&mut self) -> Option<(usize, Option<usize>)> {
         let depth = self.active_column?;
         let parent_depth = depth.checked_sub(1)?;
@@ -2176,6 +2198,7 @@ impl NavigationState {
         Some((parent_depth, self.columns[parent_depth].selected))
     }
 
+    #[cfg(test)]
     pub fn focus_child(&mut self) -> Option<(usize, Option<usize>)> {
         let child_depth = self.active_column?.checked_add(1)?;
         let column = self.columns.get_mut(child_depth)?;
@@ -2199,6 +2222,7 @@ impl NavigationState {
         Some((child_depth, position))
     }
 
+    #[cfg(test)]
     pub fn close_deepest(&mut self) -> Option<(usize, Option<usize>)> {
         let depth = self.columns.len().checked_sub(1)?;
         self.close_from(depth)
@@ -2270,6 +2294,7 @@ impl NavigationState {
             .clone()
     }
 
+    #[cfg(test)]
     pub fn active_child_position(&self, depth: usize) -> Option<usize> {
         let child = &self.columns.get(depth + 1)?.location;
         self.columns
@@ -2341,6 +2366,7 @@ impl NavigationState {
     }
 }
 
+#[cfg(test)]
 fn focus_only(column: &mut ColumnState, position: usize) {
     let location = column.entries[position].location.clone();
     adopt_selected_locations(column, HashSet::from([location.clone()]), true);
@@ -2348,6 +2374,7 @@ fn focus_only(column: &mut ColumnState, position: usize) {
     column.selection_anchor = Some(location);
 }
 
+#[cfg(test)]
 fn place_cursor(column: &mut ColumnState, position: usize) -> bool {
     let moved = column.selected != Some(position);
     let mut cleared = false;
@@ -2364,6 +2391,7 @@ fn place_cursor(column: &mut ColumnState, position: usize) -> bool {
     cleared
 }
 
+#[cfg(test)]
 fn displayed_order(column: &ColumnState, order: Option<&[usize]>) -> Vec<usize> {
     match order {
         Some(order)
@@ -2378,6 +2406,7 @@ fn displayed_order(column: &ColumnState, order: Option<&[usize]>) -> Vec<usize> 
     }
 }
 
+#[cfg(test)]
 fn visible_positions(column: &ColumnState) -> Vec<usize> {
     let show_hidden = column.preferences.show_hidden;
     column
@@ -2389,6 +2418,7 @@ fn visible_positions(column: &ColumnState) -> Vec<usize> {
         .collect()
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CursorToggle {
     Empty,

@@ -28,8 +28,10 @@ pub(crate) use local_operations::{
     ARCHIVE_PREVIEW_FAILED_MESSAGE, ARCHIVE_TOO_LARGE_MESSAGE, ARCHIVE_UNSUPPORTED_MESSAGE,
     ActiveOperation, INVALID_ARCHIVE, MAX_ARCHIVE_PASSWORD_BYTES, MAYBE_BAD_PASSWORD,
     PASSWORD_REQUIRED, archive_payload_valid, encode_archive_result, flush_filesystem,
-    list_archive_entries_direct, transfer_targets, typed_name_refusal, typed_rename_is_taken,
+    list_archive_entries_direct, typed_name_refusal,
 };
+#[cfg(test)]
+pub(crate) use local_operations::{transfer_targets, typed_rename_is_taken};
 #[cfg(test)]
 pub(crate) use local_operations::{
     ArchiveListing, ArchiveListingStatus, decode_archive_listing, write_compression_fixture,
@@ -45,9 +47,10 @@ pub(crate) use local_operations::{
 pub use local_preview::LocalPreviewProvider;
 #[cfg(test)]
 pub(crate) use volume::set_mountinfo_for_isolated_test;
-pub(crate) use volume::{DropVolumeQuery, DropVolumes, lookup_drop_volumes};
+#[cfg(test)]
+pub(crate) use volume::{DropVolumeQuery, lookup_drop_volumes};
 pub(crate) use volume::{
-    MountTable, RemovableRoot, invalidate_mount_snapshot, is_local_fuse_overlay, mount_can_unplug,
+    MountTable, RemovableRoot, invalidate_mount_snapshot, mount_can_unplug,
     mount_is_removable, volume_can_unplug, with_mount_snapshot,
 };
 pub(crate) use volume::{mount_lanes, mount_watch};

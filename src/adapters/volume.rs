@@ -33,7 +33,7 @@ pub(crate) use mounts::set_mountinfo_for_isolated_test;
 pub(crate) use mounts::{
     CoarseTimes, Family, FuseFormat, LONGEST_NAME_NTFS_3G_RENAMES_OVER, MountKey as TrashMountKey,
     MountSite, MountTable, MountType, SillyNames, family, holds_symlinks, is_fuse_fs_type,
-    is_local_fuse_overlay, max_file_size,
+    max_file_size,
 };
 pub(crate) use names::{
     MountNames, NameEncoding, NameLimit, NameProfile, NameRules, PrivateUse, Reserved, StrictRule,
@@ -42,17 +42,21 @@ pub(crate) use names::{
 
 pub(crate) const REMOTE_QUERY_TIMEOUT: Duration = Duration::from_secs(2);
 
+#[cfg(test)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct DropVolumeQuery {
     pub dest: Location,
     pub source_parents: Vec<Location>,
 }
 
+#[cfg(test)]
 impl DropVolumeQuery {
+    #[cfg(test)]
     pub(crate) fn new(dest: &Location, sources: &[Location]) -> Self {
         Self::with_mounts(dest, sources, &mount_watch::latest())
     }
 
+    #[cfg(test)]
     fn with_mounts(dest: &Location, sources: &[Location], mounts: &MountTable) -> Self {
         let mut seen = HashSet::new();
         let mut source_parents = Vec::new();
@@ -80,11 +84,13 @@ impl DropVolumeQuery {
         }
     }
 
+    #[cfg(test)]
     fn locations(&self) -> impl Iterator<Item = &Location> {
         std::iter::once(&self.dest).chain(self.source_parents.iter())
     }
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug)]
 pub(crate) struct DropVolumeLookup {
     pub dest: Option<VolumeIdentity>,
@@ -92,7 +98,9 @@ pub(crate) struct DropVolumeLookup {
     pub relation: VolumeRelation,
 }
 
+#[cfg(test)]
 impl DropVolumeLookup {
+    #[cfg(test)]
     fn from_identities(identities: Vec<Option<VolumeIdentity>>) -> Self {
         let mut identities = identities.into_iter();
         let dest = identities.next().flatten();
@@ -105,6 +113,7 @@ impl DropVolumeLookup {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn describe(&self) -> String {
         let id = |identity: &Option<VolumeIdentity>| {
             identity
@@ -117,12 +126,15 @@ impl DropVolumeLookup {
     }
 }
 
+#[cfg(test)]
 pub(crate) enum DropVolumes {
     Ready(DropVolumeLookup),
     Pending(PendingVolumeLookup),
 }
 
+#[cfg(test)]
 impl DropVolumes {
+    #[cfg(test)]
     pub(crate) fn relation(&self) -> VolumeRelation {
         match self {
             Self::Ready(lookup) => lookup.relation,
@@ -130,15 +142,9 @@ impl DropVolumes {
         }
     }
 
-    pub(crate) fn describe(&self) -> String {
-        match self {
-            Self::Ready(lookup) => lookup.describe(),
-            Self::Pending(pending) if pending.cancellable.is_cancelled() => "timed out".into(),
-            Self::Pending(_) => "pending".into(),
-        }
-    }
 }
 
+#[cfg(test)]
 /// Calls `on_ready` once on the main context unless the pending handle is dropped.
 pub(crate) fn lookup_drop_volumes(
     query: &DropVolumeQuery,
@@ -148,6 +154,7 @@ pub(crate) fn lookup_drop_volumes(
     DropVolumes::Pending(PendingVolumeLookup::start(&locations, Box::new(on_ready)))
 }
 
+#[cfg(test)]
 fn source_volume_directory(source: &Location, mounts: &MountTable) -> Location {
     match source.native_path() {
         Some(path) if mounts.is_mount_point(path) => source.clone(),
@@ -155,11 +162,13 @@ fn source_volume_directory(source: &Location, mounts: &MountTable) -> Location {
     }
 }
 
+#[cfg(test)]
 pub(crate) struct PendingVolumeLookup {
     cancellable: gio::Cancellable,
     state: Rc<RefCell<PendingState>>,
 }
 
+#[cfg(test)]
 struct PendingState {
     identities: Vec<Option<VolumeIdentity>>,
     remaining: usize,
@@ -167,7 +176,9 @@ struct PendingState {
     waiting: Vec<Box<dyn FnOnce(VolumeRelation)>>,
 }
 
+#[cfg(test)]
 impl PendingVolumeLookup {
+    #[cfg(test)]
     fn start(locations: &[&Location], on_ready: Box<dyn FnOnce(DropVolumeLookup)>) -> Self {
         let cancellable = gio::Cancellable::new();
         let state = Rc::new(RefCell::new(PendingState {
@@ -205,10 +216,7 @@ impl PendingVolumeLookup {
         Self { cancellable, state }
     }
 
-    pub(crate) fn wait(&self, then: impl FnOnce(VolumeRelation) + 'static) {
-        self.state.borrow_mut().waiting.push(Box::new(then));
-    }
-
+    #[cfg(test)]
     pub(crate) fn cancel(&self) {
         let mut state = self.state.borrow_mut();
         state.on_ready = None;
@@ -218,13 +226,16 @@ impl PendingVolumeLookup {
     }
 }
 
+#[cfg(test)]
 impl Drop for PendingVolumeLookup {
     fn drop(&mut self) {
         self.cancel();
     }
 }
 
+#[cfg(test)]
 impl PendingState {
+    #[cfg(test)]
     fn resolve(state: &Rc<RefCell<Self>>, index: usize, identity: Option<VolumeIdentity>) {
         {
             let mut state = state.borrow_mut();
@@ -240,6 +251,7 @@ impl PendingState {
         Self::finish(state);
     }
 
+    #[cfg(test)]
     fn finish(state: &Rc<RefCell<Self>>) {
         let (on_ready, waiting, lookup) = {
             let mut state = state.borrow_mut();

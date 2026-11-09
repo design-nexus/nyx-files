@@ -24,7 +24,9 @@ use crate::{
     },
 };
 
-pub use crate::app::navigation::{ColumnEntryCounts, CursorToggle, VisualKind, VisualRange};
+pub use crate::app::navigation::{ColumnEntryCounts, VisualKind, VisualRange};
+#[cfg(test)]
+pub use crate::app::navigation::CursorToggle;
 
 mod deferred;
 mod directory_changes;
@@ -1300,23 +1302,28 @@ impl Browser {
         self.observers.borrow_mut().push(Rc::new(observer));
     }
 
+    #[cfg(test)]
     fn should_extract_on_activate(&self, entry: &FileEntry) -> bool {
         !self.is_chooser_mode() && ArchiveFormat::for_entry(entry).is_some()
     }
 
+    #[cfg(test)]
     pub fn set_chooser_mode(&self, chooser: bool) {
         self.chooser_mode.set(chooser);
     }
 
+    #[cfg(test)]
     pub fn is_chooser_mode(&self) -> bool {
         self.chooser_mode.get()
     }
 
+    #[cfg(test)]
     pub fn clear_observer(&self) {
         self.observers.borrow_mut().clear();
         self.clear_navigation_observers();
     }
 
+    #[cfg(test)]
     pub fn preferences(&self) -> ViewPreferences {
         self.preferences.get()
     }
@@ -1467,16 +1474,6 @@ impl Browser {
         generation
     }
 
-    pub(crate) fn set_navigation_cleanup(&self, cleanup: impl FnOnce() + 'static) {
-        if let Some(previous) = self.navigation_cleanup.replace(Some(Box::new(cleanup))) {
-            previous();
-        }
-    }
-
-    pub(crate) fn finish_navigation_cleanup(&self) {
-        self.navigation_cleanup.take();
-    }
-
     pub fn active_depth(&self) -> Option<usize> {
         self.state.borrow().active_depth()
     }
@@ -1489,16 +1486,13 @@ impl Browser {
         self.state.borrow().can_trash_at(depth)
     }
 
+    #[cfg(test)]
     pub fn can_delete_at(&self, depth: usize) -> Option<bool> {
         self.state.borrow().can_delete_at(depth)
     }
 
     pub fn allows_entry(&self, entry: &FileEntry) -> bool {
         self.source.allows_entry(entry)
-    }
-
-    pub(crate) fn confined_to(&self) -> Option<PathBuf> {
-        self.source.confined_to().map(Path::to_path_buf)
     }
 
     /// Synchronizes widget focus without changing selection or reopening a directory.
@@ -1508,16 +1502,6 @@ impl Browser {
 
     pub fn select_first_on_load(&self, depth: usize) {
         self.state.borrow_mut().select_first_on_load(depth);
-    }
-
-    pub fn selection_anchor_position(&self, depth: usize) -> Option<usize> {
-        self.state.borrow().selection_anchor_position(depth)
-    }
-
-    pub fn set_selection_anchor(&self, depth: usize, position: usize) {
-        self.state
-            .borrow_mut()
-            .set_selection_anchor(depth, position);
     }
 
     pub fn focus_active(&self) {
@@ -1545,6 +1529,7 @@ impl Browser {
         self.navigate_for_selection(location, load_selection(select_first));
     }
 
+    #[cfg(test)]
     /// Navigates to an ancestor of the current directory and selects the folder the
     /// current directory sits in, or the first entry when it is not an ancestor.
     pub fn navigate_to_ancestor(self: &Rc<Self>, location: Location) {
@@ -1606,37 +1591,6 @@ impl Browser {
         false
     }
 
-    pub fn reveal_reloaded_locations(
-        self: &Rc<Self>,
-        directory: &Location,
-        targets: Vec<Location>,
-    ) {
-        let _update = self.navigation_update();
-        let Some(depth) = self.open_depth(directory) else {
-            return;
-        };
-        self.activate_reveal_depth(depth);
-        self.refresh_column_revealing(depth, targets);
-    }
-
-    /// The caller must retry missing targets as monitor updates arrive.
-    pub fn reveal_monitored_locations(
-        self: &Rc<Self>,
-        directory: Location,
-        targets: &[Location],
-    ) -> bool {
-        let _update = self.navigation_update();
-        let Some(depth) = self.open_depth(&directory) else {
-            return false;
-        };
-        self.activate_reveal_depth(depth);
-        self.select_entries_by_location_at(depth, targets)
-    }
-
-    pub(crate) fn lists_every_target(&self, depth: usize, targets: &[Location]) -> bool {
-        self.state.borrow().lists_every_target(depth, targets)
-    }
-
     fn activate_reveal_depth(self: &Rc<Self>, depth: usize) {
         let _update = self.navigation_update();
         self.bump_navigation_generation();
@@ -1646,6 +1600,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn descend_revealing(
         self: &Rc<Self>,
         parent_depth: usize,
@@ -1662,10 +1617,6 @@ impl Browser {
                 false,
             );
         }
-    }
-
-    pub(crate) fn cancel_deferred_reveal(&self) {
-        self.deferred_reveal.take();
     }
 
     fn apply_resolved_location_reveal(self: &Rc<Self>, depth: usize, request_id: RequestId) {
@@ -1894,6 +1845,7 @@ impl Browser {
         closed
     }
 
+    #[cfg(test)]
     pub fn clear_active_selection(&self) -> bool {
         let cleared = self.state.borrow_mut().clear_active_selection();
         if let Some((depth, focused)) = cleared {
@@ -1908,6 +1860,7 @@ impl Browser {
         false
     }
 
+    #[cfg(test)]
     pub fn escape(self: &Rc<Self>) {
         let _update = self.navigation_update();
         if self.close_peek() || self.clear_active_selection() {
@@ -1960,21 +1913,13 @@ impl Browser {
         self.suppress_child_mirror.set(was);
     }
 
-    pub(crate) fn child_mirror_suppressed(&self) -> bool {
-        self.suppress_child_mirror.get()
-    }
-
+    #[cfg(test)]
     /// Whether the `FocusChanged` being observed comes from an outside change, not a cursor move.
     pub(crate) fn focus_follows_external_change(&self) -> bool {
         self.external_change_focus.get()
     }
 
-    /// Whether the `FocusChanged` being observed only moves a finished load's cursor,
-    /// so it must not pull focus from elsewhere in the window.
-    pub(crate) fn focus_follows_background_load(&self) -> bool {
-        self.background_load_focus.get()
-    }
-
+    #[cfg(test)]
     pub fn commit_peek(self: &Rc<Self>) {
         let target = self.state.borrow().peek_target();
         if let Some((origin_depth, location)) = target {
@@ -2038,6 +1983,7 @@ impl Browser {
         });
     }
 
+    #[cfg(test)]
     pub fn set_sort_direction(self: &Rc<Self>, depth: usize, sort_direction: SortDirection) {
         self.apply_column_preferences(depth, SortOrigin::Chosen, move |preferences| {
             preferences.sort_direction = sort_direction;
@@ -2239,6 +2185,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn select(&self, depth: usize, position: usize) {
         let selected = self.state.borrow_mut().select(depth, position);
         if selected {
@@ -2250,6 +2197,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn toggle_cursor_fill(&self) -> CursorToggle {
         let outcome = self.state.borrow_mut().toggle_cursor_fill();
         if outcome != CursorToggle::Empty
@@ -2260,6 +2208,7 @@ impl Browser {
         outcome
     }
 
+    #[cfg(test)]
     pub fn select_visible(&self, depth: usize) -> bool {
         let Some((focused, _)) = self.state.borrow_mut().select_visible(depth) else {
             return false;
@@ -2268,23 +2217,12 @@ impl Browser {
         true
     }
 
+    #[cfg(test)]
     pub fn invert_visible(&self, depth: usize) -> bool {
         let Some((focused, _)) = self.state.borrow_mut().invert_visible(depth) else {
             return false;
         };
         self.emit_fill(depth, focused);
-        true
-    }
-
-    pub fn install_pane_fill(&self, depth: usize, positions: &[usize], cursor: usize) -> bool {
-        if !self
-            .state
-            .borrow_mut()
-            .install_pane_fill(depth, positions, cursor)
-        {
-            return false;
-        }
-        self.emit_fill(depth, cursor);
         true
     }
 
@@ -2295,6 +2233,7 @@ impl Browser {
             .set_preserve_fill_on_removal(preserve);
     }
 
+    #[cfg(test)]
     pub fn place_cursor(&self, depth: usize, position: usize, order: Option<&[usize]>) {
         let Some(cleared) = self.state.borrow_mut().place_cursor(depth, position) else {
             return;
@@ -2318,6 +2257,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn page_cursor(&self, direction: i32, page: usize, order: Option<&[usize]>) {
         let moved = self.state.borrow_mut().page_cursor(direction, page, order);
         if let Some((depth, position, cleared)) = moved {
@@ -2336,6 +2276,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn toggle_visual(&self, kind: VisualKind, order: Option<&[usize]>) -> bool {
         if self.visual_kind() == Some(kind) {
             self.leave_visual();
@@ -2349,19 +2290,7 @@ impl Browser {
         true
     }
 
-    pub fn toggle_visual_cursor(&self, order: Option<&[usize]>) -> bool {
-        let toggled = self.state.borrow_mut().toggle_visual_cursor(order);
-        let Some((depth, focused, _)) = toggled else {
-            return false;
-        };
-        self.emit_fill(depth, focused);
-        true
-    }
-
-    pub fn refresh_visual(&self, order: Option<&[usize]>) -> bool {
-        self.emit_visual_fill(order)
-    }
-
+    #[cfg(test)]
     pub fn leave_visual(&self) -> bool {
         let valid = self.visual_kind().is_some();
         if !self.state.borrow_mut().leave_visual() || !valid {
@@ -2373,18 +2302,11 @@ impl Browser {
         true
     }
 
-    pub fn take_visual(&self) -> Option<VisualRange> {
-        self.state.borrow_mut().take_visual()
-    }
-
-    pub fn restore_visual(&self, range: Option<VisualRange>) {
-        self.state.borrow_mut().restore_visual(range);
-    }
-
     pub fn visual_kind(&self) -> Option<VisualKind> {
         self.state.borrow().visual_kind()
     }
 
+    #[cfg(test)]
     fn emit_visual_fill(&self, order: Option<&[usize]>) -> bool {
         let refreshed = self.state.borrow_mut().refresh_visual(order);
         let Some((depth, focused, _)) = refreshed else {
@@ -2394,6 +2316,7 @@ impl Browser {
         true
     }
 
+    #[cfg(test)]
     fn emit_fill(&self, depth: usize, focused: usize) {
         let positions = self.selected_positions(depth);
         self.emit(BrowserEvent::SelectionSetChanged {
@@ -2436,6 +2359,7 @@ impl Browser {
         self.state.borrow().column_preferences(depth)
     }
 
+    #[cfg(test)]
     pub(crate) fn column_request_id(&self, depth: usize) -> Option<RequestId> {
         self.state.borrow().request_id_for_depth(depth)
     }
@@ -2462,6 +2386,7 @@ impl Browser {
         self.state.borrow().focused_entry()
     }
 
+    #[cfg(test)]
     pub fn rename_item(&self) -> Option<(usize, usize, FileEntry)> {
         let state = self.state.borrow();
         if let Some(focused) = state.focused_entry() {
@@ -2473,6 +2398,7 @@ impl Browser {
         Some((depth, position, entry))
     }
 
+    #[cfg(test)]
     pub fn focused_entry(&self) -> Option<FileEntry> {
         self.focused_item().map(|(_, _, entry)| entry)
     }
@@ -2495,22 +2421,8 @@ impl Browser {
         self.state.borrow().selected_positions(depth)
     }
 
-    pub fn active_selection_contains(&self, depth: usize, position: usize) -> bool {
-        self.state
-            .borrow()
-            .active_selection_contains(depth, position)
-    }
-
     pub fn selected_entries(&self) -> Vec<FileEntry> {
         self.state.borrow().selected_entries()
-    }
-
-    pub fn command_entries(&self, depth: usize) -> Vec<FileEntry> {
-        self.state.borrow().command_entries(depth)
-    }
-
-    pub fn filled_entries(&self, depth: usize) -> Vec<FileEntry> {
-        self.state.borrow().filled_entries(depth)
     }
 
     pub fn selected_count(&self) -> usize {
@@ -2525,16 +2437,19 @@ impl Browser {
         self.state.borrow_mut().commit_selection();
     }
 
+    #[cfg(test)]
     pub fn deletion_entries(&self) -> Vec<FileEntry> {
         self.selection_or_descended()
     }
 
+    #[cfg(test)]
     /// Entries a copy/cut acts on: the active selection, or the folder that
     /// was descended into when the focused column selected nothing yet.
     pub fn transfer_entries(&self) -> Vec<FileEntry> {
         self.selection_or_descended()
     }
 
+    #[cfg(test)]
     fn selection_or_descended(&self) -> Vec<FileEntry> {
         let state = self.state.borrow();
         let selected = state.selected_entries();
@@ -2551,17 +2466,6 @@ impl Browser {
         state.entry_at(parent_depth, position).into_iter().collect()
     }
 
-    pub fn entries_named(&self, names: &HashSet<String>) -> Vec<FileEntry> {
-        self.state
-            .borrow()
-            .columns
-            .iter()
-            .flat_map(|column| column.entries.iter())
-            .filter(|entry| names.contains(&entry.display_name))
-            .cloned()
-            .collect()
-    }
-
     pub fn set_selection(&self, depth: usize, positions: &[usize], focused: Option<usize>) {
         let mut state = self.state.borrow_mut();
         if state.set_selection(depth, positions, focused) {
@@ -2575,6 +2479,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn select_all(&self, depth: usize) {
         let Some(focused) = self.state.borrow_mut().select_all(depth) else {
             return;
@@ -2585,10 +2490,6 @@ impl Browser {
             focused,
             take_focus: true,
         });
-    }
-
-    pub fn active_child_position(&self, depth: usize) -> Option<usize> {
-        self.state.borrow().active_child_position(depth)
     }
 
     pub fn rename(
@@ -2661,6 +2562,7 @@ impl Browser {
         Some(request_id)
     }
 
+    #[cfg(test)]
     pub fn create_new_folder(self: &Rc<Self>, parent: Location) {
         self.create_directory_with_naming(parent, crate::i18n::tr("new folder"), true);
     }
@@ -2714,6 +2616,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn create_new_file(self: &Rc<Self>, parent: Location) {
         self.create_file_with_naming(parent, crate::i18n::tr("new file"), true);
     }
@@ -2762,16 +2665,6 @@ impl Browser {
         reveal: bool,
     ) {
         self.start_transfer(destination, items, move_sources, reveal, false);
-    }
-
-    pub fn transfer_replacing_cursor(
-        self: &Rc<Self>,
-        destination: Location,
-        items: Vec<PasteItem>,
-        move_sources: bool,
-        reveal: bool,
-    ) {
-        self.start_transfer(destination, items, move_sources, reveal, true);
     }
 
     fn start_transfer(
@@ -2840,16 +2733,6 @@ impl Browser {
             OperationDestination::PermanentDeletion
         } else {
             OperationDestination::Trash
-        };
-        self.delete_to(entries, destination);
-    }
-
-    /// `remote` names the operation for storage that may keep its own copy.
-    pub fn delete_permanently(self: &Rc<Self>, entries: Vec<FileEntry>, remote: bool) {
-        let destination = if remote {
-            OperationDestination::DeletionWithoutTrash
-        } else {
-            OperationDestination::PermanentDeletion
         };
         self.delete_to(entries, destination);
     }
@@ -2968,6 +2851,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn pending_undo_trash(&self) -> Option<Vec<Location>> {
         match self.pending_replay_entry(false)? {
             (_, UndoEntry::Trash { locations, .. }) => Some(locations),
@@ -2996,6 +2880,7 @@ impl Browser {
         });
     }
 
+    #[cfg(test)]
     pub fn clear_group_folder(&self) {
         PENDING_UNDO.with(|pending| {
             let mut pending = pending.borrow_mut();
@@ -3004,12 +2889,6 @@ impl Browser {
                 pending.group_folder = None;
             }
         });
-    }
-
-    pub fn clear_group_folder_for(&self, location: &Location) {
-        if PENDING_UNDO.with(|pending| pending.borrow().group_folder.as_ref() == Some(location)) {
-            self.clear_group_folder();
-        }
     }
 
     pub fn discard_pending_replay(&self, redo: bool, generation: u64) {
@@ -3631,10 +3510,6 @@ impl Browser {
         self.operation_destination_label.replace(label);
     }
 
-    pub(crate) fn operation_destination_label(&self) -> String {
-        self.operation_destination_label.borrow().clone()
-    }
-
     fn try_begin_operation(&self) -> Option<OperationRequestId> {
         if self.transfer_cancel_pending.get()
             || self
@@ -3716,6 +3591,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn preview(self: &Rc<Self>, depth: usize, position: usize) {
         let Some(entry) = self.entry_at(depth, position) else {
             return;
@@ -3736,13 +3612,6 @@ impl Browser {
         }
     }
 
-    pub fn request_preview(&self, entry: FileEntry) {
-        self.emit(BrowserEvent::PreviewRequested {
-            entry,
-            automatic: false,
-        });
-    }
-
     pub fn request_automatic_preview(&self, entry: FileEntry) {
         self.emit(BrowserEvent::PreviewRequested {
             entry,
@@ -3750,14 +3619,7 @@ impl Browser {
         });
     }
 
-    pub fn open_location(&self, location: Location) {
-        self.emit(BrowserEvent::OpenRequested { location });
-    }
-
-    pub fn request_empty_trash(&self) {
-        self.emit(BrowserEvent::EmptyTrashRequested);
-    }
-
+    #[cfg(test)]
     pub fn activate(self: &Rc<Self>, depth: usize, position: usize) {
         let open_child = self.entry_at(depth, position).is_some_and(|entry| {
             entry.is_directory() && self.is_open_child(depth, &entry.location)
@@ -3772,24 +3634,6 @@ impl Browser {
         self.activate_focused_with_selection(false);
     }
 
-    /// The successful creation has already established the entry's type and location.
-    pub(crate) fn reveal_created_entry(self: &Rc<Self>, depth: usize, position: usize) {
-        let _update = self.navigation_update();
-        let Some(entry) = self.entry_at(depth, position) else {
-            return;
-        };
-        self.select(depth, position);
-        if entry.is_directory() {
-            // Do not start another asynchronous validation that can outlive inline rename.
-            self.bump_navigation_generation();
-            self.close_peek();
-            self.descend_validated(depth, entry.location, LoadSelection::Nothing, false);
-            self.select(depth, position);
-        } else {
-            self.close_column(depth + 1);
-        }
-    }
-
     pub(crate) fn is_open_child(&self, parent_depth: usize, location: &Location) -> bool {
         parent_depth
             .checked_add(1)
@@ -3798,11 +3642,13 @@ impl Browser {
             == Some(location)
     }
 
+    #[cfg(test)]
     /// Activates an item using conventional single-pane list navigation.
     pub fn activate_in_place(self: &Rc<Self>, depth: usize, position: usize) {
         self.activate_in_place_with_selection(depth, position, false);
     }
 
+    #[cfg(test)]
     fn activate_in_place_with_selection(
         self: &Rc<Self>,
         depth: usize,
@@ -3824,6 +3670,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn activate_focused_in_place(self: &Rc<Self>) {
         let Some((depth, position, _)) = self.focused_item() else {
             self.move_selection(1);
@@ -3832,6 +3679,7 @@ impl Browser {
         self.activate_in_place_with_selection(depth, position, true);
     }
 
+    #[cfg(test)]
     pub fn move_selection(&self, direction: i32) {
         let moved = self.state.borrow_mut().move_selection(direction);
         if let Some((depth, position)) = moved {
@@ -3843,60 +3691,7 @@ impl Browser {
         }
     }
 
-    /// Moves the focus by `page` visible entries, for `Page Up` and `Page Down`.
-    pub fn page_along(&self, direction: i32, page: usize, order: Option<&[usize]>) {
-        let moved = self.state.borrow_mut().page_along(direction, page, order);
-        if let Some((depth, position)) = moved {
-            self.emit(BrowserEvent::FocusChanged {
-                depth,
-                position: Some(position),
-                triggered_by_removal: false,
-            });
-        }
-    }
-
-    pub fn extend_page_selection(&self, direction: i32, page: usize, order: Option<&[usize]>) {
-        let extended = self
-            .state
-            .borrow_mut()
-            .extend_page_selection(direction, page, order);
-        if let Some((depth, focused, positions)) = extended {
-            self.emit(BrowserEvent::SelectionSetChanged {
-                depth,
-                selection: SelectionUpdate::Positions(positions),
-                focused,
-                take_focus: true,
-            });
-        }
-    }
-
-    pub fn extend_selection(&self, direction: i32) {
-        let extended = self.state.borrow_mut().extend_selection(direction);
-        if let Some((depth, focused, positions)) = extended {
-            self.emit(BrowserEvent::SelectionSetChanged {
-                depth,
-                selection: SelectionUpdate::Positions(positions),
-                focused,
-                take_focus: true,
-            });
-        }
-    }
-
-    pub fn extend_visual_selection(&self, depth: usize, focused: usize, order: &[usize]) {
-        let positions = self
-            .state
-            .borrow_mut()
-            .extend_visual_selection(depth, focused, order);
-        if let Some(positions) = positions {
-            self.emit(BrowserEvent::SelectionSetChanged {
-                depth,
-                selection: SelectionUpdate::Positions(positions),
-                focused,
-                take_focus: true,
-            });
-        }
-    }
-
+    #[cfg(test)]
     pub fn focus_parent(&self) {
         let focus = self.state.borrow_mut().focus_parent();
         if let Some((depth, position)) = focus {
@@ -3908,6 +3703,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     fn focus_child(&self) {
         let focus = self.state.borrow_mut().focus_child();
         if let Some((depth, position)) = focus {
@@ -3919,6 +3715,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn enter_focused_directory(self: &Rc<Self>) {
         match self.focused_entry() {
             Some(entry) if !entry.is_directory() => self.focus_child(),
@@ -3926,10 +3723,12 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn activate_focused(self: &Rc<Self>) {
         self.activate_focused_with_selection(true);
     }
 
+    #[cfg(test)]
     fn activate_focused_with_selection(self: &Rc<Self>, select_first: bool) {
         let focused = self.state.borrow().focused_entry();
         let Some((depth, _, entry)) = focused else {
@@ -4681,6 +4480,7 @@ impl Browser {
         )
     }
 
+    #[cfg(test)]
     pub(crate) fn refresh_columns_at(self: &Rc<Self>, location: &Location) {
         self.refresh_columns_at_many([location]);
     }
@@ -4926,6 +4726,7 @@ impl Browser {
         }
     }
 
+    #[cfg(test)]
     pub fn refresh_all(self: &Rc<Self>) {
         let depths: Vec<usize> = {
             let state = self.state.borrow();
@@ -4948,6 +4749,7 @@ impl Browser {
         self.select_entries_by_name_at(depth, names);
     }
 
+    #[cfg(test)]
     pub fn select_entries_by_name_at(self: &Rc<Self>, depth: usize, names: &[String]) -> bool {
         let requested: HashSet<&str> = names.iter().map(String::as_str).collect();
         self.select_entries_matching_at(depth, |entry| {

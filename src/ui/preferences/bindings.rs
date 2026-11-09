@@ -44,10 +44,6 @@ impl PreferenceChanges {
         self.listeners.borrow().len()
     }
 
-    pub(super) fn observe(&self, observer: Rc<dyn Fn()>) {
-        self.observers.borrow_mut().push(observer);
-    }
-
     pub(super) fn bind<T: PartialEq + Clone + 'static>(
         &self,
         manager: &PreferenceManager,
@@ -81,7 +77,6 @@ impl PreferenceChanges {
         });
         (listener.refresh)(anchor.as_ref(), manager);
     }
-
 
     /// Publishes a change kept outside `Preferences`, such as folder settings,
     /// so that a notification already running repeats for it.

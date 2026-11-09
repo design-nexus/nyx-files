@@ -279,7 +279,6 @@ impl ListColumnId {
         Self::Modified,
     ];
 
-
     pub fn title(self) -> &'static str {
         match self {
             Self::Name => "Name",
@@ -747,23 +746,9 @@ impl PreferenceManager {
         self.changes.bind(self, anchor, read, apply);
     }
 
-
     #[cfg(test)]
     pub(in crate::ui) fn listener_count(&self) -> usize {
         self.changes.listener_count()
-    }
-
-    /// Registers a process-lifetime callback invoked after preference changes are
-    /// published. Observers run before widget bindings.
-    pub(in crate::ui) fn observe(&self, observer: Rc<dyn Fn()>) {
-        self.changes.observe(observer);
-    }
-
-
-    /// Republishes current preferences without a stored change, for runtime state
-    /// that bindings derive from preferences (such as theme availability).
-    pub(in crate::ui) fn notify_changes(&self) {
-        self.changes.notify(self);
     }
 
     pub(crate) fn cloud_sidebar(&self) -> bool {
@@ -1026,8 +1011,6 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-
-
     /// 10xer mode always keeps arrow keys in the listing.
     pub fn arrow_navigation_scoped_active(&self) -> bool {
         self.tenxer_mode() || self.arrow_navigation_scoped()
@@ -1050,12 +1033,7 @@ impl PreferenceManager {
         self.bind_preference(anchor, Self::show_keybinding_hints, refresh);
     }
 
-
-
-
-
-
-
+    #[cfg(test)]
     pub fn omarchy_variant(&self) -> OmarchyVariant {
         self.preferences.borrow().omarchy_variant
     }
@@ -1073,6 +1051,7 @@ impl PreferenceManager {
         self.preferences.borrow().element_glow
     }
 
+    #[cfg(test)]
     pub fn file_icon_colors(&self) -> FileIconColors {
         self.preferences.borrow().file_icon_colors
     }
@@ -1179,10 +1158,6 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-
-
-
-
     pub fn browser_column_width(&self) -> Option<i32> {
         self.preferences.borrow().browser_column_width
     }
@@ -1201,8 +1176,6 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-
-
     pub fn list_column_order(&self) -> Vec<ListColumnId> {
         sanitize_list_column_order(&self.preferences.borrow().list_column_order)
     }
@@ -1220,11 +1193,6 @@ impl PreferenceManager {
         self.preferences.borrow_mut().list_hidden_columns = sanitize_list_hidden_columns(&hidden);
         self.save_preferences();
     }
-
-
-
-
-
 
     pub fn watch_network_folders(&self) -> bool {
         self.preferences.borrow().watch_network_folders
@@ -1298,7 +1266,6 @@ impl PreferenceManager {
             .cloned()
             .unwrap_or_default()
     }
-
 
     pub fn open_folder_after_drop(&self) -> bool {
         self.preferences.borrow().open_folder_after_drop
@@ -1424,15 +1391,6 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-    pub fn corner_roundness(&self) -> CornerRoundness {
-        self.preferences.borrow().corner_roundness
-    }
-
-    /// The chosen interface font family; `None` keeps the bundled default.
-    pub fn interface_font(&self) -> Option<String> {
-        self.preferences.borrow().interface_font.clone()
-    }
-
     #[cfg(test)]
     pub fn set_element_glow(&self, enabled: bool) {
         if self.element_glow() == enabled {
@@ -1443,12 +1401,22 @@ impl PreferenceManager {
     }
 
     #[cfg(test)]
+    pub fn corner_roundness(&self) -> CornerRoundness {
+        self.preferences.borrow().corner_roundness
+    }
+
+    #[cfg(test)]
     pub fn set_corner_roundness(&self, roundness: CornerRoundness) {
         if self.corner_roundness() == roundness {
             return;
         }
         self.preferences.borrow_mut().corner_roundness = roundness;
         self.save_preferences();
+    }
+
+    #[cfg(test)]
+    pub fn interface_font(&self) -> Option<String> {
+        self.preferences.borrow().interface_font.clone()
     }
 
     #[cfg(test)]
@@ -1558,8 +1526,6 @@ impl PreferenceManager {
         drop(preferences);
         self.save_preferences();
     }
-
-
 
     pub(crate) fn places_order(&self) -> Vec<&'static str> {
         sanitize_places_order(&self.preferences.borrow().places_order)
@@ -1701,9 +1667,6 @@ impl PreferenceManager {
         self.save_preferences();
     }
 
-
-
-
     pub fn sort_preferences(&self) -> ViewPreferences {
         sort_preferences(&self.preferences.borrow())
     }
@@ -1719,7 +1682,6 @@ impl PreferenceManager {
         }
         self.save_preferences();
     }
-
 
     fn save_preferences(&self) {
         let changed = self.changes.record(&self.preferences.borrow());
@@ -1905,8 +1867,6 @@ pub(in crate::ui) fn config_directory() -> PathBuf {
 fn settings_path() -> PathBuf {
     config_directory().join("settings.toml")
 }
-
-
 
 #[cfg(test)]
 mod tests;

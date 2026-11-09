@@ -43,6 +43,7 @@ pub(crate) fn worker_limit() -> usize {
     pool().limit.load(Ordering::Relaxed)
 }
 
+#[cfg(test)]
 pub(crate) fn set_worker_limit(limit: usize) {
     pool().set_limit(limit);
     preview_pool().set_limit(limit);
@@ -457,6 +458,7 @@ pub(crate) fn workers_supported() -> bool {
 }
 
 impl Pool {
+    #[cfg(test)]
     fn set_limit(&self, limit: usize) {
         let _state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         self.limit

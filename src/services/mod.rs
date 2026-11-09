@@ -89,8 +89,12 @@ pub(crate) use preview::{
     supports_remote_video,
 };
 pub(crate) use transfer_action::{
-    CrossVolumeDropStrategy, DropActionInput, DropCommit, DropOverride, TransferKind,
-    VolumeIdentity, VolumeRelation, drop_commit, transferable_drop_sources, volume_relation,
+    CrossVolumeDropStrategy, VolumeIdentity, VolumeRelation, volume_relation,
+};
+#[cfg(test)]
+pub(crate) use transfer_action::{
+    DropActionInput, DropCommit, DropOverride, TransferKind, drop_commit,
+    transferable_drop_sources,
 };
 pub(crate) use release_channel::{BuildKind, Version};
 pub(crate) use remote_download::{

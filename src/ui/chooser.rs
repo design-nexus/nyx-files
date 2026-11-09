@@ -207,10 +207,6 @@ impl FileSource for ChooserFileSource {
         })
     }
 
-    fn confined_to(&self) -> Option<&Path> {
-        self.root_limit.as_deref()
-    }
-
     fn probe_stamp(&self, location: Location, emit: Rc<dyn Fn(StampAnswer)>) -> LoadHandle {
         self.source.probe_stamp(location, emit)
     }

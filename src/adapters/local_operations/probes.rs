@@ -29,6 +29,7 @@ use crate::{
     services::{LocationValidationError, file_activity, io_error_detail},
 };
 
+#[cfg(test)]
 #[derive(Debug)]
 pub(crate) enum Presence {
     Absent,
@@ -45,10 +46,12 @@ fn unanswered(unanswered: Unanswered) -> io::Error {
     }
 }
 
+#[cfg(test)]
 fn absent(error: Errno) -> bool {
     matches!(error, Errno::NOENT | Errno::NOTDIR)
 }
 
+#[cfg(test)]
 fn presence_of(answer: Result<(), Errno>) -> Presence {
     match answer {
         Ok(()) => Presence::Present,
@@ -57,6 +60,7 @@ fn presence_of(answer: Result<(), Errno>) -> Presence {
     }
 }
 
+#[cfg(test)]
 fn open_folder(path: &Path) -> Result<OwnedFd, Errno> {
     fs().open_path(
         path.as_os_str(),
@@ -65,8 +69,10 @@ fn open_folder(path: &Path) -> Result<OwnedFd, Errno> {
     )
 }
 
+#[cfg(test)]
 type Names = Vec<(usize, Option<OsString>)>;
 
+#[cfg(test)]
 pub(crate) async fn presence(
     locations: &[Location],
     cancellable: &gio::Cancellable,
@@ -152,6 +158,7 @@ pub(crate) async fn presence(
         .collect()
 }
 
+#[cfg(test)]
 fn names_in(
     folder: &Path,
     names: &[(usize, Option<OsString>)],
@@ -188,6 +195,7 @@ fn names_in(
         .collect()
 }
 
+#[cfg(test)]
 async fn remote_presence(location: &Location, cancellable: &gio::Cancellable) -> Presence {
     let Some(uri) = location.uri_value() else {
         return Presence::Unknown;
@@ -278,6 +286,7 @@ pub(crate) async fn writable_folder(path: &Path) -> Result<Option<PathBuf>, Unan
     .map(Arc::unwrap_or_clone)
 }
 
+#[cfg(test)]
 pub(crate) async fn folder_was_deleted(path: &Path) -> bool {
     let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
         return false;
@@ -312,6 +321,7 @@ pub(crate) async fn folder_was_deleted(path: &Path) -> bool {
     .is_ok_and(|deleted| *deleted)
 }
 
+#[cfg(test)]
 pub(crate) async fn child_folders(
     dir: &Path,
     prefix: &str,

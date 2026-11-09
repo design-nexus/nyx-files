@@ -39,14 +39,6 @@ impl Browser {
         })
     }
 
-    pub(crate) fn operation_description(&self) -> String {
-        self.operation_description.borrow().clone()
-    }
-
-    pub(crate) fn operation_destination_description(&self) -> String {
-        self.operation_destination_description.borrow().clone()
-    }
-
     pub(crate) fn background_file_operation(
         self: &Rc<Self>,
         request_id: OperationRequestId,
@@ -80,26 +72,12 @@ impl Browser {
         true
     }
 
-    pub(crate) fn has_foreground_operation(&self) -> bool {
-        self.current_operation.get().is_some()
-    }
-
+    #[cfg(test)]
     pub(crate) fn has_background_operations(&self) -> bool {
         !self.background_operations.borrow().is_empty()
     }
 
-    pub(crate) fn cancel_background_operations(&self) {
-        let ids: Vec<_> = self
-            .background_operations
-            .borrow()
-            .keys()
-            .copied()
-            .collect();
-        for id in ids {
-            self.cancel_operation(id);
-        }
-    }
-
+    #[cfg(test)]
     pub(crate) fn cancel_operation(&self, request_id: OperationRequestId) {
         let job = self
             .background_operations

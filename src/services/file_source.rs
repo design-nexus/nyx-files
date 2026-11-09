@@ -605,10 +605,6 @@ pub trait FileSource {
         true
     }
 
-    fn confined_to(&self) -> Option<&Path> {
-        None
-    }
-
     fn validate_location(&self, location: &Location) -> Result<(), LocationValidationError>;
 
     /// Validates a location without blocking the caller. Providers should override this when

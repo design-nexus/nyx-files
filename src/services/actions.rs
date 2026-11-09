@@ -143,6 +143,7 @@ impl ActionCatalog {
         matched
     }
 
+    #[cfg(test)]
     pub fn numbered(&self, inputs: &[ActionInput]) -> Vec<Rc<ActionHandle>> {
         let (top, submenu): (Vec<_>, Vec<_>) = self
             .matches(inputs)
@@ -157,6 +158,7 @@ impl ActionCatalog {
     }
 }
 
+#[cfg(test)]
 const NUMBERED_ACTIONS: usize = 10;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

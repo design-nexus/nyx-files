@@ -31,6 +31,7 @@ pub(crate) enum VolumeRelation {
     Unknown,
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DropOverride {
     None,
@@ -64,6 +65,7 @@ impl CrossVolumeDropStrategy {
     }
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum TransferKind {
     Copy,
@@ -71,6 +73,7 @@ pub(crate) enum TransferKind {
     Forbidden,
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DropCommit {
     Copy,
@@ -83,7 +86,9 @@ pub(crate) enum DropCommit {
     Forbidden,
 }
 
+#[cfg(test)]
 impl DropCommit {
+    #[cfg(test)]
     pub(crate) fn transfer_kind(self) -> TransferKind {
         match self {
             Self::Copy => TransferKind::Copy,
@@ -94,6 +99,7 @@ impl DropCommit {
     }
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct DropActionInput {
     pub can_copy: bool,
@@ -129,6 +135,7 @@ pub(crate) fn volume_relation(
     }
 }
 
+#[cfg(test)]
 pub(crate) fn drop_commit(input: DropActionInput) -> DropCommit {
     if !input.can_copy && !input.can_move {
         return DropCommit::Forbidden;
@@ -150,6 +157,7 @@ pub(crate) fn drop_commit(input: DropActionInput) -> DropCommit {
     }
 }
 
+#[cfg(test)]
 fn cross_volume_commit(input: DropActionInput) -> DropCommit {
     let preferred = if input.strategy == CrossVolumeDropStrategy::Move {
         if input.can_move {
@@ -176,6 +184,7 @@ fn cross_volume_commit(input: DropActionInput) -> DropCommit {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn transferable_drop_sources(dest: &Location, sources: &[Location]) -> Vec<Location> {
     if sources.is_empty() {
         return Vec::new();
@@ -229,6 +238,7 @@ pub(crate) fn transferable_drop_sources(dest: &Location, sources: &[Location]) -
         .collect()
 }
 
+#[cfg(test)]
 fn gio_file(location: &Location) -> gio::File {
     location
         .native_path()

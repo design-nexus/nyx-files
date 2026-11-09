@@ -129,6 +129,7 @@ impl NavigationHistory {
         self.search_at(query, unix_time())
     }
 
+    #[cfg(test)]
     pub(crate) fn search_excluding(&self, query: &str, excluded: Option<&Path>) -> Vec<SearchItem> {
         self.search_at_excluding(query, unix_time(), excluded)
     }
@@ -184,6 +185,7 @@ impl NavigationHistory {
             .collect()
     }
 
+    #[cfg(test)]
     pub(crate) fn recent_excluding(&self, query: &str, excluded: Option<&Path>) -> Vec<SearchItem> {
         let mut matcher = HistoryMatcher::new(query);
         let mut matches = self

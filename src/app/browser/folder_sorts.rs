@@ -57,16 +57,6 @@ impl Browser {
         self.resync_column_sorts();
     }
 
-    pub fn folder_sort_at(&self, depth: usize) -> FolderSort {
-        let state = self.state.borrow();
-        state
-            .columns
-            .get(depth)
-            .map_or(FolderSort::Unremembered, |column| {
-                state.folder_sort(&column.location)
-            })
-    }
-
     pub fn resync_column_sorts(self: &Rc<Self>) {
         self.resync_column_sorts_from(None);
     }

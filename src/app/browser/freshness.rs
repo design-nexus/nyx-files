@@ -177,6 +177,7 @@ impl Browser {
         self.freshness.input.get()
     }
 
+    #[cfg(test)]
     pub fn set_freshness_hold(&self, hold: impl Fn() -> bool + 'static) {
         self.freshness.hold.replace(Some(Rc::new(hold)));
     }

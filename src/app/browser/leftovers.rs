@@ -55,6 +55,7 @@ impl Browser {
         self.emit(BrowserEvent::LeftoverReviewRequested { depth });
     }
 
+    #[cfg(test)]
     pub(crate) fn leftovers_busy(folder: &Location) -> bool {
         Self::operation_touches(folder)
     }

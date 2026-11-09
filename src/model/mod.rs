@@ -420,6 +420,7 @@ impl Location {
         }
     }
 
+    #[cfg(test)]
     pub fn breadcrumbs(&self) -> Vec<Self> {
         if self.is_recent_root() {
             return vec![self.clone()];
@@ -592,15 +593,6 @@ impl FileEntry {
         matches!(self.kind, EntryKind::File | EntryKind::FileSymbolicLink)
     }
 
-    pub fn is_symbolic_link(&self) -> bool {
-        matches!(
-            self.kind,
-            EntryKind::DirectorySymbolicLink
-                | EntryKind::FileSymbolicLink
-                | EntryKind::SymbolicLink
-        )
-    }
-
     pub fn is_broken_symbolic_link(&self) -> bool {
         self.kind == EntryKind::SymbolicLink
     }
@@ -650,18 +642,6 @@ impl FolderColor {
             Self::Blue => "#0090ff",
             Self::Purple => "#8e4ec6",
             Self::Gray => "#8b8d98",
-        }
-    }
-
-    pub fn css_class(self) -> &'static str {
-        match self {
-            Self::Red => "folder-color-red",
-            Self::Orange => "folder-color-orange",
-            Self::Yellow => "folder-color-yellow",
-            Self::Green => "folder-color-green",
-            Self::Blue => "folder-color-blue",
-            Self::Purple => "folder-color-purple",
-            Self::Gray => "folder-color-gray",
         }
     }
 

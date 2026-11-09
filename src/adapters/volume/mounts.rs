@@ -472,6 +472,7 @@ impl MountTable {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn fs_type_for(&self, path: &Path) -> Option<&str> {
         self.innermost(path)
             .map(|entry| entry.mount_type.fs_type.as_str())
@@ -515,6 +516,7 @@ impl MountTable {
             .is_some_and(|entry| entry.mount_type.outside_writers())
     }
 
+    #[cfg(test)]
     pub(crate) fn has_mount_inside(&self, directory: &Path) -> bool {
         self.entries
             .iter()
@@ -563,30 +565,6 @@ impl MountTable {
 /// Includes `fuseblk`, the FUSE drivers for local block devices.
 pub(crate) fn is_fuse_fs_type(fs_type: &str) -> bool {
     fs_type.starts_with("fuse")
-}
-
-/// FUSE filesystems that layer or encrypt local storage rather than reach a
-/// remote provider.
-pub(crate) fn is_local_fuse_overlay(fs_type: &str) -> bool {
-    matches!(
-        fs_type.strip_prefix("fuse."),
-        Some(
-            "mergerfs"
-                | "gocryptfs"
-                | "encfs"
-                | "cryfs"
-                | "securefs"
-                | "bindfs"
-                | "fuse-overlayfs"
-                | "unionfs"
-                | "unionfs-fuse"
-                | "mhddfs"
-                | "squashfuse"
-                | "archivemount"
-                | "fuse-zip"
-                | "ciopfs"
-        )
-    )
 }
 
 fn is_trash_scan_fs_type(fs_type: &str) -> bool {

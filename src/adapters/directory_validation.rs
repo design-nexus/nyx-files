@@ -7,6 +7,7 @@ use gtk::{gio, glib, prelude::*};
 
 use crate::model::Location;
 
+#[cfg(test)]
 /// Queries metadata only, follows directory symlinks, and never probes on the GTK thread.
 /// One query at a time bounds speculative work even for very large foreign selections.
 /// Returns `None` unless every location is a directory.

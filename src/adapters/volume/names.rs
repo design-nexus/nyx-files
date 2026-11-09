@@ -242,6 +242,7 @@ impl NameProfile {
         rules
     }
 
+    #[cfg(test)]
     pub(crate) fn changes_characters(self) -> bool {
         self.rules == NameRules::Windows
             || self.strip != Strip::None

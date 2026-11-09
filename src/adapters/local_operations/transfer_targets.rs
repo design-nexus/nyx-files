@@ -26,6 +26,7 @@ use crate::{
     services::{NameMode, ShownName},
 };
 
+#[cfg(test)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TransferTarget {
     pub name: Option<ShownName>,
@@ -33,11 +34,13 @@ pub(crate) struct TransferTarget {
     pub fixes_inside: bool,
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct Collision {
     pub mergeable: bool,
 }
 
+#[cfg(test)]
 /// Nothing collides with a link the paste leaves out, as the destination is known not to hold
 /// links.
 pub(crate) async fn transfer_targets(
@@ -143,13 +146,16 @@ pub(crate) async fn transfer_targets(
         .collect())
 }
 
+#[cfg(test)]
 const REMOTE_ITEM_ATTRIBUTES: &str = "standard::type,id::filesystem";
 
+#[cfg(test)]
 enum Existing {
     Found(Vec<Option<bool>>),
     Remote(Vec<Option<OsString>>),
 }
 
+#[cfg(test)]
 async fn query_each(
     files: &[Option<gio::File>],
     attributes: &'static str,
@@ -192,9 +198,12 @@ async fn query_each(
     Ok(infos)
 }
 
+#[cfg(test)]
 type KindAndFilesystem = (gio::FileType, Option<glib::GString>);
+#[cfg(test)]
 type ItemKinds = (Vec<Option<gio::FileType>>, Vec<Option<glib::GString>>);
 
+#[cfg(test)]
 fn kind_and_filesystem(info: &gio::FileInfo) -> KindAndFilesystem {
     (
         info.file_type(),
@@ -202,6 +211,7 @@ fn kind_and_filesystem(info: &gio::FileInfo) -> KindAndFilesystem {
     )
 }
 
+#[cfg(test)]
 fn item_kinds(
     items: &[gio::File],
     remote: Vec<Option<KindAndFilesystem>>,
@@ -230,10 +240,12 @@ fn item_kinds(
     Ok((kinds, filesystems))
 }
 
+#[cfg(test)]
 /// Up to this many names are looked up one by one; more are first looked
 /// for in the folder's listing.
 pub(super) const LOOKUPS_WITHOUT_LISTING: usize = 32;
 
+#[cfg(test)]
 fn existing_folders(path: &Path, names: &[Option<OsString>]) -> Vec<Option<bool>> {
     let fs = fs();
     let wanted = names.iter().flatten().count();

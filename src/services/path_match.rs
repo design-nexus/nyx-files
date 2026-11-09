@@ -108,6 +108,7 @@ impl PathMatcher {
         Some(score)
     }
 
+    #[cfg(test)]
     /// Returns non-overlapping byte ranges in the original, unfolded text.
     pub(crate) fn highlight(&mut self, path: &str, name_start: usize) -> Vec<Range<usize>> {
         let (folded, spans) = fold_with_spans(path);
@@ -141,6 +142,7 @@ impl PathMatcher {
         merged
     }
 
+    #[cfg(test)]
     pub(crate) fn name_highlight(&mut self, root: &Path, path: &Path) -> Vec<Range<usize>> {
         let relative = path.strip_prefix(root).unwrap_or(path).to_string_lossy();
         let name_len = path
@@ -156,6 +158,7 @@ impl PathMatcher {
 }
 
 // Unlike scoring, this preserves source spans without NFC composition.
+#[cfg(test)]
 fn fold_with_spans(text: &str) -> (String, Vec<Range<usize>>) {
     let mut folded = String::with_capacity(text.len());
     let mut spans = Vec::with_capacity(text.len());

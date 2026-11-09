@@ -227,6 +227,7 @@ impl SearchCoverage {
         self != Self::default()
     }
 
+    #[cfg(test)]
     /// Localized status text; empty when the search was complete.
     pub fn message(self) -> String {
         let reasons = [

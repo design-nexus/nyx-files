@@ -163,10 +163,11 @@ pub(in crate::adapters) use fs_ops::{
 };
 #[cfg(test)]
 pub(crate) use tests::fs_quirks::{Births, FsQuirks, Op as FsOp, Quirks, evict};
+#[cfg(test)]
 pub(crate) use transfer_targets::transfer_targets;
-pub(crate) use typed_names::{
-    refused_in as typed_name_refusal, rename_taken as typed_rename_is_taken,
-};
+pub(crate) use typed_names::refused_in as typed_name_refusal;
+#[cfg(test)]
+pub(crate) use typed_names::rename_taken as typed_rename_is_taken;
 
 use std::{
     cell::{Cell, RefCell},
