@@ -50,13 +50,9 @@ pub(crate) mod udiskie_preferences;
 mod virtual_preview;
 pub(crate) mod window;
 
-#[cfg(feature = "qa")]
-pub(crate) use accessibility::qa as accessibility_qa;
 #[cfg(test)]
 pub(in crate::ui) use window::offer_removable_destinations_for_test;
 pub use window::{UnlockTarget};
-#[cfg(feature = "qa")]
-pub(crate) use preview::PREVIEW_LABEL;
 
 /// The accessible name of the filter and search results list.
 pub(crate) const SEARCH_RESULTS_LABEL: &str = "Search results";

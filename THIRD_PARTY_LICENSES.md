@@ -25,17 +25,6 @@ regeneration instructions are in [`packaging/math-renderer/`](packaging/math-ren
 
 The font is distributed unmodified. Files materializes the embedded font in its private cache at runtime so it is available without changing the user's system font installation.
 
-## Tinted Theming schemes
-
-- Project: <https://github.com/tinted-theming/schemes>
-- Revision: `fdca32a0d14ec80ad83a78a9ccb85592ca6cb9e1`
-- Copyright: Tinted Theming and the scheme authors identified by the upstream files
-- License: MIT
-- Derived asset: `data/themes/catalog.toml`
-- Full license: [`data/licenses/Tinted-Theming-MIT.txt`](data/licenses/Tinted-Theming-MIT.txt)
-
-The bundled catalog contains curated Base16 palettes derived from this project, with a few foreground values adjusted for readability (noted in the catalog), alongside Strata's original themes. The Base16 mapping to Strata's semantic UI tokens is documented in the catalog.
-
 ## GTK and GStreamer media-runtime patch kit
 
 - Projects: <https://gitlab.gnome.org/GNOME/gtk> and <https://gitlab.freedesktop.org/gstreamer/gstreamer>

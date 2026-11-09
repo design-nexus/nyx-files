@@ -360,13 +360,5 @@ the keys its input method passes back. The tests also cover label rendering
 every catalog binding has a row of its own in each F1 map its catalog block
 names (`listed` for both, `default_only`, `tenxer_only`), a chord's second key
 right after its first, or is explicitly marked as unlisted. Run them with
-`./scripts/test-headless.py keys::`, and run `./scripts/test-headless.py i18n::`
-after changing key names.
-
-End-to-end scenarios switch layouts on the harness's private Xvfb: `setxkbmap`
-loads the layouts and an XKB group lock selects the active one. Never change the
-desktop's layout from a test. Scenarios use US, Russian, Russian-only, French
-AZERTY, German QWERTZ, Caps Lock, and Hanyu Pinyin. With Hanyu Pinyin, GTK's
-own input method composes the AltGr tone keys in text fields, which stands in
-for a pinyin input method's composition. See
-[end-to-end testing](e2e-testing.md).
+`./scripts/test-gtk.sh keys::`, and run `./scripts/test-gtk.sh i18n::`
+after changing key names. Never change the desktop's keyboard layout from a test.

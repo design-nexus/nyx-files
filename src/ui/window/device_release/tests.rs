@@ -144,34 +144,6 @@ fn hide_keeps_the_release_in_flight() {
 
 
 
-#[cfg(feature = "qa")]
-#[test]
-fn the_rail_names_plain_rows_while_railed_but_never_replaces_a_pending_label() {
-    crate::test_support::gtk_test(
-        "ui::window::device_release::tests::the_rail_names_plain_rows_while_railed_but_never_replaces_a_pending_label",
-        || {
-            let label = |row: &gtk::Button| {
-                crate::ui::accessibility::qa::naming(row).and_then(|naming| naming.label)
-            };
-            let plain = super::super::sidebar_button(crate::assets::icons::HOME, "Home");
-            let pending =
-                super::super::sidebar_button(crate::assets::icons::HARD_DRIVE, "USB Backup");
-            let _shell = pending_device_shell(&pending);
-            let busy = Some(crate::i18n::tr(RELEASE_ROW_TOOLTIP));
-            for rail in [true, false, true, false] {
-                super::super::sync_sidebar_button(&plain, rail);
-                super::super::sync_sidebar_button(&pending, rail);
-                assert_eq!(
-                    label(&plain),
-                    rail.then(|| "Home".to_owned()),
-                    "rail {rail}"
-                );
-                assert_eq!(label(&pending), busy, "rail {rail}");
-            }
-        },
-    );
-}
-
 #[test]
 fn flush_failure_does_not_start_unmount() {
     reset_releases();

@@ -226,10 +226,7 @@ pub(crate) fn chooser_application_id() -> &'static str {
     })
 }
 
-pub(crate) fn run(
-    ui: &'static ChooserUi,
-    #[cfg(feature = "qa")] qa: Option<crate::qa::Session>,
-) -> glib::ExitCode {
+pub(crate) fn run(ui: &'static ChooserUi) -> glib::ExitCode {
     ui_hooks::register(ui);
     glib::set_prgname(Some(chooser_application_id()));
     glib::set_application_name("Files");
@@ -297,10 +294,6 @@ pub(crate) fn run(
 
     if service_failed.load(Ordering::SeqCst) {
         return glib::ExitCode::FAILURE;
-    }
-    #[cfg(feature = "qa")]
-    if let Some(session) = qa {
-        session.start_portal(&main_loop);
     }
     main_loop.run();
     (ui.flush)();

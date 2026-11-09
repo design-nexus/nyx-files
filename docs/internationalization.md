@@ -213,10 +213,10 @@ than relying only on accessibility tests.
 Run targeted regressions using the private display/session bus:
 
 ```bash
-./scripts/test-headless.py i18n::
-./scripts/test-headless.py language_
-./scripts/test-headless.py util::tests
-./scripts/test-headless.py ui::settings::tests::general
+./scripts/test-gtk.sh i18n::
+./scripts/test-gtk.sh language_
+./scripts/test-gtk.sh util::tests
+./scripts/test-gtk.sh ui::settings::tests::general
 ```
 
 Catalog tests require every supported locale to contain the same source keys

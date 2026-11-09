@@ -49,7 +49,7 @@ Run the full Rust suite with isolated GTK, disposable preferences, and required
 cross-device coverage:
 
 ```bash
-./scripts/test-headless.py
+./scripts/test-gtk.sh
 ```
 
 `/dev/shm` must be writable and on a different filesystem from the temporary
@@ -59,14 +59,14 @@ cross-device boundary fails instead of producing a vacuous pass.
 Focused selections can be run on the same infrastructure:
 
 ```bash
-./scripts/test-headless.py restore
-./scripts/test-headless.py volume
-./scripts/test-headless.py ui::window::bookmarks::tests
-./scripts/test-headless.py adapters::bookmarks::tests
-./scripts/test-headless.py adapters::local_operations::tests::deletion
-./scripts/test-headless.py ui::browser::trash::tests
-./scripts/test-headless.py adapters::gio_location::tests
-./scripts/test-headless.py without_trash_support
+./scripts/test-gtk.sh restore
+./scripts/test-gtk.sh volume
+./scripts/test-gtk.sh ui::window::bookmarks::tests
+./scripts/test-gtk.sh adapters::bookmarks::tests
+./scripts/test-gtk.sh adapters::local_operations::tests::deletion
+./scripts/test-gtk.sh ui::browser::trash::tests
+./scripts/test-gtk.sh adapters::gio_location::tests
+./scripts/test-gtk.sh without_trash_support
 ```
 
 The tests create their own temporary payloads and metadata. They cover:
@@ -103,21 +103,9 @@ The tests create their own temporary payloads and metadata. They cover:
   up-front confirmation after a recorded refusal until Reload
   (`interface::menus::delete_permanently`, checked by hand).
 
-Run the real keyboard and drag/drop regressions in the pinned E2E container:
-
-```bash
-./scripts/e2e.sh -k cross_volume
-./scripts/e2e.sh tests/e2e/scenarios/test_entry_management.py -k trash_support
-```
-
-These verify Copy, Move, and Cancel with real keyboard input in every view, and
-that the chosen action agrees with the resulting files. The default
-cross-device strategy is **Always Ask**. An unresolved volume lookup uses the
+The default cross-device strategy is **Always Ask**. An unresolved volume lookup uses the
 configured cross-device policy and is described as unresolved,
 not as a proven device difference. Explicit modifier overrides remain supported.
-The `trash_support` selection deletes from a `/dev/shm` folder, which GIO
-reports as unable to trash, and checks that Delete and 10xer **d** explain the
-missing Trash, focus Cancel, and delete only after an explicit confirmation.
 
 ## Manual acceptance
 

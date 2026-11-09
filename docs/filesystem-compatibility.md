@@ -1839,8 +1839,7 @@ The exceptions are:
   so that it still cuts a stuck request short.
 - Quitting, which waits up to 10 s for queued settings saves.
 
-The [main-thread I/O audit](e2e-testing.md#main-thread-io-audit) reports any other file call the
-interface thread makes, and its stall watchdog names the call the interface thread is blocked in.
+The stall watchdog (`STRATA_UI_STALL_MS`) names the call the interface thread is blocked in.
 
 ### Request lanes
 
@@ -2044,9 +2043,8 @@ call outside main-loop dispatch is caught too; only the named start-up and exit 
 scoped `ui_thread::allow`. A test that checks that the window keeps running while a call hangs
 parks the call with a seam racer that waits on `test_support::Gate`, pumps the main loop until the
 call is reached, checks that nothing waited for it, then releases it. Lane tests hand the lanes'
-state the time, past 2 s and 10 s, instead of waiting. The [main-thread I/O audit and the stall
-watchdog](e2e-testing.md#main-thread-io-audit) look for calls the asserts cannot see, inside GLib
-and GTK.
+state the time, past 2 s and 10 s, instead of waiting. The stall watchdog looks for calls the asserts cannot
+see, inside GLib and GTK.
 
 For [files that are still open](#files-that-are-still-open) they emulate each mount family's
 leftovers: the name NFS, SMB or FUSE gives a file unlinked while open, which references count (any
@@ -2073,127 +2071,12 @@ each mount's mountinfo line and udev format, so the name rules come from the rea
 their refusals are written from the lab's results, not from Files' rules. Run them with:
 
 ```bash
-./scripts/test-headless.py local_operations::
-./scripts/test-headless.py volume::
+./scripts/test-gtk.sh local_operations::
+./scripts/test-gtk.sh volume::
 ```
-
-### Real filesystems
-
-`scripts/fslab/fslab.sh` is a manual lab that CI never runs. It starts one privileged Docker
-container that mounts real kernel filesystems over loopback, then runs syscall probes or
-`scripts/test-headless.py` with the test fixtures placed on each mount.
-
-| Mount | Filesystem |
-| --- | --- |
-| `tmpfs`, `ext4` | controls |
-| `ext4-casefold` | ext4 with a `chattr +F` folder |
-| `vfat`, `exfat`, `ntfs3` | kernel drivers with udisks' default options |
-| `exfat-fuse`, `ntfs-3g` | FUSE drivers |
-| `nfs42`, `nfs3` | kernel NFS server and client over loopback |
-| `cifs`, `cifs-nocase`, `cifs-posix` | Samba with the kernel SMB 3.1.1 client |
-| `sshfs` | sshfs speaking SFTP to a loopback `sftp-server` that runs as the test user, in a mount namespace without the client mount |
-
-```sh
-scripts/fslab/fslab.sh up                              # build if needed, start, mount everything
-scripts/fslab/fslab.sh probe [MOUNT...]                # capability matrix in target/fslab/probe/
-scripts/fslab/fslab.sh test FILTER [MOUNT...]          # the working tree, including uncommitted changes
-scripts/fslab/fslab.sh test --rev REV FILTER [MOUNT...]
-scripts/fslab/fslab.sh down                            # always run when finished
-```
-
-`test` sets `STRATA_TEST_TMPDIR` to a directory on each mount. `test-headless.py` passes that
-absolute path to the tests as `TMPDIR`, which `tempfile::tempdir()` honours; nothing else is
-inherited. Results, logs and leftovers per mount go to `target/fslab/runs/`. The summary flags a
-mount on which the kernel cifs client turned server inode numbers off during the run, because
-failures after that point can be artefacts of that mount state.
-
-`fslab test` exports no backing folder of its servers, so a change "made elsewhere" is made by hand
-in the container (`docker exec strata-fslab …`) in a server's own folder (`/srv/nfs/v42/tmp`,
-`/srv/nfs/v3/tmp`, `/srv/smb/cifs/tmp`, `/srv/smb/posix/tmp`, `/srv/sshfs/tmp`), then looked for
-through the client mount. Such a change goes to the server's filesystem directly, not through nfsd,
-smbd or sftp-server.
-
-A preset reports the lab mount's mountinfo type unless it names `mount_type`, the mount's
-`statfs` type unless it names `fs_type`, and the mount's udev format only when it names neither a
-mount type nor a device format. `Quirks::default()` names none of them, so Files applies the lab
-mount's rules there, and a preset that names only a mount type keeps the base's `statfs` type,
-which decides exchanges. On a FUSE base the seam refuses an exchange with `EINVAL`, as a refusing
-mount does, whatever the preset's type: exfat-fuse overwrites the target instead of swapping it.
-The presets of real filesystems, and rows that need one's rules (`on_ext4`), name both. On an SMB
-base the seam refuses `O_TMPFILE` with `EOPNOTSUPP`, as Files never opens one there: with POSIX
-extensions the client reports the unnamed file with inode number 1<<32, no links and a wrong size
-until it revalidates. On a kernel exFAT base, which stamps a folder's birth time at each rename into
-it, a preset whose rule keeps folder birth times sees the first one the seam read for each folder.
-The Replace row that substitutes the target Files holds for its Trash check skips on NFS, where
-nothing is held ("skipped on an NFS base").
-
-Unit tests layer quirks on a fully featured filesystem, so on a limited mount some of them fail by
-design: a test expecting a plain rename sees the ladder link instead on NFS, fixtures with
-symlinks, FIFOs or Unix permissions cannot exist on vfat, a racer keyed to a step the mount never
-takes (an `O_TMPFILE` link, a hole, a `syncfs`, an exchange) never runs, and a time with a fraction
-of a second is rounded away on vfat, exfat-fuse and sshfs. Those three report the modification
-time as the change time, so tests that land the SMB client's deferred closes fail there after two
-seconds, and Replace and move rows whose replacement or rewrite only its change time tells apart
-skip there ("skipped on a base that reports the modification time as the change time"). Move rows
-whose fixture links a file skip where the base refuses hard links, as vfat, exFAT and exfat-fuse
-do ("skipped on a base without hard links"). The merge row that leaves a Unix socket out skips where
-the base refuses the socket, as vfat, exFAT, exfat-fuse and sshfs do ("skipped on a base that
-refuses Unix sockets"). Replace and Compress rows that make unlinking the original fail skip where
-the base refuses `RENAME_NOREPLACE` and keeps one number for a hard link, as NFS and ntfs-3g do:
-placement there links a file to its name and unlinks the other, which takes the injected failure
-first ("skipped on a base that places files by linking them"). A fixture's name can be one the mount
-refuses (`a:b` on vfat), and a preset can expect a name stored that the real mount refuses, folds or
-lists as another (Samba's 8.3 aliases, long SMB folder names). On NFS a file renamed over while open
-reads as `.nfsXXXX`, and on casefolded folders `/proc` shows files the test process created as
-`name (deleted)`, so quirk patterns by name miss them. Tests that emulate NFSv3, or ext without
-birth times, read the base's real file handles, or on exfat, cifs and FUSE bases the seam's, made up
-from the inode number, which sshfs and exfat-fuse renew after an eviction (ntfs-3g keeps it); the
-test of the handle read itself is skipped on exfat and cifs bases, which give none, and says so on
-stderr ("skipped on a base without file handles"). The vfat row that exchanges a renumbered stage
-skips where the base refuses rename flags (NFS, sshfs, ntfs-3g) or overwrites for them
-(exfat-fuse): "skipped on a base that refuses or fakes rename flags". The container has no udev
-database, so exfat-fuse and ntfs-3g are not recognised there: they keep their per-file syncs, and
-get the name rules of a `fuseblk` device udev cannot tell, which learn from refusals (ntfs-3g
-refuses device names). Read failures against a run of the same filter on `origin/main`.
-
-A FUSE daemon gets every name a preset over it passes on, and exfat-fuse stores overlong forms
-and encoded surrogates, writing an overlong `/` into its volume as a real `/`, which `fsck.exfat`
-then finds corrupt. The tests that send such names, through a preset that stores any bytes or as
-fixtures, skip each row with a name that is not valid UTF-8 on a FUSE base and say so on stderr
-("skipped on a FUSE base"); a new test that sends one must call `skips_malformed_name_on_fuse` the
-same way. Fixtures with other malformed names, which the daemons refuse, fail there instead. Run
-`down` and `up`, which format fresh images, before checking names or the volume on exfat-fuse.
-
-Requirements and safety:
-
-- Docker on amd64, as a non-root user in the `docker` group, and the host modules `loop`, `vfat`,
-  `exfat`, `ntfs3`, `nfsd`, `nfs`, `cifs` and `fuse`. The image builds on the verified E2E base
-  from `scripts/e2e_base.py`.
-- The container is privileged: it loads host modules and attaches loop devices in the host
-  kernel. It has no network; its NFS, SMB and SFTP servers listen only on its own loopback.
-  Crates are fetched first by a separate unprivileged container, and the build runs offline.
-- Images live on a container-private tmpfs and are attached blank, so the host's udev never sees a
-  filesystem. `up`, `probe` and `test` check this. Only udiskie ignores the images' directory, so
-  stop other automounters (GNOME Disks, KDE) while the lab is up.
-- The NFS exports and the sshfs server's folder are container-private tmpfs mounts, not loop
-  devices. After full runs, Linux 7.2 kept a reference to the NFSv4.2 export after nfsd had
-  stopped, with no client, thread or process left, which pinned the export's loop device and its
-  memory on the host until reboot. A leaked tmpfs export pins only its few remaining files. tmpfs
-  has no UUID, so each export sets `fsid=`; it reports birth times, which NFSv4.2 passes on.
-- `down` releases everything that is free and detaches only loop devices still backed by the
-  lab's own images, deleting each image once its device is gone. If a mount or loop device stays
-  busy, `down` lists what holds it and keeps the container running with that mount, its server and
-  its loop device; run `down` again once those are released. `down --force` unmounts lazily
-  instead, which can keep loop devices attached on the host, or a tmpfs export's memory, until
-  reboot.
-- The container runs its own copy of `scripts/fslab`, refreshed by every `fslab.sh` command, so
-  switching branches or rebasing while the lab is up cannot break `down`.
-- The NFS, SMB and SFTP servers share the kernel with their clients, so there is no latency,
-  reconnect or multi-client race. ZFS, 9p, virtiofs, eCryptfs and FUSE network filesystems other
-  than sshfs are not covered.
 
 Never point tests at real user shares or removable drives.
 
-The historical [lab measurements](https://github.com/lgse/strata/pull/1615#issuecomment-6208891751)
-are retained with the pull request. They use memory-backed loop devices and loopback servers, not
+The [lab measurements](https://github.com/lgse/strata/pull/1615#issuecomment-6208891751) behind
+the presets above are retained with the pull request. They use memory-backed loop devices and loopback servers, not
 real USB latency or independent network clients.

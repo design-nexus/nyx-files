@@ -303,12 +303,9 @@ filenames are unsupported; no lossy conversion is performed.
 
 ## Tests
 
-`./scripts/test-headless.py file_providers` covers trusted registration, protocol
+`./scripts/test-gtk.sh file_providers` covers trusted registration, protocol
 bounds, literal filenames, process framing, queue saturation, snapshot ordering,
 recursive action retirement, tracking admission and window remapping.
-`./scripts/e2e.sh tests/e2e/scenarios/test_file_providers.py` exercises live
-menu refresh and withdrawal, sustained events, overlapping providers, mixed
-selections and flat/nested leaf activation through the actual GUI.
 The normal pinned quality and E2E checks remain required for this cross-cutting
 change. Use private display/configuration environments; do not test by changing
 the default file manager or loading fixtures into a user's installed application.

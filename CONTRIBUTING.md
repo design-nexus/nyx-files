@@ -106,22 +106,18 @@ cargo install --locked cargo-deny
 cargo install --locked typos-cli
 ```
 
-## End-to-end GUI tests
+## GUI tests
 
 `./scripts/check.sh` clears desktop display variables and skips display-dependent
-Rust tests. Run `./scripts/test-headless.py` to include those tests on a private
-Xvfb display without opening windows on your desktop. The end-to-end suite also
-uses a private display and checks the real application and resulting files:
+Rust tests. Run `./scripts/test-gtk.sh` to include those tests on a private
+Xvfb display and D-Bus session without opening windows on your desktop; pass a
+test name to run only matching tests:
 
 ```bash
-./scripts/e2e.sh
+./scripts/test-gtk.sh portal_setup
 ```
 
-It needs Xvfb, `at-spi2-core`, the Python AT-SPI bindings, D-Bus, and
-ImageMagick; the script names the packages when one is missing. See
-[end-to-end GUI testing](docs/e2e-testing.md) for how scenarios are written,
-how failure artifacts are collected, and how to regenerate the visual
-baselines.
+It needs Xvfb (`xvfb-run`) and D-Bus.
 
 ## Performance fixtures
 

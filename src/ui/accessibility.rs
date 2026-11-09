@@ -14,13 +14,8 @@ use super::{
     shortcut_reference::with_keys,
 };
 
-#[cfg(feature = "qa")]
-pub(crate) mod qa;
-
 pub(super) fn set_label(widget: &impl IsA<gtk::Accessible>, label: &str) {
     widget.update_property(&[gtk::accessible::Property::Label(label)]);
-    #[cfg(feature = "qa")]
-    qa::record(widget, |naming| naming.label = Some(label.to_owned()));
 }
 
 thread_local! {
@@ -54,16 +49,10 @@ pub(super) fn set_description(widget: &impl IsA<gtk::Accessible>, description: O
     widget.update_property(&[gtk::accessible::Property::Description(
         description.unwrap_or(""),
     )]);
-    #[cfg(feature = "qa")]
-    qa::record(widget, |naming| {
-        naming.description = description.map(str::to_owned);
-    });
 }
 
 pub(super) fn set_busy(widget: &impl IsA<gtk::Accessible>, busy: bool) {
     widget.update_state(&[gtk::accessible::State::Busy(busy)]);
-    #[cfg(feature = "qa")]
-    qa::record(widget, |naming| naming.busy = Some(busy));
 }
 
 // Location controls require explicit accessible names.
@@ -84,11 +73,6 @@ pub(super) fn dialog_box(title: &str) -> gtk::Box {
         .build();
     content.update_property(&[gtk::accessible::Property::Label(title)]);
     content.update_state(&[gtk::accessible::State::Hidden(false)]);
-    #[cfg(feature = "qa")]
-    qa::record(&content, |naming| {
-        naming.label = Some(title.to_owned());
-        naming.mark = Some(qa::Mark::Dialog);
-    });
     content
 }
 

@@ -16,6 +16,6 @@ printf 'Deleting %s files (override with STRATA_DELETE_BENCH_FILES)\n' "$files"
 printf 'Filesystem: %s; CPUs: %s\n' "$(stat -f -c %T "$benchmark_root")" "$(nproc)"
 STRATA_DELETE_BENCH_FILES="$files" \
 STRATA_DELETE_BENCH_ROOT="$benchmark_root" \
-  ./scripts/test-headless.py \
+  ./scripts/test-gtk.sh \
   "$test_name" \
   -- --ignored --exact --nocapture --test-threads=1
