@@ -42,8 +42,42 @@ pub(crate) fn shared() -> Rc<JobService> {
     })
 }
 
+thread_local! {
+    /// Every tab's Jobs button, so a job started from a window-wide menu opens
+    /// the dashboard of the tab showing in that window.
+    static INDICATORS: RefCell<Vec<glib::WeakRef<gtk::MenuButton>>> = const { RefCell::new(Vec::new()) };
+}
+
 pub(crate) fn present_for(anchor: &impl IsA<gtk::Widget>, id: JobId) {
-    let _ = anchor.activate_action("jobs.show", Some(&id.0.to_variant()));
+    let parameter = id.0.to_variant();
+    if anchor.activate_action("jobs.show", Some(&parameter)).is_ok() {
+        return;
+    }
+    let window = anchor.as_ref().root();
+    let indicator = INDICATORS.with(|indicators| {
+        let mut indicators = indicators.borrow_mut();
+        indicators.retain(|indicator| indicator.upgrade().is_some());
+        indicators
+            .iter()
+            .filter_map(glib::WeakRef::upgrade)
+            .find(|indicator| indicator.is_mapped() && indicator.root() == window)
+    });
+    if let Some(indicator) = indicator {
+        let _ = indicator.activate_action("jobs.show", Some(&parameter));
+    }
+}
+
+/// Keeps the last window open while background jobs run.
+pub(crate) fn guard_close(window: &impl IsA<gtk::Window>) {
+    let service = shared();
+    crate::ui::close_guard::install(window, move |closing_application| {
+        (closing_application && service.running_count() + service.queued_count() > 0).then(|| {
+            crate::ui::close_guard::CloseBlocker {
+                title: crate::i18n::tr("Background jobs are still active"),
+                detail: crate::i18n::tr("Wait for Jobs to finish, or cancel them in the Jobs dashboard before closing the last window. Cancellation does not undo file changes."),
+            }
+        })
+    });
 }
 
 // Install from window composition: GLib binds the source to its creating thread.
@@ -338,6 +372,7 @@ impl JobsIndicator {
         &self.root
     }
 
+    /// Puts the dashboard's `jobs.show` action on `window`, the tab holding the button.
     pub(crate) fn bind_window(&self, window: &impl IsA<gtk::Widget>) {
         let action = gio::SimpleAction::new("show", Some(&u64::static_variant_type()));
         let root = self.root.downgrade();
@@ -374,17 +409,7 @@ impl JobsIndicator {
         let group = gio::SimpleActionGroup::new();
         group.add_action(&action);
         window.insert_action_group("jobs", Some(&group));
-        if let Some(window) = window.as_ref().downcast_ref::<gtk::Window>() {
-            let service = self.state.service.clone();
-            crate::ui::close_guard::install(window, move |closing_application| {
-                (closing_application && service.running_count() + service.queued_count() > 0).then(|| {
-                    crate::ui::close_guard::CloseBlocker {
-                        title: crate::i18n::tr("Background jobs are still active"),
-                        detail: crate::i18n::tr("Wait for Jobs to finish, or cancel them in the Jobs dashboard before closing the last window. Cancellation does not undo file changes."),
-                    }
-                })
-            });
-        }
+        INDICATORS.with(|indicators| indicators.borrow_mut().push(self.root.downgrade()));
     }
 
     fn subscribe(&self) {

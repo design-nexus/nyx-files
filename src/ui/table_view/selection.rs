@@ -33,8 +33,8 @@ fn selection_colors(widget: &impl IsA<gtk::Widget>) -> Vec<u16> {
     let context = widget.style_context();
     let mut colors = Vec::new();
     for color in [
-        context.lookup_color("strata_accent"),
-        context.lookup_color("strata_bg"),
+        context.lookup_color("theme_accent"),
+        context.lookup_color("theme_bg"),
     ]
     .into_iter()
     .flatten()

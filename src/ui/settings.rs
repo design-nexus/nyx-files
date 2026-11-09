@@ -581,55 +581,6 @@ fn settings_option(title: &str, description: &str, active: bool) -> (gtk::Box, g
     (row, toggle)
 }
 
-fn search_field(placeholder: &str) -> (gtk::Overlay, gtk::Entry, gtk::Button) {
-    let theme_search = gtk::Entry::new();
-    theme_search.add_css_class("form-control");
-    theme_search.add_css_class("settings-search");
-    theme_search.set_placeholder_text(Some(&crate::i18n::tr(placeholder)));
-    super::accessibility::set_label(&theme_search, &crate::i18n::tr(placeholder));
-    let search_keys = gtk::EventControllerKey::new();
-    search_keys.set_propagation_phase(gtk::PropagationPhase::Capture);
-    let selected_search = theme_search.downgrade();
-    keys::on_press(&search_keys, move |_, press| {
-        if !press.is(SELECT_ALL) {
-            return glib::Propagation::Proceed;
-        }
-        let Some(search) = selected_search.upgrade() else {
-            return glib::Propagation::Proceed;
-        };
-        search.select_region(0, -1);
-        glib::Propagation::Stop
-    });
-    theme_search.add_controller(search_keys);
-    let clear_search = gtk::Button::builder()
-        .child(&crate::assets::primary_icon(icons::X, 15))
-        .tooltip_text(crate::i18n::tr("Clear search"))
-        .halign(gtk::Align::End)
-        .valign(gtk::Align::Center)
-        .margin_end(6)
-        .visible(false)
-        .build();
-    clear_search.add_css_class("theme-search-clear");
-    clear_search.set_has_frame(false);
-    let search_overlay = gtk::Overlay::new();
-    search_overlay.set_child(Some(&theme_search));
-    let icon = crate::assets::primary_icon(icons::SEARCH, 16);
-    icon.set_halign(gtk::Align::Start);
-    icon.set_valign(gtk::Align::Center);
-    icon.set_margin_start(12);
-    icon.add_css_class("settings-search-icon");
-    icon.set_can_target(false);
-    search_overlay.add_overlay(&icon);
-    search_overlay.add_overlay(&clear_search);
-    let search = theme_search.downgrade();
-    clear_search.connect_clicked(move |_| {
-        if let Some(search) = search.upgrade() {
-            search.set_text("");
-            search.grab_focus();
-        }
-    });
-    (search_overlay, theme_search, clear_search)
-}
 
 
 

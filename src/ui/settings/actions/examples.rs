@@ -20,7 +20,7 @@ use crate::{
 
 pub(super) fn button() -> gtk::MenuButton {
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    content.append(&assets::primary_icon(assets::icons::LIBRARY, 15));
+    content.append(&assets::primary_icon(assets::icons::LIBRARY, assets::CHROME_ICON_PX));
     content.append(&gtk::Label::new(Some(&crate::i18n::tr("Library"))));
     let button = gtk::MenuButton::builder().child(&content).build();
     button.add_css_class("settings-action-library-button");
@@ -42,9 +42,11 @@ pub(super) fn install(button: &gtk::MenuButton, form: Weak<EditorForm>) {
         .halign(gtk::Align::End)
         .build();
     popover.add_css_class("settings-action-library");
-    let (search_field, search, clear) = super::super::search_field("Search templates");
-    search_field.add_css_class("action-library-search");
-    body.append(&search_field);
+    let search = gtk::SearchEntry::new();
+    search.set_placeholder_text(Some(&crate::i18n::tr("Search templates")));
+    accessibility::set_label(&search, &crate::i18n::tr("Search templates"));
+    search.add_css_class("action-library-search");
+    body.append(&search);
     let filters = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     filters.add_css_class("action-library-filters");
     body.append(&filters);
@@ -126,7 +128,6 @@ pub(super) fn install(button: &gtk::MenuButton, form: Weak<EditorForm>) {
                 any |= matches;
             }
             empty.set_visible(!any);
-            clear.set_visible(!query.is_empty());
             pending.set(None);
             confirmation.set_visible(false);
         }

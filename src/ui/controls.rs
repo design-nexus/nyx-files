@@ -465,6 +465,7 @@ pub(super) fn segmented_control(
     let control = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     control.set_homogeneous(true);
     control.add_css_class("segmented-control");
+    control.add_css_class("segmented");
 
     let mut buttons = Vec::with_capacity(labels.len());
     for (index, label) in labels.iter().enumerate() {
@@ -475,6 +476,7 @@ pub(super) fn segmented_control(
             label.set_wrap_mode(gtk::pango::WrapMode::Word);
         }
         button.add_css_class("segmented-control-option");
+        button.add_css_class("segment");
         button.set_hexpand(true);
         if let Some(first) = buttons.first() {
             button.set_group(Some(first));

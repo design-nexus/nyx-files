@@ -273,6 +273,7 @@ impl Window {
         this.sidebar.set_collapsed(!expanded);
 
         this.add_tab(location.unwrap_or_else(start_location));
+        crate::ui::jobs::guard_close(&this.window);
         this.window.present();
         crate::metrics::mark_window_presented();
         this.window.add_tick_callback(|_, _| {

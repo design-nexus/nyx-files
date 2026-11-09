@@ -47,8 +47,6 @@ menubutton.icons-thumbnail-menu > button image,
   opacity: 0;
 }
 
-.settings-action-button,
-.settings-action-library-button > button,
 window.dialog.colorchooser button.text-button:not(.suggested-action) {
   background: transparent;
   border: 1px solid alpha(@files_border, 0.54);
@@ -60,16 +58,11 @@ window.dialog.colorchooser button.text-button:not(.suggested-action) {
   transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out;
 }
 
-.settings-action-button:hover,
-.settings-action-library-button > button:hover,
 window.dialog.colorchooser button.text-button:not(.suggested-action):hover {
   background: alpha(@files_accent, 0.15);
   border-color: @files_text;
 }
 
-.settings-action-button:active,
-.settings-action-library-button > button:active,
-.settings-action-library-button > button:checked,
 window.dialog.colorchooser button.text-button:not(.suggested-action):active {
   background: alpha(@files_accent, 0.22);
   border-color: @files_accent;
@@ -77,16 +70,12 @@ window.dialog.colorchooser button.text-button:not(.suggested-action):active {
   transform: scale(0.97);
 }
 
-.settings-action-button:focus-visible,
-.settings-action-library-button > button:focus-visible,
 window.dialog.colorchooser button.text-button:not(.suggested-action):focus-visible {
   border-color: @files_accent;
   outline: 2px solid alpha(@files_accent, 0.5);
   outline-offset: 1px;
 }
 
-.settings-action-button:disabled,
-.settings-action-library-button > button:disabled,
 window.dialog.colorchooser button.text-button:not(.suggested-action):disabled,
 window.dialog.colorchooser button.text-button.suggested-action:disabled,
 colorchooser button.circular:disabled {
@@ -1897,4 +1886,27 @@ image.danger-icon {
 .action-dialog-body .dim,
 .message-dialog-description {
   color: @theme_dim_text;
+}
+
+/* Form errors and secondary status text in Settings, the chooser and dialogs. */
+.form-field-error {
+  color: @theme_danger;
+  font-size: 0.92em;
+}
+
+.diagnostics-message,
+.diagnostics-detail,
+.diagnostics-summary,
+.install-command-status,
+.action-runtime-status,
+.chooser-download-status {
+  color: @theme_dim_text;
+}
+
+.diagnostics-row {
+  padding: 6px 0;
+}
+
+.chooser-download {
+  padding: 8px 12px;
 }

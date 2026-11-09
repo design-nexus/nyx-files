@@ -75,11 +75,11 @@ pub(crate) fn drag_preview_icon(
     let icon_h = f64::from(icon.height()).max(1.0);
 
     let style = base.style_context();
-    let accent = style.lookup_color("strata_accent")?;
+    let accent = style.lookup_color("theme_accent")?;
     let surface = style
-        .lookup_color("strata_surface")
-        .or_else(|| style.lookup_color("strata_bg"))?;
-    let text = style.lookup_color("strata_text")?;
+        .lookup_color("theme_surface")
+        .or_else(|| style.lookup_color("theme_bg"))?;
+    let text = style.lookup_color("theme_text")?;
     let badge_text = contrasting_badge_text(&accent, &text, &surface);
 
     let multiple = entries.len() > 1;
