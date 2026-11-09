@@ -102,22 +102,19 @@ fn check(
     row.append(&label);
     button.set_child(Some(&row));
     let read = Rc::new(read);
-    let sync = {
-        let (mark, button, read) = (mark.clone(), button.clone(), read.clone());
-        move || {
-            let on = read();
-            mark.set_opacity(if on { 1.0 } else { 0.0 });
-            if on {
-                button.add_css_class("checked");
-            } else {
-                button.remove_css_class("checked");
-            }
+    let sync = move |button: &gtk::Button| {
+        let on = read();
+        mark.set_opacity(if on { 1.0 } else { 0.0 });
+        if on {
+            button.add_css_class("checked");
+        } else {
+            button.remove_css_class("checked");
         }
     };
-    sync();
-    button.connect_clicked(move |_| {
+    sync(&button);
+    button.connect_clicked(move |button| {
         toggle();
-        sync();
+        sync(button);
     });
     button
 }
@@ -146,7 +143,7 @@ fn append_sort(body: &gtk::Box, current: &CurrentTab) {
     use crate::model::{SortDirection, SortKey};
     body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     body.append(&heading("Sort"));
-    let checks: Rc<RefCell<Vec<gtk::Button>>> = Rc::default();
+    let checks: Rc<RefCell<Vec<glib::WeakRef<gtk::Button>>>> = Rc::default();
     for (key, title) in [
         (SortKey::Name, "Name"),
         (SortKey::Modified, "Modified"),
@@ -164,6 +161,7 @@ fn append_sort(body: &gtk::Box, current: &CurrentTab) {
                 if let Some(popover) = all
                     .borrow()
                     .first()
+                    .and_then(glib::WeakRef::upgrade)
                     .and_then(|b| b.ancestor(gtk::Popover::static_type()))
                     .and_downcast::<gtk::Popover>()
                 {
@@ -171,7 +169,7 @@ fn append_sort(body: &gtk::Box, current: &CurrentTab) {
                 }
             },
         );
-        checks.borrow_mut().push(button.clone());
+        checks.borrow_mut().push(button.downgrade());
         body.append(&button);
     }
     let (c1, c2) = (current.clone(), current.clone());

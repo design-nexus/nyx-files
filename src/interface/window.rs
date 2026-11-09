@@ -42,13 +42,15 @@ pub(super) struct Window {
     forward: gtk::Button,
     up: gtk::Button,
     tabs: RefCell<Vec<Rc<tab::Tab>>>,
+    /// Closed tabs kept until their file operations finish, so progress and
+    /// results still show.
+    retired: RefCell<Vec<Rc<tab::Tab>>>,
     active: Cell<usize>,
     view_switch: RefCell<Vec<(BrowserMode, gtk::ToggleButton)>>,
     filter: gtk::SearchEntry,
     pub(super) progress: Rc<super::operations::Progress>,
     /// A folder being made for the selection, and what moves into it.
     pub(super) pending_group: RefCell<Option<(Location, Vec<Location>)>>,
-    pub(super) tenxer: super::tenxer::State,
     presence: Cell<(crate::app::Presence, bool)>,
     header_actions: RefCell<Option<Rc<super::header::Actions>>>,
     menu_point: RefCell<Option<(glib::WeakRef<gtk::Widget>, f64, f64)>>,
@@ -187,11 +189,11 @@ impl Window {
             forward,
             up,
             tabs: RefCell::new(Vec::new()),
+            retired: RefCell::default(),
             active: Cell::new(0),
             view_switch: RefCell::new(Vec::new()),
             progress,
             pending_group: RefCell::new(None),
-            tenxer: Default::default(),
             presence: Cell::new((crate::app::Presence::Focused, false)),
             header_actions: RefCell::new(None),
             menu_point: RefCell::new(None),
@@ -199,7 +201,15 @@ impl Window {
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
         this.window.connect_destroy(|window| {
-            WINDOWS.with(|w| w.borrow_mut().retain(|kept| kept.window != *window));
+            let heir = WINDOWS.with(|w| {
+                let mut windows = w.borrow_mut();
+                let owned = windows.first().is_some_and(|first| first.window == *window);
+                windows.retain(|kept| kept.window != *window);
+                owned.then(|| windows.first().cloned()).flatten()
+            });
+            if let Some(heir) = heir {
+                heir.persist_tabs();
+            }
         });
 
         let settings_button = chrome::settings_button(|| {
@@ -301,6 +311,25 @@ impl Window {
                 tab.set_filter(&entry.text());
             }
         });
+        let weak = Rc::downgrade(self);
+        self.filter.connect_activate(move |_| {
+            if let Some(tab) = weak.upgrade().and_then(|w| w.current()) {
+                tab.open_selected_result();
+            }
+        });
+        let keys = gtk::EventControllerKey::new();
+        let weak = Rc::downgrade(self);
+        keys.connect_key_pressed(move |_, key, _, modifiers| {
+            if key == gdk::Key::Down
+                && modifiers.is_empty()
+                && let Some(tab) = weak.upgrade().and_then(|w| w.current())
+            {
+                tab.focus_results();
+                return glib::Propagation::Stop;
+            }
+            glib::Propagation::Proceed
+        });
+        self.filter.add_controller(keys);
         let weak = Rc::downgrade(self);
         self.filter.connect_stop_search(move |_| {
             if let Some(w) = weak.upgrade() {
@@ -449,6 +478,7 @@ impl Window {
             if press.is(bindings::SPACE)
                 && !typing(&self.window)
                 && !super::preview_keys::has_focus(&tab)
+                && self.focus_in_files(&tab)
             {
                 return self.space(&tab);
             }
@@ -461,10 +491,17 @@ impl Window {
             }
             return false;
         }
-        if typing(&self.window) || tab.footer_key(press) {
+        if typing(&self.window) || !self.focus_in_files(&tab) || tab.footer_key(press) {
             return false;
         }
         super::tenxer::handle(self, &tab, press)
+    }
+
+    /// Keys for the files act only while focus is in the tab, not in the
+    /// sidebar, the header or Settings.
+    fn focus_in_files(&self, tab: &tab::Tab) -> bool {
+        gtk::prelude::GtkWindowExt::focus(&self.window)
+            .is_none_or(|focus| focus.is_ancestor(&tab.container))
     }
 
     /// Space: a folder opens; a file shows in the preview, or hides it again.
@@ -628,7 +665,9 @@ impl Window {
                 .is_some_and(|t| super::preview_keys::has_focus(&t))
         {
             return false;
-        } else if self.handle_file_key(press) {
+        } else if self.current().is_some_and(|t| self.focus_in_files(&t))
+            && self.handle_file_key(press)
+        {
         } else if press.is_any(&[bindings::TAB_NEXT, bindings::TAB_NEXT_PAGE_DOWN]) {
             self.select((self.active.get() + 1) % count);
         } else if press.is_any(&[bindings::TAB_PREVIOUS, bindings::TAB_PREVIOUS_PAGE_UP]) {
@@ -891,6 +930,9 @@ impl Window {
             glib::idle_add_local_once(move || {
                 if let (Some(w), Some(t)) = (weak.upgrade(), weak_tab.upgrade()) {
                     super::operations::handle(&w, &t, &event);
+                    if !t.browser.has_operations() {
+                        w.retired.borrow_mut().retain(|r| !Rc::ptr_eq(r, &t));
+                    }
                 }
             });
         });
@@ -968,6 +1010,9 @@ impl Window {
             return;
         };
         self.pages.remove(&tab.container);
+        if tab.browser.has_operations() {
+            self.retired.borrow_mut().push(tab);
+        }
         let len = self.tabs.borrow().len();
         let active = self.active.get();
         let next = if active > index || active >= len {
@@ -1000,8 +1045,17 @@ impl Window {
         self.sync();
     }
 
-    /// Brings the header, tab row and sidebar up to date with the tabs.
-    fn sync(&self) {
+    /// The oldest window keeps its tabs for next time; when it closes, the
+    /// next oldest takes over.
+    fn persist_tabs(&self) {
+        let owner = WINDOWS.with(|w| {
+            w.borrow()
+                .first()
+                .is_none_or(|first| first.window == self.window)
+        });
+        if !owner {
+            return;
+        }
         let locations: Vec<Location> = self
             .tabs
             .borrow()
@@ -1009,6 +1063,11 @@ impl Window {
             .filter_map(|t| t.location())
             .collect();
         super::launch::persist_session(&locations, self.active.get());
+    }
+
+    /// Brings the header, tab row and sidebar up to date with the tabs.
+    fn sync(&self) {
+        self.persist_tabs();
         let tabs = self.tabs.borrow().clone();
         let shown: Vec<nyx_ui::tabs::Tab> = tabs
             .iter()

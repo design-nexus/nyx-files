@@ -220,10 +220,15 @@ pub(super) fn format(target: &Target, overlay: &gtk::Overlay) {
         spinner.clone(),
         overlay.clone(),
     );
+    let running = Rc::new(std::cell::Cell::new(false));
+    let form = card.clone();
     let format_button = widgets::two_click(
         &crate::i18n::tr("Format"),
         &crate::i18n::tr("Erase and format"),
         move || {
+            if running.get() {
+                return;
+            }
             let fs = chosen.get();
             let text = l.text().to_string();
             if text.chars().count() > fs.max_label_len() {
@@ -237,6 +242,8 @@ pub(super) fn format(target: &Target, overlay: &gtk::Overlay) {
                 return;
             }
             e.set_visible(false);
+            running.set(true);
+            form.set_sensitive(false);
             s.start();
             let (d, v, s, o, q) = (
                 d.clone(),

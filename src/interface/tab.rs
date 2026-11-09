@@ -68,6 +68,10 @@ pub(super) struct Tab {
     select_next: RefCell<Option<Location>>,
     /// A new tab's listing takes the keyboard once its first folder shows.
     focus_on_load: Cell<bool>,
+    /// 10xer's visual selection and open prompt belong to the tab they started in.
+    pub(super) tenxer: super::tenxer::State,
+    /// The folder shown could not be read; its status page stays up until it can.
+    failed: Cell<bool>,
     /// Items whose metadata has been asked for, so a rebind doesn't ask again.
     requested: RefCell<std::collections::HashSet<Location>>,
     /// Replaces launching a file, as the chooser does to pick it.
@@ -182,7 +186,13 @@ impl Tab {
         container.append(footer.widget());
         jobs.bind_window(&container);
         if let Some(display) = gtk::gdk::Display::default() {
-            let _ = footer.connect_clipboard(&display.clipboard());
+            let clipboard = display.clipboard();
+            let handler = RefCell::new(Some(footer.connect_clipboard(&clipboard)));
+            footer.widget().connect_destroy(move |_| {
+                if let Some(handler) = handler.take() {
+                    clipboard.disconnect(handler);
+                }
+            });
         }
         let tab = Rc::new(Tab {
             browser,
@@ -213,6 +223,8 @@ impl Tab {
             rejected: RefCell::new(None),
             select_next: RefCell::new(None),
             focus_on_load: Cell::new(true),
+            tenxer: Default::default(),
+            failed: Cell::new(false),
             requested: RefCell::default(),
             open_file: RefCell::new(None),
             visits: RefCell::default(),
@@ -300,12 +312,8 @@ impl Tab {
         tab.footer.observe_browser(&tab.browser);
         let weak = Rc::downgrade(&tab);
         tab.results.connect_row_activated(move |_, row| {
-            let Some(tab) = weak.upgrade() else { return };
-            let item = usize::try_from(row.index())
-                .ok()
-                .and_then(|i| tab.results_items.borrow().get(i).cloned());
-            if let (Some(item), Some(open)) = (item, tab.result_open.borrow().as_ref()) {
-                open(item);
+            if let Some(tab) = weak.upgrade() {
+                tab.open_result(row);
             }
         });
         let (entries, cursor, select, focus) = (
@@ -481,6 +489,28 @@ impl Tab {
         !self.filter_query.borrow().is_empty()
     }
 
+    /// Trash, Recent and network folders have no paths to search, so the
+    /// filter narrows the rows showing instead.
+    fn filters_in_place(&self) -> bool {
+        self.location().is_some_and(|l| l.native_path().is_none())
+    }
+
+    /// Returns whether any view's rows need refreshing.
+    fn apply_name_filter(&self) -> bool {
+        let query = if self.filters_in_place() {
+            self.filter_query.borrow().clone()
+        } else {
+            String::new()
+        };
+        let mut changed = self.model.set_name_filter(&query);
+        for depth in 0..self.column_count() {
+            if let Some(column) = self.columns.column(depth) {
+                changed |= column.model.set_name_filter(&query);
+            }
+        }
+        changed
+    }
+
     /// Narrows the folder showing to `query` (into subfolders when the setting
     /// says so); an empty query shows the folder again.
     pub(super) fn set_filter(self: &Rc<Self>, query: &str) {
@@ -494,18 +524,18 @@ impl Tab {
     pub(super) fn set_search(self: &Rc<Self>, query: &str, subfolders: bool) {
         use crate::ui::search_session::{SearchInput, SearchScope};
         *self.filter_query.borrow_mut() = query.trim().to_string();
-        let Some(root) = self
+        let root = self
             .location()
-            .and_then(|l| l.native_path().map(std::path::PathBuf::from))
-        else {
-            return;
-        };
-        if query.trim().is_empty() {
+            .and_then(|l| l.native_path().map(std::path::PathBuf::from));
+        if self.apply_name_filter() {
+            self.refresh();
+        }
+        let Some(root) = root.filter(|_| !query.trim().is_empty()) else {
             self.filter.cancel();
             self.results_items.borrow_mut().clear();
             self.show_page();
             return;
-        }
+        };
         let input = SearchInput {
             root,
             show_hidden: self.shows_hidden(),
@@ -531,6 +561,47 @@ impl Tab {
             }),
         );
         self.page.set_visible_child_name("results");
+    }
+
+    fn open_result(&self, row: &gtk::ListBoxRow) {
+        let item = usize::try_from(row.index())
+            .ok()
+            .and_then(|i| self.results_items.borrow().get(i).cloned());
+        if let (Some(item), Some(open)) = (item, self.result_open.borrow().as_ref()) {
+            open(item);
+        }
+    }
+
+    fn showing_results(&self) -> bool {
+        self.page.visible_child_name().as_deref() == Some("results")
+    }
+
+    /// Down from the filter field: into the results, or the rows showing.
+    pub(super) fn focus_results(&self) {
+        if self.showing_results() {
+            if let Some(row) = self
+                .results
+                .selected_row()
+                .or_else(|| self.results.row_at_index(0))
+            {
+                self.results.select_row(Some(&row));
+                row.grab_focus();
+            }
+            return;
+        }
+        let model = self.active_model();
+        if model.selected().is_empty() && model.len() > 0 {
+            model.selection.select_item(0, true);
+        }
+        self.focus_view();
+    }
+
+    /// Enter in the filter field opens the selected result.
+    pub(super) fn open_selected_result(&self) {
+        match self.results.selected_row() {
+            Some(row) if self.showing_results() => self.open_result(&row),
+            _ => self.focus_results(),
+        }
     }
 
     fn show_results(&self, items: Vec<crate::services::SearchItem>) {
@@ -741,6 +812,21 @@ impl Tab {
             move |_, _| {
                 if let Some(tab) = weak.upgrade() {
                     tab.browser.resync_column_sorts();
+                }
+            },
+        );
+        let weak = Rc::downgrade(self);
+        prefs.bind_preference(
+            &self.page,
+            |p| (p.show_thumbnails(), p.columns_show_sizes()),
+            move |_, _| {
+                if let Some(tab) = weak.upgrade() {
+                    tab.model.rebind();
+                    for depth in 0..tab.column_count() {
+                        if let Some(column) = tab.columns.column(depth) {
+                            column.model.rebind();
+                        }
+                    }
                 }
             },
         );
@@ -1010,6 +1096,9 @@ impl Tab {
         let count = self.column_count();
         self.columns
             .ensure(count, |depth, column| self.wire_column(depth, column));
+        if self.filtering() {
+            self.apply_name_filter();
+        }
         self.syncing.set(true);
         for depth in 0..count {
             let Some(column) = self.columns.column(depth) else {
@@ -1043,13 +1132,14 @@ impl Tab {
     }
 
     fn show_page(&self) {
-        if self.filtering() {
-            self.page.set_visible_child_name("results");
-            return;
-        }
-        if self.page.visible_child_name().as_deref() != Some("status") {
-            self.page.set_visible_child_name(self.view_page());
-        }
+        let page = if self.filtering() && !self.filters_in_place() {
+            "results"
+        } else if self.failed.get() {
+            "status"
+        } else {
+            self.view_page()
+        };
+        self.page.set_visible_child_name(page);
     }
 
     pub(super) fn focus_view(&self) {
@@ -1196,13 +1286,24 @@ impl Tab {
         let moved = self.shown.borrow().as_ref().map(|(l, _)| l) != Some(&key.0);
         if moved {
             self.follow_folder_mode(&key.0);
+            if self.filtering() {
+                self.apply_name_filter();
+                if !self.filters_in_place() {
+                    let weak = Rc::downgrade(self);
+                    glib::idle_add_local_once(move || {
+                        if let Some(tab) = weak.upgrade() {
+                            let query = tab.filter_query.borrow().clone();
+                            tab.set_filter(&query);
+                        }
+                    });
+                }
+            }
         }
         if let Some(error) = &snapshot.error {
             self.status.set_text(error);
-            self.page.set_visible_child_name("status");
-        } else {
-            self.show_page();
         }
+        self.failed.set(snapshot.error.is_some());
+        self.show_page();
         let columns = self.mode.get() == BrowserMode::Columns;
         if columns {
             self.refresh_columns();

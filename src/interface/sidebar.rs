@@ -43,6 +43,8 @@ pub(super) struct SidebarContent {
     cloud_watch: Cell<bool>,
     monitor: gio::VolumeMonitor,
     keep: RefCell<Vec<Box<dyn std::any::Any>>>,
+    /// Whether this window's Trash row shows full; every window checks the one Trash.
+    trash_shown_full: Cell<bool>,
     /// The section rows being added belong to, for their icon color.
     section: Cell<&'static str>,
     /// The accounts nyx-cloud last listed, drawn at once on each rebuild so
@@ -229,6 +231,7 @@ impl SidebarContent {
             cloud_watch: Cell::new(false),
             monitor: gio::VolumeMonitor::get(),
             keep: RefCell::default(),
+            trash_shown_full: Cell::new(false),
             section: Cell::new("places"),
             cloud_listing: RefCell::default(),
         });
@@ -935,8 +938,9 @@ impl SidebarContent {
                         )
                         .await
                         .is_ok_and(|info| info.attribute_uint32("trash::item-count") > 0);
-                    if TRASH_FULL.with(|t| t.replace(full)) != full
-                        && let Some(c) = weak.upgrade()
+                    TRASH_FULL.with(|t| t.set(full));
+                    if let Some(c) = weak.upgrade()
+                        && c.trash_shown_full.replace(full) != full
                     {
                         c.queue_rebuild();
                     }

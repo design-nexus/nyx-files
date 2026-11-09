@@ -783,7 +783,7 @@ fn edit_icons(window: &Rc<Window>, tab: &Rc<Tab>, entries: &[FileEntry]) -> menu
         menu::icon_button(
             "user-trash-symbolic",
             &crate::i18n::tr("Move to Trash"),
-            move || actions::trash(&w, &t, e.clone()),
+            move || remove(&w, &t, e.clone()),
         )
         .key(&keys(bindings::DELETE))
         .danger(),

@@ -93,23 +93,35 @@ const SPEC: Spec = Spec {
 
 thread_local! {
     static BODY: RefCell<Option<gtk::Box>> = const { RefCell::new(None) };
+    /// The window whose overlay holds the one Settings card.
+    static HOST: RefCell<glib::WeakRef<gtk::Overlay>> = RefCell::default();
+}
+
+fn page() -> (gtk::Widget, gtk::Box) {
+    let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    body.add_css_class("settings-page");
+    body.add_css_class("files-settings");
+    build(&body);
+    let root = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .child(&body)
+        .vexpand(true)
+        .build();
+    BODY.with(|b| *b.borrow_mut() = Some(body.clone()));
+    (root.upcast(), body)
 }
 
 pub(super) fn open(window: &Window) {
     let fresh = BODY.with(|b| b.borrow().is_none());
-    settings_card::open(&window.overlay, &window.window, SPEC, || {
-        let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        body.add_css_class("settings-page");
-        body.add_css_class("files-settings");
-        build(&body);
-        let root = gtk::ScrolledWindow::builder()
-            .hscrollbar_policy(gtk::PolicyType::Never)
-            .child(&body)
-            .vexpand(true)
-            .build();
-        BODY.with(|b| *b.borrow_mut() = Some(body.clone()));
-        (root.upcast(), body)
-    });
+    let elsewhere = HOST.with(|h| h.borrow().upgrade().is_some_and(|o| o != window.overlay));
+    HOST.with(|h| h.borrow().set(Some(&window.overlay)));
+    if elsewhere {
+        let (root, body) = page();
+        settings_card::open_page(&window.overlay, &window.window, SPEC, &root, &body);
+        extend_standard(&body);
+        return;
+    }
+    settings_card::open(&window.overlay, &window.window, SPEC, page);
     if fresh && let Some(body) = BODY.with(|b| b.borrow().clone()) {
         extend_standard(&body);
     }

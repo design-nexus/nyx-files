@@ -66,6 +66,7 @@ fn text_column(
         label.set_ellipsize(gtk::pango::EllipsizeMode::End);
         label.add_css_class("dim-cell");
         context_on(&label, item, &h);
+        model::dnd_on(&label, item, &h);
         item.set_child(Some(&label));
     });
     factory.connect_bind(move |_, item| {
@@ -367,12 +368,11 @@ impl ListView {
             move |_, _| a(),
         );
         let last = std::cell::Cell::new(-1);
-        self.root.add_tick_callback(move |root, _| {
+        crate::ui::frame::after_layout(&self.root, move |root| {
             if root.width() != last.get() {
                 last.set(root.width());
                 apply();
             }
-            glib::ControlFlow::Continue
         });
         let view = self.view.downgrade();
         self.view

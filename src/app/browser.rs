@@ -1600,7 +1600,6 @@ impl Browser {
         }
     }
 
-    #[cfg(test)]
     pub fn descend_revealing(
         self: &Rc<Self>,
         parent_depth: usize,
@@ -3481,6 +3480,11 @@ impl Browser {
             self.operation_callback(request_id, false, HashSet::new()),
         );
         self.install_operation_load(request_id, load);
+    }
+
+    /// Whether a file operation, in front or in the background, is still running.
+    pub fn has_operations(&self) -> bool {
+        self.current_operation.get().is_some() || !self.background_operations.borrow().is_empty()
     }
 
     pub fn cancel_file_operation(&self) {

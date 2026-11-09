@@ -65,6 +65,8 @@ pub(super) struct EntryModel {
     sorted: gtk::SortListModel,
     pub(super) selection: gtk::MultiSelection,
     pub(super) hooks: Rc<Hooks>,
+    /// Lowercased; only entries whose names contain it are shown.
+    name_filter: std::cell::RefCell<String>,
 }
 
 /// Folders first, then the other types alphabetically, "Other" last.
@@ -92,7 +94,19 @@ impl EntryModel {
             sorted,
             selection,
             hooks: Rc::default(),
+            name_filter: Default::default(),
         }
+    }
+
+    /// Shows only entries whose names contain `query`, from the next
+    /// [`Self::set_entries`] on. Returns whether the filter changed.
+    pub(super) fn set_name_filter(&self, query: &str) -> bool {
+        let query = query.trim().to_lowercase();
+        if *self.name_filter.borrow() == query {
+            return false;
+        }
+        *self.name_filter.borrow_mut() = query;
+        true
     }
 
     /// Groups rows by file type (as sections), keeping the order within each.
@@ -123,10 +137,10 @@ impl EntryModel {
     fn reselect(&self, locations: &[crate::model::Location]) {
         let bits = gtk::Bitset::new_empty();
         if !locations.is_empty() {
+            let wanted: std::collections::HashSet<_> = locations.iter().collect();
             for i in 0..self.len() {
-                if self
-                    .entry(i)
-                    .is_some_and(|e| locations.contains(&e.location))
+                if let Some(item) = self.sorted.item(i)
+                    && row_of(&item).is_some_and(|r| wanted.contains(&r.entry.location))
                 {
                     bits.add(i);
                 }
@@ -144,11 +158,16 @@ impl EntryModel {
     /// Shows `entries`. When the same items are showing in the same order,
     /// only rows whose details changed are refreshed and the selection stays.
     pub(super) fn set_entries(&self, entries: &[FileEntry], show_hidden: bool) {
+        let filter = self.name_filter.borrow();
         let shown: Vec<(usize, &FileEntry)> = entries
             .iter()
             .enumerate()
             .filter(|(_, e)| show_hidden || !e.is_hidden)
+            .filter(|(_, e)| {
+                filter.is_empty() || e.display_name.to_lowercase().contains(filter.as_str())
+            })
             .collect();
+        drop(filter);
         let selected = self.selected_locations();
         let same_items = shown.len() as u32 == self.store.n_items()
             && shown.iter().enumerate().all(|(i, (_, entry))| {
@@ -196,6 +215,14 @@ impl EntryModel {
         self.sorted.n_items()
     }
 
+    /// Binds every row again, for settings that change how rows draw.
+    pub(super) fn rebind(&self) {
+        let selected = self.selected_locations();
+        let count = self.store.n_items();
+        self.store.items_changed(0, count, count);
+        self.reselect(&selected);
+    }
+
     pub(super) fn entry(&self, index: u32) -> Option<FileEntry> {
         let item = self.sorted.item(index)?;
         row_of(&item).map(|r| r.entry.clone())
@@ -223,9 +250,10 @@ impl EntryModel {
     /// Selects the rows at these browser column positions.
     pub(super) fn select_positions(&self, positions: &[usize]) {
         let bits = gtk::Bitset::new_empty();
+        let wanted: std::collections::HashSet<_> = positions.iter().collect();
         for i in 0..self.len() {
             if let Some(item) = self.sorted.item(i)
-                && row_of(&item).is_some_and(|r| positions.contains(&r.position))
+                && row_of(&item).is_some_and(|r| wanted.contains(&r.position))
             {
                 bits.add(i);
             }

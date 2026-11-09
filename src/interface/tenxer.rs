@@ -50,7 +50,7 @@ pub(super) fn wire(window: &Rc<Window>, tab: &Rc<Tab>) {
     let (w, t) = (Rc::downgrade(window), Rc::downgrade(tab));
     tab.footer.connect_prompt_activated(move || {
         if let (Some(w), Some(t)) = (w.upgrade(), t.upgrade()) {
-            submit_prompt(&w.tenxer, Some(&w), &t);
+            submit_prompt(&t.tenxer, Some(&w), &t);
         }
     });
     let t = Rc::downgrade(tab);
@@ -96,12 +96,12 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, press: &KeyPress) -> bo
     if tab.footer.armed_chord().is_none() && file_key(window, tab, press) {
         return true;
     }
-    browse(&window.tenxer, tab, press, &pins)
+    browse(&tab.tenxer, tab, press, &pins)
 }
 
 /// Keys that change files, open other windows or reach the sidebar.
 fn file_key(window: &Rc<Window>, tab: &Rc<Tab>, press: &KeyPress) -> bool {
-    let state = &window.tenxer;
+    let state = &tab.tenxer;
     let selected = tab.selected();
     if press.is_any(&[YANK, YANK_CUT]) {
         let cut = press.is(YANK_CUT);
@@ -501,7 +501,7 @@ fn window_chord(window: &Rc<Window>, tab: &Rc<Tab>, chord: Chord, press: &KeyPre
                 }
             } else if press.is(ACTIONS_EXTRACT_TO) {
                 if let Some(entry) = archive(tab) {
-                    destination_prompt(&window.tenxer, tab, Prompt::ExtractTo, vec![entry]);
+                    destination_prompt(&tab.tenxer, tab, Prompt::ExtractTo, vec![entry]);
                 }
             } else if let Some((digit, slot)) = action_slot(press) {
                 if !menus::run_numbered_action(window, tab, slot) {

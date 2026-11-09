@@ -45,7 +45,8 @@ impl Drop for FrameTask {
     }
 }
 
-pub(super) fn after_layout<W: IsA<gtk::Widget>>(widget: &W, work: impl Fn(&W) + 'static) {
+/// Runs `work` on every frame that lays `widget` out, and on no other.
+pub(crate) fn after_layout<W: IsA<gtk::Widget>>(widget: &W, work: impl Fn(&W) + 'static) {
     let work = Rc::new(work);
     let connection = Rc::new(RefCell::new(
         None::<(gtk::gdk::FrameClock, glib::SignalHandlerId)>,

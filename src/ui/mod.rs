@@ -18,7 +18,7 @@ mod document_view;
 pub(crate) mod file_icons;
 pub(crate) mod file_providers;
 mod focus_navigation;
-mod frame;
+pub(crate) mod frame;
 mod icons_cell;
 pub(crate) mod jobs;
 pub(crate) mod keys;

@@ -37,6 +37,8 @@ struct Card {
     handle: RefCell<Option<SearchHandle>>,
     mode: Cell<Mode>,
     generation: Cell<u64>,
+    /// The window the card is open in, where results open.
+    window: RefCell<std::rc::Weak<Window>>,
 }
 
 thread_local! {
@@ -185,6 +187,7 @@ fn build(window: &Rc<Window>) -> Rc<Card> {
         handle: RefCell::default(),
         mode: Cell::new(Mode::Everywhere),
         generation: Cell::new(0),
+        window: RefCell::new(Rc::downgrade(window)),
     });
     let weak = Rc::downgrade(&state);
     state.entry.connect_search_changed(move |_| {
@@ -192,9 +195,10 @@ fn build(window: &Rc<Window>) -> Rc<Card> {
             card.query();
         }
     });
-    let (weak, w) = (Rc::downgrade(&state), Rc::downgrade(window));
+    let weak = Rc::downgrade(&state);
     let activate = move |index: i32| {
-        let (Some(card), Some(window)) = (weak.upgrade(), w.upgrade()) else {
+        let Some(card) = weak.upgrade() else { return };
+        let Some(window) = card.window.borrow().upgrade() else {
             return;
         };
         let Some(item) = usize::try_from(index)
@@ -269,6 +273,7 @@ pub(super) fn open(window: &Rc<Window>, mode: Mode) {
         }
         window.overlay.add_overlay(&card.veil);
     }
+    *card.window.borrow_mut() = Rc::downgrade(window);
     card.generation.set(card.generation.get() + 1);
     card.mode.set(mode);
     card.handle.borrow_mut().take();

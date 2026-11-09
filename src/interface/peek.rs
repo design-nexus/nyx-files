@@ -38,6 +38,12 @@ impl Peek {
     }
 
     fn close(&self, tab: &Tab) {
+        self.dismiss();
+        tab.browser.close_peek();
+    }
+
+    /// Hides the popover; the browser's peek is closed already or by the caller.
+    fn dismiss(&self) {
         self.cancel_timer();
         if let Some(popover) = self.popover.take() {
             popover.popdown();
@@ -45,7 +51,6 @@ impl Peek {
         }
         self.list.take();
         self.status.take();
-        tab.browser.close_peek();
     }
 
     /// The pointer entered row `index` (on `widget`) or left (`None`).
@@ -72,7 +77,12 @@ impl Peek {
                 return;
             };
             tab.peek.timer.take();
-            if tab.peek.hovered.get() == Some(index) {
+            // The rows may have changed under the pointer since it came to rest.
+            let still_there = tab
+                .model
+                .entry(index)
+                .is_some_and(|now| now.location == entry.location);
+            if tab.peek.hovered.get() == Some(index) && still_there {
                 tab.peek.open(&tab, &anchor, entry);
             }
         });
@@ -157,6 +167,12 @@ impl Peek {
                     status.set_text(message);
                     status.set_visible(true);
                 }
+            }
+            BrowserEvent::PeekClosed
+            | BrowserEvent::NavigationStarting { .. }
+            | BrowserEvent::Reset => {
+                self.hovered.set(None);
+                self.dismiss();
             }
             _ => {}
         }

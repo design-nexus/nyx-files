@@ -5,7 +5,7 @@
 
 use std::{cell::Cell, rc::Rc};
 
-use gtk::{glib, prelude::*};
+use gtk::prelude::*;
 
 use super::model::{self, EntryModel, Hooks};
 
@@ -131,7 +131,7 @@ impl IconsView {
     fn pin_columns(&self) {
         let (view, size) = (self.view.downgrade(), self.size.clone());
         let last = Cell::new((-1, -1));
-        self.root.add_tick_callback(move |root, _| {
+        crate::ui::frame::after_layout(&self.root, move |root| {
             let width = root.width();
             if last.replace((width, size.get())) != (width, size.get())
                 && width > 0
@@ -143,7 +143,6 @@ impl IconsView {
                     view.set_max_columns(columns);
                 }
             }
-            glib::ControlFlow::Continue
         });
     }
 

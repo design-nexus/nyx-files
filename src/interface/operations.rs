@@ -265,8 +265,18 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, event: &BrowserEvent) {
             destination,
             locations,
         } => {
-            if tab.location().as_ref() == Some(destination) {
-                browser.reveal_locations(destination.clone(), locations.clone());
+            // A drop onto a subfolder opens it, from its parent in Columns.
+            let parent_depth = (tab.mode() == crate::ui::browser_modes::BrowserMode::Columns
+                && browser.open_depth(destination).is_none())
+            .then(|| destination.parent().and_then(|p| browser.open_depth(&p)))
+            .flatten();
+            match parent_depth {
+                Some(depth) => {
+                    browser.descend_revealing(depth, destination.clone(), locations.clone())
+                }
+                None => {
+                    browser.reveal_locations(destination.clone(), locations.clone());
+                }
             }
         }
         BrowserEvent::DeletionStarted { total } => progress.start(browser, "Deleting", *total),

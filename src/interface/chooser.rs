@@ -229,7 +229,6 @@ pub(super) struct Chooser {
     downloaded_file: RefCell<Option<(String, PathBuf)>>,
     download_holder: gtk::Box,
     download_progress: RefCell<Option<DownloadProgress>>,
-    tenxer: tenxer::State,
     /// A dialog over the chooser (overwrite or convert), while one is open.
     dialog: RefCell<Option<gtk::Window>>,
 }
@@ -453,7 +452,6 @@ impl Chooser {
             downloaded_file: RefCell::default(),
             download_holder,
             download_progress: RefCell::default(),
-            tenxer: tenxer::State::default(),
             dialog: RefCell::default(),
         });
         header.end.append(&chooser.build_view_switch());
@@ -628,7 +626,7 @@ impl Chooser {
         let weak = Rc::downgrade(self);
         self.tab.footer.connect_prompt_activated(move || {
             if let Some(c) = weak.upgrade() {
-                tenxer::submit_prompt(&c.tenxer, None, &c.tab);
+                tenxer::submit_prompt(&c.tab.tenxer, None, &c.tab);
             }
         });
         let weak = Rc::downgrade(&self.tab);
@@ -869,7 +867,7 @@ impl Chooser {
                 return true;
             }
         }
-        tenxer::browse(&self.tenxer, tab, press, &self.content.visible_pins())
+        tenxer::browse(&tab.tenxer, tab, press, &self.content.visible_pins())
     }
 
     fn edit_name(&self) {
