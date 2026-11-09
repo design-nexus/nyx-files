@@ -58,7 +58,6 @@ pub(super) fn release(target: &Target, anchor: &gtk::Widget) {
         device_release::start_release(
             anchor,
             None,
-            None,
             key,
             ReleaseKind::Eject,
             true,
@@ -103,7 +102,6 @@ pub(super) fn release(target: &Target, anchor: &gtk::Widget) {
     device_release::start_release(
         anchor,
         browser,
-        None,
         key,
         kind,
         unplug,

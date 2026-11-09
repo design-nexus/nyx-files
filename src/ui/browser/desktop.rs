@@ -3,7 +3,7 @@
 use crate::adapters::gio_file_for_location;
 use crate::app::Browser;
 use crate::model::{FileEntry, Location};
-use crate::ui::browser::paths::is_trash_location;
+use crate::ui::browser::is_trash_location;
 use crate::ui::controls::{
     ModalTone, focus_button, message_dialog_description, message_dialog_layout,
 };

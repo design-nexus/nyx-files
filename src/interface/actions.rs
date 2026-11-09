@@ -762,7 +762,6 @@ pub(super) fn sidebar_menu(
                             crate::ui::window::password_stop_drive(drive.clone()),
                             w.window.upcast_ref(),
                             &browser,
-                            None,
                             &Rc::new(std::cell::Cell::new(false)),
                         );
                     })

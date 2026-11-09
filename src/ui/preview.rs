@@ -717,7 +717,6 @@ impl PreviewDrawer {
                 }
                 self.show(entry.clone(), browser.active_depth());
             }
-            BrowserEvent::SelectionSynced { .. } if super::marquee::is_updating_selection() => {}
             BrowserEvent::FocusChanged {
                 depth,
                 position: Some(position),
@@ -4255,7 +4254,7 @@ fn install_preview_drag(widget: &impl IsA<gtk::Widget>, state: &Rc<PreviewState>
         super::browser::clear_active_drag();
         if let Some(state) = weak.upgrade() {
             state.content.remove_css_class("dragging");
-            super::browser::slide_out(&state.content);
+            super::modal::slide_out(&state.content);
         }
     });
     widget.add_controller(drag);

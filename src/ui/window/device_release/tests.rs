@@ -372,7 +372,6 @@ fn start_release_flushes_on_a_worker_and_a_flush_error_skips_gio() {
             assert!(start_release(
                 overlay.upcast_ref(),
                 None,
-                None,
                 device,
                 ReleaseKind::Unmount,
                 true,
@@ -424,7 +423,6 @@ fn start_release_flushes_on_a_worker_and_a_flush_error_skips_gio() {
             assert!(start_release(
                 overlay.upcast_ref(),
                 None,
-                None,
                 release_key("USB Backup", missing.clone()),
                 ReleaseKind::Unmount,
                 true,
@@ -466,7 +464,6 @@ fn start_release_flushes_on_a_worker_and_a_flush_error_skips_gio() {
             let settled_for_release = Rc::clone(&settled);
             assert!(start_release(
                 overlay.upcast_ref(),
-                None,
                 None,
                 release_key("USB Backup", file.clone()),
                 ReleaseKind::Unmount,
@@ -531,7 +528,6 @@ fn start_release_leaves_before_flush_and_restores_when_gio_fails_while_mounted()
             assert!(start_release(
                 overlay.upcast_ref(),
                 Some(Rc::clone(&browser)),
-                None,
                 release_key("USB Backup", mount.clone()),
                 ReleaseKind::Unmount,
                 true,
@@ -573,7 +569,6 @@ fn start_release_leaves_before_flush_and_restores_when_gio_fails_while_mounted()
             assert!(start_release(
                 overlay.upcast_ref(),
                 Some(Rc::clone(&browser)),
-                None,
                 release_key("USB Backup", mount.clone()),
                 ReleaseKind::Unmount,
                 true,
@@ -602,7 +597,6 @@ fn start_release_leaves_before_flush_and_restores_when_gio_fails_while_mounted()
             assert!(start_release(
                 overlay.upcast_ref(),
                 Some(Rc::clone(&browser)),
-                None,
                 release_key("USB Backup", mount.clone()),
                 ReleaseKind::Unmount,
                 true,
@@ -632,7 +626,6 @@ fn start_release_leaves_before_flush_and_restores_when_gio_fails_while_mounted()
             assert!(start_release(
                 overlay.upcast_ref(),
                 Some(Rc::clone(&browser)),
-                None,
                 release_key("USB Backup", mount.clone()),
                 ReleaseKind::Eject,
                 true,
@@ -671,7 +664,6 @@ fn start_release_claims_unplug_only_when_the_drive_is_removable_or_ejectable() {
                 let settled_for_release = Rc::clone(&settled);
                 assert!(start_release(
                     overlay.upcast_ref(),
-                    None,
                     None,
                     release_key("USB Backup", mount.clone()),
                     kind,
@@ -745,7 +737,6 @@ fn start_release_ends_strata_s_reads_on_the_drive_before_unmounting_it() {
             let ended = Arc::clone(&read_ended);
             assert!(start_release(
                 overlay.upcast_ref(),
-                None,
                 None,
                 release_key("USB Backup", mount.clone()),
                 ReleaseKind::Unmount,

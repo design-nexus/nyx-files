@@ -428,5 +428,3 @@ pub(super) fn set_compact(navigation: &gtk::Box, compact: bool) {
 
 
 
-#[cfg(test)]
-mod tests;

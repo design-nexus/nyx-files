@@ -1,28 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 use crate::adapters::directory_summary::DirectorySummary;
-use crate::ui::browser::ViewState;
 use gtk::prelude::*;
 
 pub(crate) mod media;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 pub fn format_permissions(mode: u32) -> String {
     let kind = if mode & 0o170000 == 0o040000 {
@@ -88,12 +69,3 @@ pub(crate) fn measurement_warning_text(summary: &DirectorySummary) -> Option<Str
     })
 }
 
-
-impl ViewState {
-
-
-
-}
-
-impl ViewState {
-}

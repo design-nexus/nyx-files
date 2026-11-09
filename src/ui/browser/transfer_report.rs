@@ -6,12 +6,8 @@ use crate::model::Location;
 use crate::services::{
     Holder, KeptCause, KeptItem, RenameCause, RenamedItem, SkippedItem, SpecialKind, TransferReport,
 };
-use crate::ui::browser::ViewState;
-
-
 
 const LISTED_ITEMS: usize = 8;
-
 
 fn display_name(location: &Location) -> String {
     shown_name(&location.file_name().unwrap_or_default())
@@ -278,10 +274,6 @@ pub(crate) fn outcome_detail(outcome: String, report: &TransferReport) -> String
         return outcome;
     }
     format!("{outcome}\n\n{}", sections(reported))
-}
-
-
-impl ViewState {
 }
 
 #[cfg(test)]

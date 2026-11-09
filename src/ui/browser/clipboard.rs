@@ -2,7 +2,6 @@
 
 use crate::adapters::gio_file_for_location;
 use crate::model::{FileEntry, Location};
-use crate::ui::browser::ViewState;
 use gtk::prelude::*;
 use gtk::{glib, graphene};
 use std::cell::{Cell, RefCell};
@@ -188,7 +187,6 @@ fn relative_luminance(color: &gtk::gdk::RGBA) -> f64 {
     0.2126 * linear(color.red()) + 0.7152 * linear(color.green()) + 0.0722 * linear(color.blue())
 }
 
-
 #[derive(Clone)]
 pub(crate) struct DragSnapshot {
     pub locations: Rc<[Location]>,
@@ -205,42 +203,11 @@ thread_local! {
     static ACTIVE_DRAG: RefCell<Option<ActiveDrag>> = const { RefCell::new(None) };
 }
 
-
-
-
 pub(crate) fn clear_active_drag() {
     ACTIVE_DRAG.with(|cell| {
         cell.borrow_mut().take();
     });
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 pub(in crate::ui) fn file_drag_content(entries: &[FileEntry]) -> Option<gtk::gdk::ContentProvider> {
     if entries.is_empty() {
@@ -280,14 +247,6 @@ pub(in crate::ui) fn file_drag_content(entries: &[FileEntry]) -> Option<gtk::gdk
     Some(content)
 }
 
-
-
-
-
-
-
-
-
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum ClipboardMark {
     #[default]
@@ -295,54 +254,4 @@ pub(crate) enum ClipboardMark {
     Copy,
     Cut,
 }
-
-pub(crate) type ClipboardMarks = HashMap<Location, ClipboardMark>;
-
-
-// Process-wide copy/cut intent shared by every window. The GDK clipboard only
-// carries a `FileList` with no cut marker, so this thread-local (GTK stays on
-// the main thread) is the source of truth for both paste behavior and styling.
-thread_local! {
-    static SHARED_CUT_LOCATIONS: RefCell<Vec<Location>> = const { RefCell::new(Vec::new()) };
-    static SHARED_COPY_LOCATIONS: RefCell<Vec<Location>> = const { RefCell::new(Vec::new()) };
-    static SHARED_MARK_INDEX: RefCell<ClipboardMarks> = RefCell::new(ClipboardMarks::new());
-    static OWNED_FILE_PROVIDER: RefCell<Option<gtk::gdk::ContentProvider>> = const { RefCell::new(None) };
-    static CUT_VIEWS: RefCell<Vec<Weak<ViewState>>> = const { RefCell::new(Vec::new()) };
-    static WATCHING_OWNERSHIP: Cell<bool> = const { Cell::new(false) };
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-impl ViewState {
-
-
-
-
-
-
-
-}
-
-
 

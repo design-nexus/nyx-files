@@ -5,7 +5,6 @@ use std::time::{Duration, Instant};
 use super::*;
 use crate::adapters::{LocalFileSource, LocalOperationProvider};
 use crate::model::Location;
-use crate::ui::browser::PeekBehavior;
 use crate::ui::preferences::PreferenceManager;
 use crate::ui::window::home_directory;
 
@@ -13,22 +12,7 @@ const HYPHENATED_UUID: &str = "6e5d75a7-e4e2-4c7d-9c1c-8e5a5e5d75a7";
 const COMPACT_UUID: &str = "6e5d75a7e4e24c7d9c1c8e5a5e5d75a7";
 
 
-fn wait_until(condition: impl Fn() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while !condition() {
-        assert!(Instant::now() < deadline, "operation timed out");
-        glib::MainContext::default().iteration(false);
-        std::thread::sleep(Duration::from_millis(1));
-    }
-}
 
-fn pump_for(duration: Duration) {
-    let deadline = Instant::now() + duration;
-    while Instant::now() < deadline {
-        glib::MainContext::default().iteration(false);
-        std::thread::sleep(Duration::from_millis(1));
-    }
-}
 
 fn button_with_label(widget: &gtk::Widget, label: &str) -> Option<gtk::Button> {
     if let Ok(button) = widget.clone().downcast::<gtk::Button>()

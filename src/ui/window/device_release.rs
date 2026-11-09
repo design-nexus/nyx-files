@@ -14,7 +14,7 @@ use gtk::{gio, glib, prelude::*};
 use crate::{
     app::Browser,
     ui::{
-        browser::{BrowserView, show_error_dialog},
+        modal::show_error_dialog,
         controls::{message_dialog_description, modal_layout},
         modal::{
             ModalHost, close_on_escape, dismiss_modal_layer, modal_layer, remember_modal_focus,
@@ -116,7 +116,6 @@ pub(super) struct ReleaseDecision {
 struct ReleaseOverlay {
     layer: gtk::Box,
     host_overlay: gtk::Overlay,
-    blurred_root: Option<crate::ui::blur::BlurBin>,
     title: gtk::Label,
     body: gtk::Label,
     confirm: gtk::Button,
@@ -135,11 +134,6 @@ struct PendingRelease {
     parent: Option<gtk::Widget>,
     overlay: Option<ReleaseOverlay>,
     present_source: Option<glib::SourceId>,
-    #[expect(
-        dead_code,
-        reason = "held so Drop clears the header spinner when the release finishes"
-    )]
-    activity: Option<crate::ui::browser::GlobalActivity>,
 }
 
 thread_local! {
@@ -321,7 +315,6 @@ pub(super) fn begin_pending(key: ReleaseKey, kind: ReleaseKind) -> bool {
             parent: None,
             overlay: None,
             present_source: None,
-            activity: None,
         });
         true
     })
@@ -590,11 +583,7 @@ pub(super) fn hide_release(key: &ReleaseKey) {
         entry.overlay.take()
     });
     if let Some(overlay) = overlay {
-        dismiss_modal_layer(
-            &overlay.layer,
-            &overlay.host_overlay,
-            overlay.blurred_root.as_ref(),
-        );
+        dismiss_modal_layer(&overlay.layer, &overlay.host_overlay);
     }
 }
 
@@ -617,7 +606,7 @@ pub(super) fn present_release_overlay(parent: &gtk::Widget, key: &ReleaseKey) {
     let Some((kind, display_name, progress)) = snapshot else {
         return;
     };
-    let Some(host) = ModalHost::blurred_for(parent) else {
+    let Some(host) = ModalHost::for_widget(parent) else {
         return;
     };
     let title = kind.title();
@@ -630,7 +619,6 @@ pub(super) fn present_release_overlay(parent: &gtk::Widget, key: &ReleaseKey) {
     let layer = modal_layer(
         &layout.content,
         &host.overlay,
-        host.blurred_root.clone(),
         Some(Rc::new(|| true)),
     );
     remember_modal_focus(&layer, &host.overlay);
@@ -640,14 +628,13 @@ pub(super) fn present_release_overlay(parent: &gtk::Widget, key: &ReleaseKey) {
     let hide_key = key.clone();
     let layer_for_hide = layer.clone();
     let overlay_for_hide = host.overlay.clone();
-    let root_for_hide = host.blurred_root.clone();
     let hide: Rc<dyn Fn()> = Rc::new({
         let mode = mode.clone();
         move || {
             if mode.get() == OverlayMode::Hide {
                 hide_release(&hide_key);
             } else {
-                dismiss_modal_layer(&layer_for_hide, &overlay_for_hide, root_for_hide.as_ref());
+                dismiss_modal_layer(&layer_for_hide, &overlay_for_hide);
             }
         }
     });
@@ -671,7 +658,6 @@ pub(super) fn present_release_overlay(parent: &gtk::Widget, key: &ReleaseKey) {
         entry.overlay = Some(ReleaseOverlay {
             layer: layer.clone(),
             host_overlay: host.overlay.clone(),
-            blurred_root: host.blurred_root.clone(),
             title: layout.title,
             body,
             confirm: layout.confirm,
@@ -681,7 +667,7 @@ pub(super) fn present_release_overlay(parent: &gtk::Widget, key: &ReleaseKey) {
         true
     });
     if !stored {
-        dismiss_modal_layer(&layer, &host.overlay, host.blurred_root.as_ref());
+        dismiss_modal_layer(&layer, &host.overlay);
     }
 }
 
@@ -738,11 +724,7 @@ fn apply_decision(key: &ReleaseKey, decision: ReleaseDecision) {
                 show_safe_to_remove(&overlay, &display_name);
             }
         } else if let Some(overlay) = overlay {
-            dismiss_modal_layer(
-                &overlay.layer,
-                &overlay.host_overlay,
-                overlay.blurred_root.as_ref(),
-            );
+            dismiss_modal_layer(&overlay.layer, &overlay.host_overlay);
         }
         if decision.clear_pending
             && let (Some(parent), Some(title), Some(message)) = (
@@ -788,7 +770,6 @@ fn show_safe_to_remove(overlay: &ReleaseOverlay, display_name: &str) {
 pub(crate) fn start_release<F, Fut>(
     parent: &gtk::Widget,
     browser: Option<Rc<Browser>>,
-    view: Option<&BrowserView>,
     key: ReleaseKey,
     kind: ReleaseKind,
     unplug: bool,
@@ -804,8 +785,6 @@ where
     if release_is_pending(&key) {
         return false;
     }
-    let activity =
-        view.map(|view| view.begin_global_activity(crate::i18n::tr("Writing to device…")));
     let inserted = with_releases(|releases| {
         if releases.iter().any(|entry| keys_match(&entry.key, &key)) {
             return false;
@@ -821,7 +800,6 @@ where
             parent: Some(parent.clone()),
             overlay: None,
             present_source: None,
-            activity,
         });
         true
     });

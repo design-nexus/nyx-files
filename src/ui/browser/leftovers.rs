@@ -7,21 +7,7 @@ use gtk::prelude::*;
 use crate::{
     model::{Location, hidden_names::Leftover},
     services::LoadHandle,
-    ui::browser::ViewState,
 };
-
-
-
-
-
-#[derive(Default)]
-pub(super) struct LeftoverState {
-    review: RefCell<Option<LoadHandle>>,
-    recovered: RefCell<Option<Location>>,
-}
-
-
-
 
 pub(crate) fn title() -> String {
     crate::i18n::tr("Items left by an interrupted operation")
@@ -73,18 +59,3 @@ pub(crate) fn recovered_name(taken: &[String]) -> String {
         .unwrap_or(base)
 }
 
-
-
-
-impl ViewState {
-
-
-
-
-
-
-
-}
-
-#[cfg(test)]
-mod tests;

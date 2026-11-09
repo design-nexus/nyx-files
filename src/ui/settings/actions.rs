@@ -312,7 +312,7 @@ impl PageState {
         action: Rc<ActionHandle>,
         script: Option<ActionScript>,
     ) {
-        let Some(host) = ModalHost::blurred_for(anchor) else {
+        let Some(host) = ModalHost::for_widget(anchor) else {
             return;
         };
         let (title, confirm) = match mode {
@@ -337,18 +337,15 @@ impl PageState {
         let layer = modal_layer(
             &content,
             &host.overlay,
-            host.blurred_root.clone(),
             Some(Rc::new(|| true)),
         );
         let overlay = host.overlay.clone();
-        let blurred_root = host.blurred_root.clone();
         let dismiss = {
             let weak_layer = layer.downgrade();
             let overlay = overlay.clone();
-            let root = blurred_root.clone();
             Rc::new(move || {
                 if let Some(layer) = weak_layer.upgrade() {
-                    dismiss_modal_layer(&layer, &overlay, root.as_ref());
+                    dismiss_modal_layer(&layer, &overlay);
                 }
             })
         };
@@ -367,7 +364,6 @@ impl PageState {
         let form_for_save = form.clone();
         let weak_layer = layer.downgrade();
         let overlay_for_save = overlay.clone();
-        let root_for_save = blurred_root.clone();
         layout.confirm.connect_clicked(move |confirm| {
             let (definition, script) = match form_for_save.read() {
                 Ok(parsed) => parsed,
@@ -381,13 +377,12 @@ impl PageState {
             let form = form_for_save.clone();
             let weak_layer = weak_layer.clone();
             let overlay = overlay_for_save.clone();
-            let root = root_for_save.clone();
             state.confirm_editor(mode, definition, script, move |saved| {
                 confirm.set_sensitive(true);
                 match saved {
                     Ok(()) => {
                         if let Some(layer) = weak_layer.upgrade() {
-                            dismiss_modal_layer(&layer, &overlay, root.as_ref());
+                            dismiss_modal_layer(&layer, &overlay);
                         }
                     }
                     Err(message) => form.show_error(&message),

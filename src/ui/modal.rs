@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-use crate::ui::blur::BlurBin;
 use crate::ui::controls::{dialog_text, message_dialog_description};
 use crate::ui::keys::{self, bindings::ESCAPE_ANY};
 use gtk::glib;
@@ -345,25 +344,13 @@ fn remember_removed_modal_focus(
 
 pub(super) struct ModalHost {
     pub(super) overlay: gtk::Overlay,
-    pub(super) blurred_root: Option<BlurBin>,
 }
 
 impl ModalHost {
     pub(super) fn for_widget(parent: &impl IsA<gtk::Widget>) -> Option<Self> {
-        let overlay = window_overlay(parent)?;
-        let blurred_root = overlay.child().and_downcast::<BlurBin>();
         Some(Self {
-            overlay,
-            blurred_root,
+            overlay: window_overlay(parent)?,
         })
-    }
-
-    pub(super) fn blurred_for(parent: &impl IsA<gtk::Widget>) -> Option<Self> {
-        let host = Self::for_widget(parent)?;
-        if let Some(root) = host.blurred_root.as_ref() {
-            root.set_blurred(true);
-        }
-        Some(host)
     }
 }
 
@@ -378,7 +365,6 @@ pub(super) fn window_overlay(parent: &impl IsA<gtk::Widget>) -> Option<gtk::Over
 pub(super) fn modal_layer(
     content: &impl IsA<gtk::Widget>,
     overlay: &gtk::Overlay,
-    root: Option<BlurBin>,
     block_dismiss: Option<Rc<dyn Fn() -> bool>>,
 ) -> gtk::Box {
     let overlay = overlay.clone();
@@ -388,7 +374,7 @@ pub(super) fn modal_layer(
             if block_dismiss.as_ref().is_some_and(|block| block()) {
                 return;
             }
-            dismiss_modal_layer(layer, &overlay, root.as_ref());
+            dismiss_modal_layer(layer, &overlay);
         }),
     )
 }
@@ -515,18 +501,13 @@ pub(super) fn slide_out(widget: &impl IsA<gtk::Widget>) {
 }
 
 
-pub(super) fn dismiss_modal_layer(
-    layer: &gtk::Box,
-    overlay: &gtk::Overlay,
-    root: Option<&BlurBin>,
-) {
-    dismiss_modal_layer_then(layer, overlay, root, || {});
+pub(super) fn dismiss_modal_layer(layer: &gtk::Box, overlay: &gtk::Overlay) {
+    dismiss_modal_layer_then(layer, overlay, || {});
 }
 
 pub(super) fn dismiss_modal_layer_then(
     layer: &gtk::Box,
     overlay: &gtk::Overlay,
-    root: Option<&BlurBin>,
     on_done: impl FnOnce() + 'static,
 ) {
     if layer.has_css_class("dismissing") {
@@ -537,28 +518,12 @@ pub(super) fn dismiss_modal_layer_then(
     let overlay = overlay.clone();
     let layer_for_anim = layer.clone();
     let layer = layer.clone();
-    let root = root.cloned();
     animate_out(&layer_for_anim, move || {
         overlay.remove_overlay(&layer);
-        if let Some(root) = root
-            && !overlay_has_modal_layer(&overlay)
-        {
-            root.set_blurred(false);
-        }
         on_done();
     });
 }
 
-fn overlay_has_modal_layer(overlay: &gtk::Overlay) -> bool {
-    let mut child = overlay.first_child();
-    while let Some(widget) = child {
-        if widget.is_visible() && widget.has_css_class("app-modal-layer") {
-            return true;
-        }
-        child = widget.next_sibling();
-    }
-    false
-}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum MessageKind {

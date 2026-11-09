@@ -22,7 +22,6 @@ use super::keys::{
     },
 };
 use super::{
-    browser::FilterStatus,
     browser_modes::BrowserMode,
     keys::{self, Keys, bindings},
     shortcut_reference::{ChooserScope, ReferenceScope, Shortcut, with_keys},
@@ -32,7 +31,6 @@ use super::{
 type ChordListener = Box<dyn Fn(Option<Chord>)>;
 type PromptResetListeners = Rc<RefCell<Vec<Box<dyn Fn()>>>>;
 /// `None` while the view is busy rebuilding; the footer then retries on idle.
-type FilterSource = Rc<RefCell<Option<Rc<dyn Fn() -> Option<Option<FilterStatus>>>>>>;
 
 #[derive(Clone)]
 pub(crate) struct ShortcutFooter {
@@ -60,7 +58,6 @@ pub(crate) struct ShortcutFooter {
     visual: gtk::Label,
     filter: gtk::Label,
     current: CurrentHit,
-    filter_source: FilterSource,
     filter_retry: Rc<Cell<bool>>,
     observed: Rc<RefCell<std::rc::Weak<crate::app::Browser>>>,
     reference_scope: Rc<Cell<ReferenceScope>>,
@@ -345,9 +342,6 @@ impl ReferenceSession {
             self.focus_before
                 .replace(gtk::prelude::RootExt::focus(&window).map(|widget| widget.downgrade()));
         }
-        if let Some(root) = overlay.child().and_downcast::<super::blur::BlurBin>() {
-            root.set_blurred(true);
-        }
         let backdrop = gtk::Box::new(gtk::Orientation::Vertical, 0);
         backdrop.add_css_class("search-backdrop");
         backdrop.set_halign(gtk::Align::Fill);
@@ -438,9 +432,6 @@ impl ReferenceSession {
                 overlay.remove_overlay(&panel);
             }
             overlay.remove_overlay(&attached.backdrop);
-            if let Some(root) = overlay.child().and_downcast::<super::blur::BlurBin>() {
-                root.set_blurred(false);
-            }
         }
         if let Some(more) = self.more.upgrade() {
             more.set_active(false);
@@ -825,7 +816,6 @@ impl ShortcutFooter {
             visual,
             filter,
             current,
-            filter_source: Rc::new(RefCell::new(None)),
             filter_retry: Rc::new(Cell::new(false)),
             observed: Rc::new(RefCell::new(std::rc::Weak::new())),
             reference_scope,
@@ -1000,45 +990,12 @@ impl ShortcutFooter {
 
 
     pub(in crate::ui) fn refresh_filter(&self) {
-        let source = self.filter_source.borrow().clone();
-        let status = match source {
-            Some(source) => match source() {
-                Some(status) => status,
-                None => {
-                    self.schedule_filter_refresh();
-                    return;
-                }
-            },
-            None => None,
-        };
-        // The default map keeps the pane's filter field on screen.
-        let named = status
-            .as_ref()
-            .filter(|_| crate::ui::tenxer_mode::chrome_suppressed());
-        match named {
-            Some(status) => {
-                let mark = if status.search {
-                    rust_i18n::t!("search: %{query}", query = status.query)
-                } else {
-                    rust_i18n::t!("filter: %{query}", query = status.query)
-                };
-                self.filter.set_text(&mark);
-                crate::ui::accessibility::set_description(&self.filter, Some(&status.query));
-                self.filter.set_visible(true);
-            }
-            None => self.filter.set_visible(false),
-        }
-        self.current
-            .set(named.and_then(|status| status.current.as_deref()));
+        self.filter.set_visible(false);
+        self.current.set(None);
         let browser = self.observed.borrow().upgrade();
         if let Some(browser) = browser {
-            update_item_count(&self.count, &browser, status.as_ref());
-            // A range over results is theirs; the hidden directory's never shows.
-            let visual = match status.as_ref() {
-                Some(status) if status.visual.is_some() => status.visual,
-                _ => browser.visual_kind(),
-            };
-            update_visual_mode(&self.visual, visual);
+            update_item_count(&self.count, &browser);
+            update_visual_mode(&self.visual, browser.visual_kind());
         }
     }
 
@@ -1790,20 +1747,7 @@ impl ShortcutFooter {
     }
 }
 
-fn update_item_count(
-    label: &gtk::Label,
-    browser: &Rc<crate::app::Browser>,
-    filter: Option<&FilterStatus>,
-) {
-    if let Some(filter) = filter.filter(|filter| filter.displayed) {
-        label.set_label(&crate::i18n::count("items", filter.total()));
-        crate::ui::accessibility::set_description(
-            label,
-            Some(&file_folder_breakdown(filter.files, filter.folders)),
-        );
-        label.set_visible(true);
-        return;
-    }
+fn update_item_count(label: &gtk::Label, browser: &Rc<crate::app::Browser>) {
     let Some(depth) = browser.active_depth() else {
         label.set_visible(false);
         return;

@@ -8,27 +8,11 @@ use std::{
 
 use super::*;
 use crate::adapters::{LocalFileSource, LocalOperationProvider};
-use crate::ui::browser::PeekBehavior;
 use crate::ui::preferences::PreferenceManager;
 
 
 
-fn wait_until(condition: impl Fn() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while !condition() {
-        assert!(Instant::now() < deadline, "operation timed out");
-        glib::MainContext::default().iteration(false);
-        std::thread::sleep(Duration::from_millis(1));
-    }
-}
 
-fn pump_for(duration: Duration) {
-    let deadline = Instant::now() + duration;
-    while Instant::now() < deadline {
-        glib::MainContext::default().iteration(false);
-        std::thread::sleep(Duration::from_millis(1));
-    }
-}
 
 fn has_spinner(widget: &gtk::Widget) -> bool {
     if widget.is::<gtk::Spinner>() {
