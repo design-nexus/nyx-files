@@ -28,7 +28,6 @@ use super::icons_cell::{MAX_ICONS_THUMBNAIL_SIZE, MIN_ICONS_THUMBNAIL_SIZE};
 pub(in crate::ui) const SEND_TO_RECENT_DESTINATIONS_LIMIT: usize = 3;
 
 mod bindings;
-mod corner_roundness;
 #[cfg(test)]
 pub(in crate::ui) mod fixtures;
 mod folder_view_settings;
@@ -38,7 +37,6 @@ mod save_notice;
 mod text_size;
 mod trashed;
 pub(in crate::ui) use bindings::notify_live;
-pub use corner_roundness::CornerRoundness;
 pub(crate) use folder_view_settings::flush_pending_folder_views;
 pub use text_size::TextSize;
 
@@ -56,23 +54,6 @@ pub(crate) enum InterfaceRenderer {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub(crate) enum OmarchyVariant {
-    #[default]
-    Original,
-    Darker,
-    HighContrast,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum FileIconColors {
-    #[default]
-    Brand,
-    Theme,
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub(crate) enum PreviewStyle {
     Panel,
     #[default]
@@ -82,10 +63,6 @@ pub(crate) enum PreviewStyle {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub(in crate::ui) struct Preferences {
-    mode: String,
-    theme: String,
-    #[serde(default)]
-    omarchy_variant: OmarchyVariant,
     #[serde(default)]
     folder_peeking: bool,
     #[serde(default)]
@@ -122,18 +99,10 @@ pub(in crate::ui) struct Preferences {
     filter_include_subfolders: bool,
     #[serde(default = "default_enabled")]
     show_keybinding_hints: bool,
-    #[serde(default = "default_enabled")]
-    window_show_close: bool,
-    #[serde(default)]
-    window_show_minimize: bool,
-    #[serde(default)]
-    window_show_maximize: bool,
     #[serde(default)]
     reduce_motion: bool,
     #[serde(default = "default_enabled")]
     element_glow: bool,
-    #[serde(default)]
-    file_icon_colors: FileIconColors,
     #[serde(default = "default_browser_mode")]
     browser_mode: String,
     #[serde(default = "default_browser_density")]
@@ -185,15 +154,9 @@ pub(in crate::ui) struct Preferences {
     #[serde(default = "default_enabled")]
     sidebar_expanded: bool,
     #[serde(default)]
-    sidebar_compact: bool,
-    #[serde(default)]
     show_hidden: bool,
     #[serde(default)]
     text_size: TextSize,
-    #[serde(default)]
-    corner_roundness: CornerRoundness,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    interface_font: Option<String>,
     #[serde(default)]
     interface_renderer: InterfaceRenderer,
     #[serde(default)]
@@ -223,8 +186,6 @@ pub(in crate::ui) struct Preferences {
     #[serde(default = "default_icons_thumbnail_size")]
     icons_thumbnail_size: i32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    chooser_column_width: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     browser_column_width: Option<i32>,
     #[serde(default = "default_cross_volume_drop_strategy")]
     cross_volume_drop_strategy: String,
@@ -246,8 +207,6 @@ pub(in crate::ui) struct Preferences {
     send_to_recent_destinations: HashMap<String, Vec<PathBuf>>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     device_labels: HashMap<String, String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    chooser_list_columns: Option<ListColumns>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     browser_list_columns: Option<ListColumns>,
     #[serde(
@@ -359,9 +318,6 @@ impl ListColumns {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            mode: "theme".to_owned(),
-            theme: "tokyo-night".to_owned(),
-            omarchy_variant: OmarchyVariant::default(),
             folder_peeking: false,
             preview_style: PreviewStyle::Popup,
             cloud_sidebar: true,
@@ -380,12 +336,8 @@ impl Default for Preferences {
             tenxer_mode: false,
             filter_include_subfolders: true,
             show_keybinding_hints: true,
-            window_show_close: true,
-            window_show_minimize: false,
-            window_show_maximize: false,
             reduce_motion: false,
             element_glow: true,
-            file_icon_colors: FileIconColors::default(),
             browser_mode: default_browser_mode(),
             browser_density: default_browser_density(),
             browser_density_custom_px: default_density_custom_px(),
@@ -411,11 +363,8 @@ impl Default for Preferences {
             sidebar_show_pictures: true,
             sidebar_show_videos: true,
             sidebar_expanded: true,
-            sidebar_compact: false,
             show_hidden: false,
             text_size: TextSize::default(),
-            corner_roundness: CornerRoundness::default(),
-            interface_font: None,
             interface_renderer: InterfaceRenderer::default(),
             language: crate::i18n::Language::default(),
             folders_first: true,
@@ -430,7 +379,6 @@ impl Default for Preferences {
             show_thumbnails: true,
             colored_sidebar_icons: true,
             icons_thumbnail_size: default_icons_thumbnail_size(),
-            chooser_column_width: None,
             browser_column_width: None,
             cross_volume_drop_strategy: default_cross_volume_drop_strategy(),
             open_folder_after_drop: false,
@@ -442,7 +390,6 @@ impl Default for Preferences {
             custom_icons: HashMap::new(),
             send_to_recent_destinations: HashMap::new(),
             device_labels: HashMap::new(),
-            chooser_list_columns: None,
             browser_list_columns: None,
             list_column_order: default_list_column_order(),
             list_hidden_columns: Vec::new(),
@@ -696,13 +643,8 @@ impl PreferenceManager {
         preferences.icons_thumbnail_size = preferences
             .icons_thumbnail_size
             .clamp(MIN_ICONS_THUMBNAIL_SIZE, MAX_ICONS_THUMBNAIL_SIZE);
-        preferences.chooser_column_width =
-            preferences.chooser_column_width.filter(|width| *width > 0);
         preferences.browser_column_width =
             preferences.browser_column_width.filter(|width| *width > 0);
-        preferences.chooser_list_columns = preferences
-            .chooser_list_columns
-            .filter(ListColumns::is_valid);
         preferences.browser_list_columns = preferences
             .browser_list_columns
             .filter(ListColumns::is_valid);
@@ -1033,36 +975,8 @@ impl PreferenceManager {
         self.bind_preference(anchor, Self::show_keybinding_hints, refresh);
     }
 
-    #[cfg(test)]
-    pub fn omarchy_variant(&self) -> OmarchyVariant {
-        self.preferences.borrow().omarchy_variant
-    }
-
-    #[cfg(test)]
-    pub fn set_omarchy_variant(&self, variant: OmarchyVariant) {
-        if self.omarchy_variant() == variant {
-            return;
-        }
-        self.preferences.borrow_mut().omarchy_variant = variant;
-        self.save_preferences();
-    }
-
     pub fn element_glow(&self) -> bool {
         self.preferences.borrow().element_glow
-    }
-
-    #[cfg(test)]
-    pub fn file_icon_colors(&self) -> FileIconColors {
-        self.preferences.borrow().file_icon_colors
-    }
-
-    #[cfg(test)]
-    pub fn set_file_icon_colors(&self, colors: FileIconColors) {
-        if self.file_icon_colors() == colors {
-            return;
-        }
-        self.preferences.borrow_mut().file_icon_colors = colors;
-        self.save_preferences();
     }
 
     pub fn reduce_motion(&self) -> bool {
@@ -1397,37 +1311,6 @@ impl PreferenceManager {
             return;
         }
         self.preferences.borrow_mut().element_glow = enabled;
-        self.save_preferences();
-    }
-
-    #[cfg(test)]
-    pub fn corner_roundness(&self) -> CornerRoundness {
-        self.preferences.borrow().corner_roundness
-    }
-
-    #[cfg(test)]
-    pub fn set_corner_roundness(&self, roundness: CornerRoundness) {
-        if self.corner_roundness() == roundness {
-            return;
-        }
-        self.preferences.borrow_mut().corner_roundness = roundness;
-        self.save_preferences();
-    }
-
-    #[cfg(test)]
-    pub fn interface_font(&self) -> Option<String> {
-        self.preferences.borrow().interface_font.clone()
-    }
-
-    #[cfg(test)]
-    pub fn set_interface_font(&self, family: Option<String>) {
-        let family = family
-            .map(|family| family.trim().to_owned())
-            .filter(|family| !family.is_empty());
-        if self.interface_font() == family {
-            return;
-        }
-        self.preferences.borrow_mut().interface_font = family;
         self.save_preferences();
     }
 

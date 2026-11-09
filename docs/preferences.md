@@ -11,12 +11,11 @@ and leaves the links in place. Links owned by another user, links to directories
 or missing targets, and longer chains are refused. A missing file is created
 with owner-only permissions; an existing one keeps its permission bits.
 It owns the serialized schema, change notifications, and widget bindings for every
-settings consumer, theme-related or not. `ui::theme::ThemeManager` separately owns
-the theme catalog, shared CSS application, custom themes, and Omarchy following;
-it reads preferences through the `PreferenceManager` and reapplies shared CSS when
-appearance preferences change. Fresh installations select Tokyo Night, unless an
-available Omarchy theme is followed automatically. Saved theme choices remain
-unchanged. Folder peeking is off by default when no value is saved; explicitly
+settings consumer, theme-related or not. The theme, its mode and the suite's text
+scale and density come from nyx-theme (Settings → Theme, shared by every Nyx app);
+`ui::theme::ThemeManager` only recolours what Files draws itself (the preview's
+syntax scheme, rendered documents, the audio player, the 3D model palette) when
+nyx-theme reports a change, and loads the user's own `style.css`. Folder peeking is off by default when no value is saved; explicitly
 saved choices are preserved. Enable it under **Settings → General → Browsing**.
 When enabled, automatic folder peeks in Icons and List wait for a 500 ms hover;
 explicit keyboard peeks in those views remain immediate. Miller columns never
@@ -100,19 +99,16 @@ control that might be midway through synchronization.
 | Search time limit, search entry limit | Global search, pane filters, 10xer path search, and folder pickers read the current limits when they start a query, including before Settings opens. A changed limit restarts the next query's index walk; an open result snapshot keeps its limits until it requeries. See [Search limits](#search-limits). |
 | 10xer mode | Interactive browsers and the portal file chooser bind pane Close/filter/refresh/sort chrome and the Yazi-style keymap at construction, including lazily rebuilt views. Window Search hides in interactive browsers. Window Close, chooser Accept/Cancel, and List column headings stay. Unclaimed letter commands return focus from non-text window chrome to the listing; text fields, menus, and previews retain their own input. Off by default; toggle with `Ctrl+Shift+M` or Settings → General → Browsing. Enabling shows a brief non-interactive splash that respects Reduce motion; reopening an already-enabled window does not replay it. |
 | Include subfolders | Every pane filter binds at construction, including lazy view rebuilds. Enabled by default; disabling indexes only immediate files and folders, without traversing descendants. Live changes cancel pending queries and invalidate old result streams before refreshing the active filter. Global search remains recursive. 10xer mode ignores it: entering or leaving the mode re-runs active filters in the new scope. |
-| File icon colors | Brand colors by default: Catppuccin file-type icons keep their own palette, Mocha on dark themes and Latte on light ones. Theme colors draws every one of their strokes in the theme accent instead. `ThemeManager` applies the choice with the other appearance preferences, before Settings opens and live across windows and rebuilt views; Lucide interface icons and folders are unaffected. Set under **Settings → Appearance → File icons**. |
-| Element glow | Shared semantic glow color is applied by `ThemeManager` when the appearance preferences change, before Settings opens and live across windows, dialogs, menus, and rebuilt views. Focus outlines and ordinary depth shadows are preserved. The video preview's ambient light, and the band it needs around the frame, follow the same switch live. |
+| Element glow | `element_glow` is read by the video preview's ambient light, and the band it needs around the frame; Settings no longer exposes it. |
 | Reduced motion | Set before any window is constructed; animation helpers read the current process-wide value. |
-| Corner roundness | `corner_roundness` stores a percent of the stylesheet's corner radii (0–200, default 60). `ThemeManager` reparses the shared stylesheet with every pixel radius scaled when the value changes, before Settings opens and live across windows, dialogs, menus, and rebuilt views; percentage radii that draw circles are unchanged. Set under **Settings → Appearance → Shape**. |
-| Interface font | `interface_font` stores a font family name; absent means the bundled JetBrains Mono. `ThemeManager` loads the family into a stylesheet below Files' own, so the explicit monospace of text, source, and command previews still wins, and into GTK's font setting, before Settings opens and live across windows, dialogs, menus, and rebuilt views. The bundled families follow the saved one, so text keeps the default look if it is uninstalled. Independent of text size. Choose it, or Default to restore the bundled font, under **Settings → Appearance → Text**; the picker lists installed families and filters them as you type. |
-| Theme, Omarchy following/variant, text size | `ThemeManager` applies shared CSS when theme selection, Omarchy following, Omarchy variant, text size, or element glow change; controls and theme-card selections bind to preferences through `ThemeManager::bind_theme_preference`. Newly saved custom themes appear in other open theme pages. Missing themes/Omarchy use the existing fallback policy. |
+| Theme and text size | The theme follows nyx-theme; Files' own zoom (`text_size`) scales on top of the suite's text scale. Values Files draws with itself bind through `ThemeManager::bind_theme_preference`. |
 | Language | Initialized before application UI from the saved manual language or system locale priorities. The selection and Restart button synchronize across Settings windows, but the running interface keeps its startup language until a full restart. This deliberate restart-to-apply exception avoids rebuilding active browsers, dialogs, and operations. |
 | Interface renderer | GTK selects the renderer at process startup. The saved GTK default or Cairo choice is read before GTK initializes; GTK default is selected for new installs. The control and Restart button synchronize across Settings windows, but changes take effect only after restarting Files (via the button or after fully quitting and reopening). An explicit `GSK_RENDERER` always overrides the saved choice. |
 | Keybinding hints | Navigation hints and the shortcuts button bind immediately and live. When hidden, the status bar appears only while the clipboard badge or F1 reference needs it; otherwise the empty bar is hidden. |
 | Show thumbnails | Enabled by default. **Settings → Appearance → File icons** switches file thumbnails to the existing file-type icons. Applies before Settings opens and live across browser windows, the portal chooser, searches, peeks, and rebuilt views. Disabling cancels pending thumbnail requests and prevents cache reads and decoding for new requests; re-enabling restores thumbnails for still-bound entries. Live thumbnail changes preserve pending dimensions and duration metadata; rebinding or unbinding a row still discards stale updates. Custom icons and the preview panel are unchanged. |
 | Thumbnail workers | Browser construction binds the shared decoder limit before Settings opens. Changes apply across windows and rebuilt views; lowering the limit lets active work finish and retires excess idle supervisors. |
 | List column order and visibility | Browser windows and the portal chooser share column order and visibility, including newly opened List panes. Drag a heading to reorder it; the Columns menu, heading context menu, and Appearance → Customize columns edit the same saved choices. Name cannot be hidden. Hiding, showing, reordering, or resetting columns changes only their presentation, never the sort key or direction. A hidden sort column remains active, including for saved folder sorts, newly opened folders, and view switches; showing it again restores its sort indicator. Widths retain their independent browser and chooser scopes below. |
-| Browser and chooser column widths | A Columns resize or a List heading resize, including double-click autofit, saves the unscaled width. A Columns drag or autofit stops at the visible browser area: the window minus the preview divider and the sidebar at its full width, so while a narrow window rails the sidebar, columns stop short of the window edge by the width the rail gives up. Columns opened later, including a saved width from before, are narrowed to the current area, and so are open columns when the window first lays out and after a text-size change; returning to the earlier text size restores the dragged width. Resizing the window does not narrow open columns; dragging the edge of one that is wider than the area snaps it to the area. New columns and rebuilt List panes read the latest saved defaults before Settings opens. Dragging a Columns edge resizes that column as the pointer moves, with a **Column width** caption that appears once the pointer rests on the edge and follows it through the drag, and when the drag ends the window's other open columns ease to the same width; double-click autofit changes only its own column. Other windows keep their widths. Browser defaults (`browser_column_width`, `browser_list_columns`) and chooser defaults (`chooser_column_width`, `chooser_list_columns`) are independent. The Name column keeps expanding until it is resized itself. Not exposed in Settings. |
+| Browser and chooser column widths | A Columns resize or a List heading resize, including double-click autofit, saves the unscaled width. A Columns drag or autofit stops at the visible browser area: the window minus the preview divider and the sidebar at its full width, so while a narrow window rails the sidebar, columns stop short of the window edge by the width the rail gives up. Columns opened later, including a saved width from before, are narrowed to the current area, and so are open columns when the window first lays out and after a text-size change; returning to the earlier text size restores the dragged width. Resizing the window does not narrow open columns; dragging the edge of one that is wider than the area snaps it to the area. New columns and rebuilt List panes read the latest saved defaults before Settings opens. Dragging a Columns edge resizes that column as the pointer moves, with a **Column width** caption that appears once the pointer rests on the edge and follows it through the drag, and when the drag ends the window's other open columns ease to the same width; double-click autofit changes only its own column. Other windows keep their widths. The defaults are `browser_column_width` and `browser_list_columns`. The Name column keeps expanding until it is resized itself. Not exposed in Settings. |
 | Icons view thumbnail size | The default size for folders without their own; see [Per-folder view, sort and thumbnail size](#per-folder-view-sort-and-thumbnail-size). Every browser binds at construction, and an Icons pane resolves its folder's size before it is built, so it opens at that size. With per-folder settings off, the popover slider sets the default. Visible Icons panes in other windows resize when their folder's size or the default changes. Clamped to 32–256 px; not exposed in Settings. |
 | Hardware video acceleration/backend | Preview providers read the current choice when requesting a preview; changing it does not restart an already playing file. Settings controls and backend availability synchronize live. |
 | Preview text wrap | Every text preview and header toggle binds to the saved wrap choice, including newly loaded files. Off by default. |
@@ -298,18 +294,6 @@ position remain independent of interface text size. At extreme sizes on small
 logical displays, scrolling or resizing panes may be necessary. Physical
 mixed-DPI monitor transitions still need compositor-specific manual testing.
 
-## Omarchy variants
-
-Under **Settings → Appearance**, **Omarchy variant** sits below **Follow Omarchy**.
-**Original** preserves the current mapping; **Darker** uses dark terminal-like
-surfaces; **High contrast** strengthens readability while retaining the palette's
-light/dark character. See [Themes](themes.md#omarchy-quattro) for color behavior.
-Saved as `omarchy_variant = "original"`, `"darker"`, or `"high_contrast"`, the
-choice applies at startup and live across windows and previews, including after
-Omarchy changes themes. It is remembered but inactive when following is off.
-Missing or invalid saved values fall back to Original without resetting other
-preferences.
-
 ## Language
 
 **Settings → General → Language** offers **Auto-detect** (the default) and
@@ -364,14 +348,6 @@ and Vulkan renderers drop the top pixel row of glyphs such as `T`
 hints metrics as well, so the extents match the raster, and it follows the
 desktop's antialiasing and hint-style settings. This is process-local and does
 not change the desktop setting.
-
-## Element glow
-
-In **Settings → Appearance → Effects**, turn off **Element glow** to remove
-accent-colored glow from dialogs, menus, controls, and animated feedback.
-It is enabled by default and saved as `element_glow = true`. Changes apply
-immediately across windows. Focus outlines, ordinary depth shadows, and animation
-movement are unchanged; use **Reduce motion** to disable nonessential animations.
 
 ## Drag-and-drop destination
 
@@ -505,24 +481,16 @@ types implement `browser_modes::DensityScale`, whose `from_px` maps a snap-point
 value to its preset. As a result, a slider resting on 4 px is saved as Compact rather
 than as Custom.
 
-**Content** is the vertical margin of Columns and List rows. Compact and Airy keep the
-static `density-compact`/`density-airy` rules in `style.css` and their 20/16 Icons
-column caps. A Custom value sets `density-custom`.
-`browser_modes::browser_density_custom_css` then extrapolates every preset property
-linearly through those two rules, so the slider never jumps at a preset. Those
-properties are row margins and minimum heights, plus the Icons grid padding, cell
-margins, and card padding.
+**Content** sets the height of List and Columns rows and the padding of Icons
+tiles, interpolated between the Compact and Airy values so the slider never jumps
+at a preset.
 
-**Frame** is one extra vertical inset applied in lock step to the browser header,
-tab strip, Icons/List pane header, Miller column headers, preview header, and
-sidebar rows, so their heights stay aligned. Miller headers keep the two extra
-bottom pixels that balance their top indicator. The same value spaces out the icon
-buttons in those bars through `margin-left`. At 0 px, which is Compact, no rule is
-emitted.
+**Frame** is one extra vertical inset applied in lock step to the app header, the
+tab row, sidebar items and the preview header, so their heights stay aligned.
 
-`ThemeManager::apply_density` loads both generated stylesheets into one provider
-above the static stylesheet. It reloads only when either density changes, so
-dragging a slider never reapplies the theme.
+`interface/appearance.rs` builds one stylesheet from both densities and the text
+size, installed once for every window and reloaded when any of them, or the
+suite's theme, changes.
 
 ## Adding a preference
 

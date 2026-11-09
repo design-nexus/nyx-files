@@ -63,7 +63,6 @@ fn saved_language_applies_before_settings_and_changes_only_after_restart() {
     );
 }
 
-
 #[test]
 fn older_preferences_keep_backward_compatible_behavior_defaults() {
     let mut saved = toml::Table::try_from(non_default_preferences()).expect("saved preferences");
@@ -74,8 +73,6 @@ fn older_preferences_keep_backward_compatible_behavior_defaults() {
     saved.remove("date_format");
     saved.remove("send_to_recent_destinations");
     saved.remove("tenxer_mode");
-    saved.remove("omarchy_variant");
-    saved.remove("file_icon_colors");
     saved.remove("folder_peeking");
     saved.remove("columns_show_sizes");
     saved.remove("language");
@@ -91,8 +88,6 @@ fn older_preferences_keep_backward_compatible_behavior_defaults() {
             date_format: "relative".into(),
             send_to_recent_destinations: HashMap::new(),
             tenxer_mode: false,
-            omarchy_variant: OmarchyVariant::Original,
-            file_icon_colors: FileIconColors::Brand,
             folder_peeking: false,
             columns_show_sizes: true,
             ..non_default_preferences()
@@ -121,34 +116,16 @@ fn malformed_send_to_history_does_not_discard_other_preferences() {
     );
 }
 
-
 #[test]
 fn a_malformed_preference_does_not_discard_the_others() {
     let mut saved = toml::Table::try_from(non_default_preferences()).expect("saved preferences");
     saved.insert("show_hidden".into(), "yes".into());
-    saved.insert("omarchy_variant".into(), "unknown".into());
     assert!(saved.clone().try_into::<Preferences>().is_err());
 
     assert_eq!(
         salvage_preferences(saved),
         Preferences {
             show_hidden: false,
-            omarchy_variant: OmarchyVariant::Original,
-            ..non_default_preferences()
-        }
-    );
-}
-
-#[test]
-fn a_missing_required_preference_does_not_discard_the_others() {
-    let mut saved = toml::Table::try_from(non_default_preferences()).expect("saved preferences");
-    saved.remove("theme");
-    assert!(saved.clone().try_into::<Preferences>().is_err());
-
-    assert_eq!(
-        salvage_preferences(saved),
-        Preferences {
-            theme: Preferences::default().theme,
             ..non_default_preferences()
         }
     );
@@ -195,7 +172,6 @@ fn assert_recovered_preferences_survive_save(
     crate::storage::writer::settle();
     assert_eq!(read_preferences().expect("saved preferences"), expected);
 }
-
 
 #[test]
 fn changes_apply_at_once_and_reach_the_file_on_the_settings_writer() {
@@ -320,14 +296,12 @@ fn symlinked_settings_save_through_to_the_target() {
     );
 }
 
-
 #[derive(Debug)]
 struct SaveNoticeText {
     title: String,
     summary: String,
     detail: String,
 }
-
 
 fn wait_for(condition: impl Fn() -> bool, what: &str) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
@@ -397,24 +371,6 @@ fn malformed_preferences_survive_startup_and_an_unrelated_save() {
                 },
                 Preferences {
                     show_hidden: false,
-                    ..non_default_preferences()
-                },
-            );
-        },
-    );
-}
-
-#[test]
-fn missing_required_preferences_survive_startup_and_an_unrelated_save() {
-    gtk_test(
-        "ui::preferences::tests::preferences::missing_required_preferences_survive_startup_and_an_unrelated_save",
-        || {
-            assert_recovered_preferences_survive_save(
-                |saved| {
-                    saved.remove("theme");
-                },
-                Preferences {
-                    theme: Preferences::default().theme,
                     ..non_default_preferences()
                 },
             );
@@ -529,14 +485,6 @@ fn fresh_preferences_are_not_written_before_settings_opens() {
         },
     );
 }
-
-
-
-
-
-
-
-
 
 #[test]
 fn density_sliders_save_snap_points_as_presets_and_other_values_as_custom() {
@@ -674,7 +622,6 @@ enum TrashMount {
     RenewsNumbersInOneBirthTick,
 }
 
-
 #[test]
 fn settings_files_are_watched_from_the_monitors_worker_without_missing_a_save() {
     gtk_test(
@@ -735,9 +682,6 @@ fn settings_files_are_watched_from_the_monitors_worker_without_missing_a_save() 
         },
     );
 }
-
-
-
 
 #[test]
 fn a_browser_toggling_hidden_files_is_saved_for_the_next_launch() {

@@ -20,24 +20,6 @@ menubutton.icons-thumbnail-menu > button image,
   -gtk-icon-size: 16px;
 }
 
-.preview-panel-option:checked {
-  background: alpha(@files_accent, 0.10);
-  color: @files_text;
-}
-
-.preview-panel-option:checked:hover {
-  background: alpha(@files_accent, 0.18);
-}
-
-.preview-panel-option:checked:active {
-  background: alpha(@files_accent, 0.22);
-}
-
-.preview-panel-option:focus-visible {
-  outline: 2px solid alpha(@files_accent, 0.6);
-  outline-offset: -2px;
-}
-
 .search-backdrop {
   background: alpha(@files_bg, 0.58);
   transition: opacity 200ms ease-out;
@@ -85,15 +67,6 @@ colorchooser button.circular:disabled {
   opacity: 0.7;
 }
 
-.file-operation-card .job-status {
-  color: @files_accent;
-}
-
-.file-operation-card .job-description {
-  color: @files_text;
-}
-
-.mode-scroll scrollbar.horizontal > range > trough,
 .preview-content scrollbar.horizontal > range > trough {
   margin-top: 3px;
   margin-bottom: 3px;
@@ -605,34 +578,6 @@ colorchooser button.circular:disabled {
   -gtk-icon-transform: rotate(180deg);
 }
 
-.preview-volume-toggle {
-  background: alpha(@files_bg, 0.72);
-  border: 1px solid alpha(@files_border, 0.42);
-  border-radius: 6px;
-  box-shadow: none;
-  color: @files_accent;
-  min-height: 24px;
-  min-width: 24px;
-  padding: 3px;
-  transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out;
-}
-
-.preview-volume-toggle:hover {
-  background: alpha(@files_muted, 0.82);
-  border-color: @files_accent;
-}
-
-.preview-volume-toggle:active {
-  background: alpha(@files_muted, 0.96);
-  border-color: @files_accent;
-  transform: scale(0.96);
-}
-
-.preview-volume-toggle:focus-visible {
-  outline: 2px solid alpha(@files_accent, 0.52);
-  outline-offset: 1px;
-}
-
 .preview-details-eyebrow {
   color: @files_dim_text;
   font-size: 0.72em;
@@ -1027,30 +972,6 @@ entry.preview-command-entry selection {
   color: @files_accent;
 }
 
-.tenxer-splash {
-  opacity: 0;
-  transform: translateY(16px) scale(0.88);
-  transition: opacity 220ms ease-out, transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid alpha(@files_accent, 0.65);
-  box-shadow: 0 0 36px alpha(@files_glow, 0.4);
-}
-
-.tenxer-splash.tenxer-splash-visible {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.tenxer-splash.tenxer-splash-exiting {
-  opacity: 0;
-  transform: translateY(-8px) scale(1);
-  transition: opacity 300ms ease-in, transform 300ms ease-in;
-}
-
-.tenxer-splash.tenxer-splash-static {
-  transform: none;
-  transition: none;
-}
-
 .shortcut-footer {
   background: @files_surface;
   color: @files_text;
@@ -1061,7 +982,6 @@ entry.preview-command-entry selection {
 }
 
 .shortcut-footer-count,
-.tenxer-experimental,
 .shortcut-footer-chord,
 .shortcut-footer-feedback {
   color: @files_text;
@@ -1379,22 +1299,7 @@ button.shortcut-footer-button:disabled {
   padding: 6px 9px 4px;
 }
 
-.customize-preview {
-  padding: 2px 0 8px;
-}
-
-.customize-preview-icon {
-  min-height: 56px;
-  min-width: 56px;
-}
-
-.customize-preview-name {
-  color: @files_text;
-  font-weight: 700;
-}
-
 .file-list row,
-.file-list-mode row,
 .preview-archive-list row {
   background: transparent;
   color: @files_text;
@@ -1402,21 +1307,17 @@ button.shortcut-footer-button:disabled {
   transition: color 160ms ease-out;
 }
 
-.file-row,
-.list-row,
 .preview-archive-row {
   outline: 1px solid transparent;
   outline-offset: -1px;
   transition: color 180ms ease-out, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 200ms ease-out;
 }
 
-.file-row,
 .preview-archive-row {
   border-radius: 6px;
 }
 
 .file-list row:selected,
-.file-list-mode row:selected,
 .preview-archive-list row:selected {
   background: alpha(@files_accent, 0.22);
   color: @files_text;
@@ -1424,52 +1325,17 @@ button.shortcut-footer-button:disabled {
 }
 
 .file-list row:focus-visible,
-.file-list-mode row:focus-visible,
 .preview-archive-list row:focus-visible {
   outline: none;
 }
 
-.keyboard-navigation .file-list:focus-within .file-row.keyboard-cursor:not(.filter-result),
-.file-list row:focus-within .file-row.filter-result,
 .preview-pane.preview-keyboard-owner .preview-archive-list row:selected .preview-archive-row {
   outline: 1px solid @files_accent;
   outline-offset: -1px;
 }
 
-.theme-card:hover .theme-preview {
-  border-color: @files_border;
-}
-
-.theme-icons > flowboxchild:focus-visible .theme-preview,
-.theme-card:focus-visible .theme-preview {
-  border-color: @files_accent;
-  outline: 2px solid @files_accent;
-  outline-offset: -2px;
-}
-
-.theme-card.selected .theme-preview {
-  border-color: @files_accent;
-  outline: 2px solid @files_accent;
-  outline-offset: -2px;
-  box-shadow: 0 0 13px alpha(@files_glow, 0.32);
-}
-
-.theme-preview {
-  border: 1px solid alpha(@files_border, 0.7);
-  border-radius: 6px;
-}
-
 .install-command > entry.preview-command-entry {
   padding-right: 72px;
-}
-
-.settings-dialog .theme-preview {
-  min-width: 80px;
-  min-height: 28px;
-  border-radius: 6px;
-  box-shadow: none;
-  outline: none;
-  border: 1px solid alpha(@files_border, 0.6);
 }
 
 .settings-dialog entry.settings-search,
@@ -1744,18 +1610,12 @@ popover.settings-action-library > contents {
 
 headerbar,
 headerbar > windowhandle > box,
-headerbar.browser-header,
-.mode-pane-header,
-.column-header,
-.list-headings,
 .shortcut-footer {
   border-top-color: transparent;
   border-bottom-color: transparent;
   box-shadow: none;
 }
 
-.list-headings,
-.column-header,
 .shortcut-footer {
   background: @files_bg;
 }
@@ -1841,11 +1701,6 @@ image.danger-icon {
   font-size: 10.5px;
 }
 
-.settings-shortcut-keys {
-  font-family: monospace;
-  color: @files_dim_text;
-}
-
 /* Dialogs over the window: a 2.0 dialog card on a dimmed backdrop. */
 .app-modal-layer.modal-backdrop {
   background: alpha(@theme_shadow, 0.45);
@@ -1883,8 +1738,7 @@ image.danger-icon {
   margin-top: 16px;
 }
 
-.action-dialog-body .dim,
-.message-dialog-description {
+.action-dialog-body .dim {
   color: @theme_dim_text;
 }
 
