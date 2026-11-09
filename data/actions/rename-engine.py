@@ -7,7 +7,7 @@ import ctypes
 import os
 import stat
 
-from strata_actions import context
+from nyx_files_actions import context
 
 # Never fall back to os.rename(): destinations can appear after preflight.
 try:

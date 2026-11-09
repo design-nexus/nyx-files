@@ -134,7 +134,7 @@ fn rar_extraction_command(
 ) -> Result<Command, String> {
     let sandbox_input = sandbox_input_path(archive_path);
     let mut command = runtime_command(bwrap, false);
-    command.arg("--ro-bind").arg(executable).arg("/app/strata");
+    command.arg("--ro-bind").arg(executable).arg("/app/nyx-files");
     command
         .arg("--ro-bind")
         .arg(archive_path)
@@ -148,7 +148,7 @@ fn rar_extraction_command(
         .arg("--fsize=0")
         .arg("--");
     command
-        .args(["/app/strata", "--preview-helper", "extract-rar"])
+        .args(["/app/nyx-files", "--preview-helper", "extract-rar"])
         .arg(&sandbox_input);
     command.stdin(Stdio::null());
     command.stdout(Stdio::piped());

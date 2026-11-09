@@ -32,12 +32,12 @@ pub const MANIFEST_HEADER: &str = "\
 #[serde(deny_unknown_fields)]
 pub struct ActionDefinition {
     pub schema_version: u32,
-    /// Directory name under `$XDG_CONFIG_HOME/strata/actions` and stable identity.
+    /// Directory name under `$XDG_CONFIG_HOME/nyx-files/actions` and stable identity.
     pub id: String,
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// Bundled Lucide icon slug, without the `strata-` prefix.
+    /// Icon name, mapped to a symbolic theme icon when shown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
     #[serde(default = "enabled_by_default")]

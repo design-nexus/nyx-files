@@ -324,7 +324,7 @@ fn an_archive_that_replaced_an_original_it_cannot_remove_completes_and_reports_i
     let [originals, published] = names.as_slice() else {
         return Err(format!("the kept original and the archive: {names:?}").into());
     };
-    assert!(originals.starts_with(".strata-originals-"), "{names:?}");
+    assert!(originals.starts_with(".nyx-files-originals-"), "{names:?}");
     assert_eq!(published, "existing.zip");
     let kept_original = destination.join(originals).join("existing.zip");
     assert_eq!(fs::read(&kept_original)?, b"original");
@@ -355,7 +355,7 @@ fn an_archive_that_replaced_an_original_it_cannot_remove_completes_and_reports_i
         return Err(format!("the original is reported as kept: {kept:?}").into());
     };
     assert_eq!(location, &Location::local(&kept_original));
-    assert!(!error.contains(".strata-"), "{error}");
+    assert!(!error.contains(".nyx-files-"), "{error}");
     Ok(())
 }
 

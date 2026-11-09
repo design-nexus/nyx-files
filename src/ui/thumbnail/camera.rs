@@ -81,7 +81,7 @@ pub(super) async fn render(path: &Path, cancellation: &Cancellation) -> Result<V
             return Err("Camera thumbnail cancelled".into());
         }
         let mut input = tempfile::Builder::new()
-            .prefix("strata-camera-thumbnail-")
+            .prefix("nyx-files-camera-thumbnail-")
             .tempfile()
             .map_err(|error| error.to_string())?;
         input.write_all(&bytes).map_err(|error| error.to_string())?;

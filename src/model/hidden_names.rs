@@ -21,15 +21,15 @@ pub(crate) enum HiddenName {
 impl HiddenName {
     pub(crate) const fn prefix(self) -> &'static str {
         match self {
-            Self::Probe => ".strata-probe-",
-            Self::Copy => ".strata-copy-",
-            Self::Extraction => ".strata-extraction-",
-            Self::Replacement => ".strata-replacement-",
-            Self::Compression => ".strata-compression-",
-            Self::Replaced => ".strata-replaced-",
-            Self::Rename => ".strata-rename-",
-            Self::Merge => ".strata-merge-",
-            Self::Originals => ".strata-originals-",
+            Self::Probe => ".nyx-files-probe-",
+            Self::Copy => ".nyx-files-copy-",
+            Self::Extraction => ".nyx-files-extraction-",
+            Self::Replacement => ".nyx-files-replacement-",
+            Self::Compression => ".nyx-files-compression-",
+            Self::Replaced => ".nyx-files-replaced-",
+            Self::Rename => ".nyx-files-rename-",
+            Self::Merge => ".nyx-files-merge-",
+            Self::Originals => ".nyx-files-originals-",
         }
     }
 
@@ -69,7 +69,9 @@ enum Suffix {
     Tail { tag: &'static str, digits: usize },
 }
 
-const STRATA: &[u8] = b".strata-";
+const PREFIX: &[u8] = b".nyx-files-";
+/// Older Files named its temporary items `.strata-…`; they are recovered too.
+const LEGACY_PREFIX: &str = ".strata-";
 const LEGACY_SYMLINK: &str = ".strata-symlink-";
 
 const LEFTOVERS: [(&str, Suffix, Leftover); 12] = [
@@ -143,10 +145,17 @@ const FOREIGN_LEFTOVERS: [(&str, Suffix, ForeignLeftover); 4] = [
 
 pub(crate) fn classify(name: &OsStr) -> Option<Leftover> {
     let name = name.as_bytes();
-    if !name.starts_with(STRATA) {
-        return None;
+    if name.starts_with(PREFIX) {
+        return find(&LEFTOVERS, name);
     }
-    find(&LEFTOVERS, name)
+    // A legacy name is the current one with the old prefix.
+    let rest = name.strip_prefix(LEGACY_PREFIX.as_bytes())?;
+    if name.starts_with(LEGACY_SYMLINK.as_bytes()) {
+        return find(&LEFTOVERS, name);
+    }
+    let mut current = PREFIX.to_vec();
+    current.extend_from_slice(rest);
+    find(&LEFTOVERS, &current)
 }
 
 pub(crate) fn foreign_leftover(name: &OsStr) -> Option<ForeignLeftover> {

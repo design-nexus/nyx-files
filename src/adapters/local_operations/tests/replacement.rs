@@ -49,7 +49,7 @@ fn replace_reporting(
 fn originals_folder(folder: &Path) -> Result<Option<String>, io::Error> {
     Ok(names(folder)?
         .into_iter()
-        .find(|name| name.starts_with(".strata-originals-")))
+        .find(|name| name.starts_with(".nyx-files-originals-")))
 }
 
 fn write_item(path: &Path, directory: bool, contents: &[u8]) -> Result<(), io::Error> {
@@ -125,7 +125,7 @@ fn a_replacement_reports_what_it_left_out_only_once_it_is_published() -> Result<
         let fail = if published {
             Vec::new()
         } else {
-            vec![(Op::Rename, ".strata-copy-*", 0, Errno::IO)]
+            vec![(Op::Rename, ".nyx-files-copy-*", 0, Errno::IO)]
         };
         let _scope = FsQuirks::install(
             root.path(),
@@ -184,7 +184,7 @@ fn replacement_publication_reports_a_stage_it_cannot_remove() -> Result<(), Box<
     let _quirks = FsQuirks::install(
         root.path(),
         Quirks {
-            reused_inodes: Some(".strata-copy-*"),
+            reused_inodes: Some(".nyx-files-copy-*"),
             no_birth_time: true,
             ..Quirks::default()
         },
@@ -312,7 +312,7 @@ fn cancelling_as_the_replacement_is_staged_keeps_the_destination() -> Result<(),
             Quirks {
                 before: vec![
                     (Op::Close, "#*", 0, cancel(cancellable.clone())),
-                    (Op::Close, ".strata-copy-*", 0, cancel(cancellable.clone())),
+                    (Op::Close, ".nyx-files-copy-*", 0, cancel(cancellable.clone())),
                 ],
                 ..Quirks::default()
             },
@@ -617,11 +617,11 @@ fn a_target_is_replaced_only_while_its_mount_still_knows_it() -> Result<(), Box<
                     let stages = names(&at).expect("list the share");
                     let evicted = stages
                         .iter()
-                        .filter(|name| name.starts_with(".strata-copy-"))
+                        .filter(|name| name.starts_with(".nyx-files-copy-"))
                         .any(|stage| super::fs_quirks::evict(&at.join(stage)));
                     done.fetch_or(evicted, Ordering::AcqRel);
                 });
-                (Op::Close, ".strata-copy-*", skip, racer)
+                (Op::Close, ".nyx-files-copy-*", skip, racer)
             })
             .collect();
         let (at, done) = (share.clone(), happened.clone());
@@ -845,7 +845,7 @@ fn replace_without_trash_or_exchange_sets_the_original_aside() -> Result<(), Box
             assert_eq!(read_item(&target, directory)?, b"new");
             assert_eq!(read_item(&source, directory)?, b"new");
             assert_eq!(names(root.path())?, ["source", "target"]);
-            assert!(quirks.used_name(".strata-originals-*"));
+            assert!(quirks.used_name(".nyx-files-originals-*"));
             assert_eq!(quirks.count(Op::Exchange), 0);
         }
     }
@@ -879,7 +879,7 @@ fn replace_falls_back_to_aside_when_trash_lies() -> Result<(), Box<dyn Error>> {
         assert_eq!(quirks.count(Op::Trash), 1);
         assert_eq!(replaced, [ReplacedOriginal::Deleted]);
         assert_eq!(fs::read(&target)?, b"new");
-        assert!(quirks.used_name(".strata-originals-*"));
+        assert!(quirks.used_name(".nyx-files-originals-*"));
         assert_eq!(
             names(root.path())?,
             if move_source {
@@ -1079,7 +1079,7 @@ fn a_failed_publication_puts_the_original_back() -> Result<(), Box<dyn Error>> {
         let injected = super::super::native_fs::os_error_detail(Errno::IO);
         assert!(error.message().contains(&injected), "{item:?}: {error}");
         assert!(replaced.is_empty());
-        assert!(quirks.used_name(".strata-originals-*"));
+        assert!(quirks.used_name(".nyx-files-originals-*"));
         assert_eq!(names(root.path())?, ["source", "target"], "{item:?} {op:?}");
         if item == Item::Symlink {
             assert_eq!(fs::read_link(&target)?, Path::new("old"));
@@ -1274,7 +1274,7 @@ fn same_filesystem_replacing_move_places_the_source_without_a_stage() -> Result<
             assert_eq!(read_item(&target, directory)?, b"new");
             assert!(!source.exists());
             assert_eq!(names(&destination)?, ["item"]);
-            assert!(!quirks.used_name(".strata-copy-*"));
+            assert!(!quirks.used_name(".nyx-files-copy-*"));
         }
     }
     Ok(())
@@ -1346,7 +1346,7 @@ fn same_filesystem_replacing_move_restores_the_original_when_placement_fails()
 
     assert!(result.is_err());
     assert!(replaced.is_empty());
-    assert!(quirks.used_name(".strata-originals-*"));
+    assert!(quirks.used_name(".nyx-files-originals-*"));
     assert_eq!(inode(&target)?, original);
     assert_eq!(fs::read(&target)?, b"old");
     assert_eq!(fs::read(&source)?, b"incoming");
@@ -1402,7 +1402,7 @@ fn a_replacing_move_on_ntfs_3g_renames_names_it_would_cut_or_puts_the_original_b
         assert_eq!(read_item(&target, directory)?, contents, "{case}");
         assert_eq!(source.exists(), placing_fails, "{case}");
         assert_eq!(names(&destination)?, [name.as_str()], "{case}");
-        assert!(!quirks.used_name(".strata-copy-*"), "{case}");
+        assert!(!quirks.used_name(".nyx-files-copy-*"), "{case}");
     }
     Ok(())
 }

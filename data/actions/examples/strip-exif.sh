@@ -14,10 +14,10 @@ while IFS= read -r -d '' path; do
         exit 1
     }
     # Retain a complete, private original before allowing in-place modification.
-    backup_dir=$(mktemp -d -- "${path%/*}/strata-original-XXXXXX")
+    backup_dir=$(mktemp -d -- "${path%/*}/nyx-files-original-XXXXXX")
     backup="$backup_dir/${path##*/}"
     cat -- "$path" > "$backup"
     printf 'Original retained at %q\n' "$backup"
     exiftool -overwrite_original -all= -- "$path"
     printf 'Removed writable metadata from %q\n' "$path"
-done < "$STRATA_ACTION_PATHS"
+done < "$NYX_FILES_ACTION_PATHS"

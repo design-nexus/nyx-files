@@ -94,7 +94,7 @@ async fn transfer(
     let worker = gio::spawn_blocking(move || {
         let mut staged = StagedPreview {
             file: tempfile::Builder::new()
-                .prefix("strata-remote-preview-")
+                .prefix("nyx-files-remote-preview-")
                 .suffix(&suffix)
                 .tempfile()
                 .map_err(|error| crate::services::io_error_message(&error))?,

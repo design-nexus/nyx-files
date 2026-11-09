@@ -44,7 +44,7 @@ fn a_copy_cut_off_by_an_unplug_leaves_only_its_stage() -> Result<(), Box<dyn Err
         Quirks {
             tmpfile: Support::Rejected(Errno::OPNOTSUPP),
             short_io: Some(2),
-            unplugged_after: Some((Op::Write, ".strata-copy-*", 1)),
+            unplugged_after: Some((Op::Write, ".nyx-files-copy-*", 1)),
             ..Quirks::ext4()
         },
     );
@@ -383,10 +383,10 @@ fn restoring_originals_never_replaces_an_item() -> Result<(), Box<dyn Error>> {
                 fail: match target {
                     Target::ReadOnlyNtfs3 => vec![
                         (Op::Rename, "song.flac", 0, Errno::ROFS),
-                        (Op::Unlink, ".strata-originals-*", 0, Errno::ROFS),
+                        (Op::Unlink, ".nyx-files-originals-*", 0, Errno::ROFS),
                     ],
                     Target::EmptyReadOnlyNtfs3 => {
-                        vec![(Op::Unlink, ".strata-originals-*", 0, Errno::ROFS)]
+                        vec![(Op::Unlink, ".nyx-files-originals-*", 0, Errno::ROFS)]
                     }
                     _ => Vec::new(),
                 },
@@ -672,7 +672,7 @@ fn stale_probes_go_only_when_empty_and_old() -> Result<(), Box<dyn Error>> {
             false,
         ),
         Row {
-            name: ".strata-probe-notes".to_owned(),
+            name: ".nyx-files-probe-notes".to_owned(),
             ..old("not a probe name", Probe::File(b""), false)
         },
         Row {
@@ -737,8 +737,8 @@ fn stale_probes_go_only_when_empty_and_old() -> Result<(), Box<dyn Error>> {
         root.path(),
         Quirks {
             before: vec![
-                (Op::Stat, ".strata-probe-*", 0, slow()),
-                (Op::Unlink, ".strata-probe-*", 0, slow()),
+                (Op::Stat, ".nyx-files-probe-*", 0, slow()),
+                (Op::Unlink, ".nyx-files-probe-*", 0, slow()),
             ],
             ..Quirks::ext4()
         },

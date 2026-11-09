@@ -24,14 +24,25 @@ use glib::{KeyFile, KeyFileFlags};
 pub(crate) use omarchy::omarchy_is_present;
 
 const FILE_CHOOSER_KEY: &str = "org.freedesktop.impl.portal.FileChooser";
-const PORTAL_FILE: &str = "strata.portal";
-const SERVICE_FILE: &str = "org.freedesktop.impl.portal.desktop.strata.service";
-const STATE_DIRECTORY: &str = "strata/portal-install";
+/// The portal backend's name in `portals.conf` and its file names.
+const PORTAL_NAME: &str = "nyx_files";
+const PORTAL_FILE: &str = "nyx_files.portal";
+const SERVICE_FILE: &str = "org.freedesktop.impl.portal.desktop.nyx_files.service";
+const STATE_DIRECTORY: &str = "nyx-files/portal-install";
 const STATE_FILE: &str = "state.toml";
-const PORTAL_BACKEND_UNIT: &str = "dbus-:*-org.freedesktop.impl.portal.desktop.strata@*.service";
+const PORTAL_BACKEND_UNIT: &str =
+    "dbus-:*-org.freedesktop.impl.portal.desktop.nyx_files@*.service";
+/// What Files installed the portal as before it was renamed; migrated once.
+const LEGACY_PORTAL_NAME: &str = "strata";
+const LEGACY_PORTAL_FILE: &str = "strata.portal";
+const LEGACY_SERVICE_FILE: &str = "org.freedesktop.impl.portal.desktop.strata.service";
+const LEGACY_STATE_DIRECTORY: &str = "strata/portal-install";
+const LEGACY_PORTAL_BACKEND_UNIT: &str =
+    "dbus-:*-org.freedesktop.impl.portal.desktop.strata@*.service";
 const DESKTOP_ID: &str = "io.github.design_nexus.nyx.Files.desktop";
 const FILE_MANAGER_SERVICE: &str = "io.github.design_nexus.nyx.Files.FileManager1.service";
-const FILE_MANAGER_STATE_DIRECTORY: &str = "strata/file-manager-install";
+const FILE_MANAGER_STATE_DIRECTORY: &str = "nyx-files/file-manager-install";
+const LEGACY_FILE_MANAGER_STATE_DIRECTORY: &str = "strata/file-manager-install";
 const FILE_MANAGER_STATE_FILE: &str = "state.toml";
 const INODE_DIRECTORY: &str = "inode/directory";
 
@@ -154,8 +165,8 @@ fn install_file_manager_at(
     }
 
     let service = include_str!("../data/io.github.design_nexus.nyx.Files.FileManager1.service")
-        .replace("/usr/bin/strata", executable);
-    let state_directory = context.data_home.join(FILE_MANAGER_STATE_DIRECTORY);
+        .replace("/usr/bin/nyx-files", executable);
+    let state_directory = context.file_manager_state_directory();
     if read_file_manager_state(&state_directory)?.is_none() {
         let state = FileManagerInstallState {
             previous_default: previous.map(str::to_owned),
@@ -176,7 +187,7 @@ fn restore_file_manager_at(
     context: &SetupContext,
     restore: impl FnOnce(Option<&str>) -> Result<Option<String>, String>,
 ) -> Result<Option<String>, String> {
-    let state_directory = context.data_home.join(FILE_MANAGER_STATE_DIRECTORY);
+    let state_directory = context.file_manager_state_directory();
     let restored =
         read_file_manager_state(&state_directory)?.and_then(|state| state.previous_default);
     let restored = restore(restored.as_deref())?;
@@ -248,8 +259,7 @@ fn file_manager_status_at(context: &SetupContext) -> Result<FileManagerStatus, S
         && find_file_manager_conflict(&context.data_home.join("dbus-1/services"))?.is_none();
     let has_installation = service.exists()
         || context
-            .data_home
-            .join(FILE_MANAGER_STATE_DIRECTORY)
+            .file_manager_state_directory()
             .join(FILE_MANAGER_STATE_FILE)
             .exists()
         || omarchy::has_installation(context)?;
@@ -449,6 +459,11 @@ pub(crate) fn refresh_stale_portal() -> Result<(), String> {
         )
         .into_owned()
     })?;
+    if migrate_legacy_portal_at(&context)? {
+        // The old backend may still own its name; start over with the new one.
+        run_trusted("systemctl", &["--user", "stop", LEGACY_PORTAL_BACKEND_UNIT]);
+        return refresh_configured_portal_at(&context, refresh_portals);
+    }
     refresh_stale_portal_at(&context, &executable, Path::new("/proc"), || {
         refresh_portals()
     })
@@ -555,7 +570,7 @@ fn status_at(context: &SetupContext) -> Result<PortalStatus, String> {
             .is_ok_and(|value| {
                 backend_values(&value)
                     .first()
-                    .is_some_and(|name| name == "strata")
+                    .is_some_and(|name| name == PORTAL_NAME)
             })
     } else {
         false
@@ -568,7 +583,7 @@ fn status_at(context: &SetupContext) -> Result<PortalStatus, String> {
 
 pub(crate) fn dismiss_prompt() -> Result<String, String> {
     dismiss_prompt_at(&SetupContext::from_environment()?)?;
-    Ok("File chooser offer dismissed. You can enable it later in Settings → General → System file manager.".into())
+    Ok("File chooser offer dismissed. You can enable it later in Settings → Integrations.".into())
 }
 
 #[cfg(test)]
@@ -584,7 +599,7 @@ fn take_prompt_offer_at(context: &SetupContext) -> Result<bool, String> {
 }
 
 fn prompt_path(context: &SetupContext) -> PathBuf {
-    context.config_home.join("strata/portal-opt-in-v1")
+    context.config_home.join("nyx-files/portal-opt-in-v1")
 }
 
 fn dismiss_prompt_at(context: &SetupContext) -> Result<bool, String> {
@@ -653,6 +668,20 @@ impl SetupContext {
 
     fn state_directory(&self) -> PathBuf {
         self.data_home.join(STATE_DIRECTORY)
+    }
+
+    /// The file manager's install state, moved from where an older Files kept it.
+    fn file_manager_state_directory(&self) -> PathBuf {
+        let current = self.data_home.join(FILE_MANAGER_STATE_DIRECTORY);
+        let legacy = self.data_home.join(LEGACY_FILE_MANAGER_STATE_DIRECTORY);
+        if !current.exists()
+            && legacy.is_dir()
+            && let Some(parent) = current.parent()
+            && fs::create_dir_all(parent).is_ok()
+        {
+            let _ = fs::rename(&legacy, &current);
+        }
+        current
     }
 }
 
@@ -756,24 +785,138 @@ fn install_at(context: &SetupContext, executable: &Path) -> Result<PathBuf, Stri
         )
     };
 
-    let portal_directory = context.data_home.join("xdg-desktop-portal/portals");
-    let service_directory = context.data_home.join("dbus-1/services");
-    for directory in [&portal_directory, &service_directory, &config_directory] {
-        fs::create_dir_all(directory).map_err(|error| path_error("create", directory, error))?;
-    }
-    write_public(
-        &portal_directory.join(PORTAL_FILE),
-        include_bytes!("../data/portal/strata.portal"),
-    )?;
-    let service =
-        include_str!("../data/portal/org.freedesktop.impl.portal.desktop.strata.service.in")
-            .replace("@STRATA_EXECUTABLE@", executable);
-    write_public(&service_directory.join(SERVICE_FILE), service.as_bytes())?;
+    fs::create_dir_all(&config_directory)
+        .map_err(|error| path_error("create", &config_directory, error))?;
+    write_portal_files(context, executable)?;
     if let Some(state) = state {
         write_state(&state_directory, &state)?;
     }
     write_config(&target, installed.as_bytes(), file_mode(&target))?;
     Ok(target)
+}
+
+/// The backend description and its D-Bus activation for `executable`.
+fn write_portal_files(context: &SetupContext, executable: &str) -> Result<(), String> {
+    let portal_directory = context.data_home.join("xdg-desktop-portal/portals");
+    let service_directory = context.data_home.join("dbus-1/services");
+    for directory in [&portal_directory, &service_directory] {
+        fs::create_dir_all(directory).map_err(|error| path_error("create", directory, error))?;
+    }
+    write_public(
+        &portal_directory.join(PORTAL_FILE),
+        include_bytes!("../data/portal/nyx_files.portal"),
+    )?;
+    let service =
+        include_str!("../data/portal/org.freedesktop.impl.portal.desktop.nyx_files.service.in")
+            .replace("@FILES_EXECUTABLE@", executable);
+    write_public(&service_directory.join(SERVICE_FILE), service.as_bytes())
+}
+
+/// Moves a portal an older Files installed as `strata` to its current name:
+/// the backend files, every user `portals.conf` that names it, and the install
+/// state that uninstalling restores from. Returns whether anything moved.
+fn migrate_legacy_portal_at(context: &SetupContext) -> Result<bool, String> {
+    let legacy_portal = context
+        .data_home
+        .join("xdg-desktop-portal/portals")
+        .join(LEGACY_PORTAL_FILE);
+    let legacy_service = context
+        .data_home
+        .join("dbus-1/services")
+        .join(LEGACY_SERVICE_FILE);
+    let legacy_state = context.data_home.join(LEGACY_STATE_DIRECTORY);
+    if !legacy_portal.exists()
+        && !legacy_service.exists()
+        && !legacy_state.join(STATE_FILE).exists()
+    {
+        return Ok(false);
+    }
+    // The old activation names the executable it was installed for; keep it.
+    let executable = legacy_service
+        .exists()
+        .then(|| read_utf8(&legacy_service))
+        .transpose()?
+        .and_then(|service| {
+            service.lines().find_map(|line| {
+                line.strip_prefix("Exec=")?
+                    .strip_suffix(" --portal")
+                    .map(str::to_owned)
+            })
+        });
+    if let Some(executable) = executable.as_deref() {
+        write_portal_files(context, executable)?;
+    }
+    if read_state(&context.state_directory())?.is_none()
+        && let Some(mut state) = read_state(&legacy_state)?
+    {
+        state.installed = rename_legacy_backend(&state.installed)?;
+        write_state(&context.state_directory(), &state)?;
+    }
+    remove_state(&legacy_state)?;
+    let directory = context.portal_directory();
+    if let Ok(entries) = fs::read_dir(&directory) {
+        for path in entries.flatten().map(|entry| entry.path()) {
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            if portal_config_name_is_unsafe(name) || !path.is_file() {
+                continue;
+            }
+            let current = read_utf8(&path)?;
+            let renamed = rename_legacy_backend(&current)?;
+            if renamed != current {
+                write_config(&path, renamed.as_bytes(), file_mode(&path))?;
+            }
+        }
+    }
+    remove_if_exists(&legacy_portal)?;
+    remove_if_exists(&legacy_service)?;
+    Ok(true)
+}
+
+/// `contents` with the legacy backend name replaced by the current one.
+fn rename_legacy_backend(contents: &str) -> Result<String, String> {
+    if contents.is_empty() {
+        return Ok(String::new());
+    }
+    let config = KeyFile::new();
+    config
+        .load_from_data(contents, KeyFileFlags::KEEP_COMMENTS)
+        .map_err(|error| {
+            rust_i18n::t!(
+                "Could not parse portal configuration: %{error}",
+                error = error
+            )
+            .into_owned()
+        })?;
+    let mut changed = false;
+    for key in [FILE_CHOOSER_KEY, "default"] {
+        let Ok(value) = config.value("preferred", key) else {
+            continue;
+        };
+        let values = backend_values(&value);
+        if !values.iter().any(|value| value == LEGACY_PORTAL_NAME) {
+            continue;
+        }
+        let mut renamed: Vec<String> = Vec::new();
+        for value in values {
+            let value = if value == LEGACY_PORTAL_NAME {
+                PORTAL_NAME.to_owned()
+            } else {
+                value
+            };
+            if !renamed.contains(&value) {
+                renamed.push(value);
+            }
+        }
+        config.set_value("preferred", key, &format!("{};", renamed.join(";")));
+        changed = true;
+    }
+    Ok(if changed {
+        config.to_data().to_string()
+    } else {
+        contents.to_owned()
+    })
 }
 
 fn secure_executable(path: &Path) -> Result<PathBuf, String> {
@@ -951,20 +1094,20 @@ fn update_config(contents: &str, enable: bool) -> Result<String, String> {
     let mut fallback = config
         .value("preferred", "default")
         .map_or_else(|_| vec!["*".to_owned()], |value| backend_values(&value));
-    fallback.retain(|value| value != "strata");
+    fallback.retain(|value| value != PORTAL_NAME && value != LEGACY_PORTAL_NAME);
     if fallback.is_empty() {
         fallback.push("*".to_owned());
     }
     let mut values = chooser
         .as_deref()
         .map_or_else(|| fallback.clone(), backend_values);
-    values.retain(|value| value != "strata");
+    values.retain(|value| value != PORTAL_NAME && value != LEGACY_PORTAL_NAME);
 
     if enable {
         if values.is_empty() {
             values = fallback;
         }
-        values.insert(0, "strata".to_owned());
+        values.insert(0, PORTAL_NAME.to_owned());
         config.set_value(
             "preferred",
             FILE_CHOOSER_KEY,

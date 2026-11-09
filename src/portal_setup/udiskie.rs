@@ -22,14 +22,22 @@ use super::{
 #[cfg(test)]
 mod tests;
 
-const STATE_DIRECTORY: &str = "strata/udiskie-install";
+const STATE_DIRECTORY: &str = "nyx-files/udiskie-install";
+const LEGACY_STATE_DIRECTORY: &str = "strata/udiskie-install";
 const STATE_FILE: &str = "state.toml";
 const CONFIG_YML: &str = "config.yml";
 const CONFIG_JSON: &str = "config.json";
 const JSON_BACKUP: &str = "config.json.bak";
 const YAML_BACKUP: &str = "config.yml.bak";
 const MANAGED_HEADER: &str =
+    "# Managed by Files. Unlock encrypted volumes. Do not edit this header.";
+/// The header older Files wrote; such a file is still Files' to manage.
+const LEGACY_MANAGED_HEADER: &str =
     "# Managed by Strata. Unlock encrypted volumes. Do not edit this header.";
+
+fn is_managed(contents: &str) -> bool {
+    contents.starts_with(MANAGED_HEADER) || contents.starts_with(LEGACY_MANAGED_HEADER)
+}
 const RESTART_WARNING: &str =
     "Saved the udiskie configuration. Restart udiskie or log out for it to take effect.";
 const TERMINATION_WAIT: Duration = Duration::from_secs(2);
@@ -399,7 +407,7 @@ fn status_at(
     let has_installation = state_path.exists()
         || contents
             .as_deref()
-            .is_some_and(|text| text.starts_with(MANAGED_HEADER))
+            .is_some_and(is_managed)
         || parsed
             .as_ref()
             .is_some_and(|root| event_hook_is_managed(root, &executable));
@@ -746,8 +754,18 @@ fn config_json(context: &SetupContext) -> PathBuf {
     context.config_home.join("udiskie").join(CONFIG_JSON)
 }
 
+/// Moved from where an older Files kept it, on first use.
 fn state_directory(context: &SetupContext) -> PathBuf {
-    context.data_home.join(STATE_DIRECTORY)
+    let current = context.data_home.join(STATE_DIRECTORY);
+    let legacy = context.data_home.join(LEGACY_STATE_DIRECTORY);
+    if !current.exists()
+        && legacy.is_dir()
+        && let Some(parent) = current.parent()
+        && fs::create_dir_all(parent).is_ok()
+    {
+        let _ = fs::rename(&legacy, &current);
+    }
+    current
 }
 
 fn write_state(directory: &Path, state: &UdiskieInstallState) -> Result<(), String> {

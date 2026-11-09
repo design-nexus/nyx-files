@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 
 pub(super) const MAX_PER_TYPE: usize = 5;
 const STATE_VERSION: u32 = 1;
-const STATE_FILE: &str = "strata/recent-apps.toml";
+const STATE_FILE: &str = "nyx-files/recent-apps.toml";
+const LEGACY_STATE_FILE: &str = "strata/recent-apps.toml";
 
 #[cfg(test)]
 mod tests;
@@ -33,7 +34,17 @@ struct Entry {
 }
 
 pub(super) fn history_path() -> PathBuf {
-    gtk::glib::user_data_dir().join(STATE_FILE)
+    let data = gtk::glib::user_data_dir();
+    let path = data.join(STATE_FILE);
+    let legacy = data.join(LEGACY_STATE_FILE);
+    if !path.exists()
+        && legacy.is_file()
+        && let Some(parent) = path.parent()
+        && std::fs::create_dir_all(parent).is_ok()
+    {
+        let _ = std::fs::rename(&legacy, &path);
+    }
+    path
 }
 
 // History failures must not prevent launching files.

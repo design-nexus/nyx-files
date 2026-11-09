@@ -74,7 +74,7 @@ fn send(job: Job) -> Result<(), mpsc::SendError<Job>> {
     let jobs = JOBS.get_or_init(|| {
         let (jobs, received) = mpsc::channel();
         std::thread::Builder::new()
-            .name("strata-monitors".to_owned())
+            .name("nyx-files-monitors".to_owned())
             .spawn(move || received.into_iter().for_each(run))
             .expect("spawn the monitors worker");
         Mutex::new(jobs)

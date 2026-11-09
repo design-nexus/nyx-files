@@ -249,7 +249,7 @@ fn restore_copies_files_links_and_named_pipes_where_nothing_can_place_them()
 
     let report = restore_path(&source, &destination, fixture.path())?;
 
-    assert!(!scope.used_name(".strata-copy-*"), "nothing is staged");
+    assert!(!scope.used_name(".nyx-files-copy-*"), "nothing is staged");
     assert_eq!(report, TransferReport::default());
     assert_eq!(fs::read(destination.join("contents"))?, b"original");
     assert_eq!(
@@ -500,7 +500,7 @@ fn a_restore_cancelled_once_its_copy_is_complete_finishes() -> Result<(), Box<dy
 fn restore_copies_keep_the_metadata_the_destination_takes() -> Result<(), Box<dyn Error>> {
     let _serial = ASYNC_MAIN_CONTEXT_DEFAULT.lock()?;
     let refusing = || Quirks {
-        extra_xattrs: vec![("security.strata-test", b"label")],
+        extra_xattrs: vec![("security.nyx-files-test", b"label")],
         xattrs_refused: vec![("security.", Errno::PERM)],
         ..Quirks::without_placement()
     };
@@ -523,7 +523,7 @@ fn restore_copies_keep_the_metadata_the_destination_takes() -> Result<(), Box<dy
         let opened = fs::File::open(&source)?;
         rustix::fs::fsetxattr(
             &opened,
-            "user.strata-test",
+            "user.nyx-files-test",
             b"metadata",
             rustix::fs::XattrFlags::empty(),
         )?;
@@ -539,7 +539,7 @@ fn restore_copies_keep_the_metadata_the_destination_takes() -> Result<(), Box<dy
         assert_eq!(restored.mode() & 0o777, mode, "{row}");
         assert_eq!(restored.modified()?, modified, "{row}");
         let mut value = [0u8; 32];
-        let count = rustix::fs::getxattr(&destination, "user.strata-test", &mut value[..])?;
+        let count = rustix::fs::getxattr(&destination, "user.nyx-files-test", &mut value[..])?;
         assert_eq!(&value[..count], b"metadata", "{row}");
         assert!(fs::symlink_metadata(&source).is_err(), "{row}");
     }
@@ -739,7 +739,7 @@ fn restore_directory_copy_preserves_permissions_times_and_xattrs() -> Result<(),
     )?;
     rustix::fs::fsetxattr(
         &source_file,
-        "user.strata-test",
+        "user.nyx-files-test",
         b"metadata",
         rustix::fs::XattrFlags::empty(),
     )?;
@@ -754,7 +754,7 @@ fn restore_directory_copy_preserves_permissions_times_and_xattrs() -> Result<(),
     assert_eq!(fs::metadata(&destination)?.accessed()?, accessed);
     let target = fs::File::open(destination)?;
     let mut value = [0u8; 32];
-    let count = rustix::fs::fgetxattr(&target, "user.strata-test", &mut value[..])?;
+    let count = rustix::fs::fgetxattr(&target, "user.nyx-files-test", &mut value[..])?;
     assert_eq!(&value[..count], b"metadata");
     Ok(())
 }

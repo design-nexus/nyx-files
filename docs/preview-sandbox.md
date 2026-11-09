@@ -217,13 +217,13 @@ Columns, List, and Icons share one lazy process-wide pool, retained across
 navigation, view changes, and windows. **Settings → General → Performance →
 Thumbnail workers** sets its maximum live (default: available parallelism capped
 at four; range 1–16). The saved `thumbnail_workers` preference takes precedence
-over `STRATA_THUMBNAIL_WORKERS`, which seeds the default when no count is saved
+over `NYX_FILES_THUMBNAIL_WORKERS`, which seeds the default when no count is saved
 (invalid values use the CPU-based default). Lowering the limit lets active jobs
 finish and retires excess idle supervisors. This includes browser media-metadata
 probes, not preview playback or Properties inspection.
 
 Idle supervisors stop after **60 seconds without a job**, and the pool can shrink
-to zero while Files stays open. `STRATA_THUMBNAIL_IDLE_SECONDS` overrides this at
+to zero while Files stays open. `NYX_FILES_THUMBNAIL_IDLE_SECONDS` overrides this at
 startup (positive integer seconds, capped at 86,400; zero/invalid values use 60).
 Each completed lease resets that worker's idle clock; busy decoders are never
 interrupted by idle expiry. The existing lifetime launcher waits for the next

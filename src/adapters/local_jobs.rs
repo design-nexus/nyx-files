@@ -39,21 +39,23 @@ const TERMINATION_GRACE: Duration = Duration::from_secs(2);
 const REAP_DEADLINE: Duration = Duration::from_secs(5);
 const LIVE_LOG_BYTES: usize = 8 * 1024;
 
-const ENV_CONTEXT: &str = "STRATA_ACTION_CONTEXT";
-const ENV_PATHS: &str = "STRATA_ACTION_PATHS";
-const ENV_PARENT: &str = "STRATA_ACTION_PARENT";
-const ENV_DIRECTORY: &str = "STRATA_ACTION_DIR";
-const ENV_PROGRESS: &str = "STRATA_ACTION_PROGRESS";
-const ENV_RUN_DIRECTORY: &str = "STRATA_ACTION_RUN_DIR";
-const ENV_VERSION: &str = "STRATA_ACTION_VERSION";
-const ENV_MODE: &str = "STRATA_ACTION_MODE";
-const ENV_SOURCE: &str = "STRATA_ACTION_SOURCE";
-const ENV_COUNT: &str = "STRATA_ACTION_COUNT";
-const ENV_POSITION: &str = "STRATA_ACTION_POSITION";
-const ENV_ACTION_ID: &str = "STRATA_ACTION_ID";
+const ENV_CONTEXT: &str = "NYX_FILES_ACTION_CONTEXT";
+const ENV_PATHS: &str = "NYX_FILES_ACTION_PATHS";
+const ENV_PARENT: &str = "NYX_FILES_ACTION_PARENT";
+const ENV_DIRECTORY: &str = "NYX_FILES_ACTION_DIR";
+const ENV_PROGRESS: &str = "NYX_FILES_ACTION_PROGRESS";
+const ENV_RUN_DIRECTORY: &str = "NYX_FILES_ACTION_RUN_DIR";
+const ENV_VERSION: &str = "NYX_FILES_ACTION_VERSION";
+const ENV_MODE: &str = "NYX_FILES_ACTION_MODE";
+const ENV_SOURCE: &str = "NYX_FILES_ACTION_SOURCE";
+const ENV_COUNT: &str = "NYX_FILES_ACTION_COUNT";
+const ENV_POSITION: &str = "NYX_FILES_ACTION_POSITION";
+const ENV_ACTION_ID: &str = "NYX_FILES_ACTION_ID";
 
-const PYTHON_HELPER: &str = include_str!("../../data/actions/strata_actions.py");
-const PYTHON_HELPER_FILE: &str = "strata_actions.py";
+const PYTHON_HELPER: &str = include_str!("../../data/actions/nyx_files_actions.py");
+const PYTHON_HELPER_FILE: &str = "nyx_files_actions.py";
+const LEGACY_PYTHON_HELPER: &str = include_str!("../../data/actions/strata_actions.py");
+const LEGACY_PYTHON_HELPER_FILE: &str = "strata_actions.py";
 
 pub(crate) struct LocalActionRunner {
     runtime_root: PathBuf,
@@ -77,7 +79,7 @@ fn runtime_root() -> PathBuf {
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
-        .join("strata")
+        .join("nyx-files")
 }
 
 impl ActionRunner for LocalActionRunner {
@@ -101,7 +103,7 @@ impl ActionRunner for LocalActionRunner {
             request.position,
         );
         let spawned = thread::Builder::new()
-            .name("strata-action".to_owned())
+            .name("nyx-files-action".to_owned())
             .spawn(move || {
                 let run_directory = match create_run_directory(&runtime_root) {
                     Ok(directory) => directory,
@@ -371,12 +373,12 @@ fn build_command(
     if let Some((position, _)) = context.position {
         command.env(ENV_POSITION, position.to_string());
     }
-    // The same variables under Files' own prefix; scripts written for the old names keep working.
+    // The same variables under their former prefix, so scripts written for it keep working.
     let renamed: Vec<_> = command
         .get_envs()
         .filter_map(|(key, value)| {
-            let suffix = key.to_str()?.strip_prefix("STRATA_ACTION_")?;
-            Some((format!("NYX_FILES_ACTION_{suffix}"), value?.to_owned()))
+            let suffix = key.to_str()?.strip_prefix("NYX_FILES_ACTION_")?;
+            Some((format!("STRATA_ACTION_{suffix}"), value?.to_owned()))
         })
         .collect();
     command.envs(renamed);
@@ -426,6 +428,10 @@ fn write_invocation_files(
         write_private(
             &directory.join(PYTHON_HELPER_FILE),
             PYTHON_HELPER.as_bytes(),
+        )?;
+        write_private(
+            &directory.join(LEGACY_PYTHON_HELPER_FILE),
+            LEGACY_PYTHON_HELPER.as_bytes(),
         )?;
     }
     write_private(

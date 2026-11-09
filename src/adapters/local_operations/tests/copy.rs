@@ -487,7 +487,7 @@ fn cancelling_a_new_file_copy_removes_the_incomplete_stage() -> Result<(), Box<d
 fn a_stage_name_left_by_a_lost_reply_is_adopted_and_a_taken_one_is_not()
 -> Result<(), Box<dyn Error>> {
     let _serial = serial()?;
-    let is_stage = |name: &str| name.starts_with(".strata-copy-");
+    let is_stage = |name: &str| name.starts_with(".nyx-files-copy-");
     for (op, folder) in [(Op::Create, false), (Op::Mkdir, true)] {
         for taken in [false, true] {
             let row = format!("{op:?}, taken: {taken}");
@@ -515,9 +515,9 @@ fn a_stage_name_left_by_a_lost_reply_is_adopted_and_a_taken_one_is_not()
                 root.path(),
                 Quirks {
                     tmpfile: Support::Rejected(Errno::OPNOTSUPP),
-                    lost_reply: vec![(op, ".strata-copy-*", Errno::EXIST)],
+                    lost_reply: vec![(op, ".nyx-files-copy-*", Errno::EXIST)],
                     before: if taken {
-                        vec![(Op::Stat, ".strata-copy-*", 0, racer)]
+                        vec![(Op::Stat, ".nyx-files-copy-*", 0, racer)]
                     } else {
                         Vec::new()
                     },
@@ -578,7 +578,7 @@ fn a_stage_replaced_during_the_copy_is_kept() -> Result<(), Box<dyn Error>> {
     fs::write(sources.join("source.bin"), vec![1; 64 * 1024])?;
     let stage_folder = destination.clone();
     let racer: Racer = Box::new(move || {
-        let stage = only_entry(&stage_folder, ".strata-copy-");
+        let stage = only_entry(&stage_folder, ".nyx-files-copy-");
         fs::remove_file(&stage).expect("remove the stage");
         fs::write(&stage, b"theirs").expect("take the stage name");
     });
@@ -608,7 +608,7 @@ fn a_stage_replaced_during_the_copy_is_kept() -> Result<(), Box<dyn Error>> {
         "{error}"
     );
     assert_eq!(
-        fs::read(only_entry(&destination, ".strata-copy-"))?,
+        fs::read(only_entry(&destination, ".nyx-files-copy-"))?,
         b"theirs"
     );
     assert_eq!(names(&destination)?.len(), 1);
@@ -878,7 +878,7 @@ fn a_named_pipe_whose_copy_fails_is_not_left_behind() -> Result<(), Box<dyn Erro
             Quirks {
                 fail: vec![(
                     Op::SetTimes,
-                    if selected { ".strata-copy-*" } else { "pipe" },
+                    if selected { ".nyx-files-copy-*" } else { "pipe" },
                     0,
                     Errno::IO,
                 )],
@@ -2570,7 +2570,7 @@ fn a_refused_name_keeps_unnamed_files_on_and_writes_twice_only_after_enoent()
             scope.calls()
         );
         assert_eq!(
-            scope.used_name(".strata-copy-*"),
+            scope.used_name(".nyx-files-copy-*"),
             staged,
             "{case}: {:?}",
             scope.calls()
@@ -2872,13 +2872,13 @@ fn only_entry(folder: &Path, prefix: &str) -> PathBuf {
 }
 
 fn only_stage(root: &Path) -> PathBuf {
-    only_entry(root, ".strata-copy-")
+    only_entry(root, ".nyx-files-copy-")
 }
 
 /// A folder put at a file stage's name gets the stage's inode number back.
 fn reusing_stage_inodes(before: (Op, &'static str, usize, Racer)) -> Quirks {
     Quirks {
-        reused_inodes: Some(".strata-copy-*"),
+        reused_inodes: Some(".nyx-files-copy-*"),
         no_birth_time: true,
         before: vec![before],
         ..Quirks::without_placement()
@@ -2898,7 +2898,7 @@ fn a_stage_left_after_the_exclusive_copy_is_reported() -> Result<(), Box<dyn Err
     // Two stats decide publication; the third is the discard.
     let _scope = FsQuirks::install(
         root.path(),
-        reusing_stage_inodes((Op::Stat, ".strata-copy-*", 2, racer)),
+        reusing_stage_inodes((Op::Stat, ".nyx-files-copy-*", 2, racer)),
     );
     let staged = stage(root.path(), false)?;
     let staged_path = root.path().join(&staged.name);
@@ -2932,7 +2932,7 @@ fn a_stage_swapped_before_publication_is_neither_published_nor_deleted()
     });
     let _scope = FsQuirks::install(
         root.path(),
-        reusing_stage_inodes((Op::Rename, ".strata-copy-*", 0, racer)),
+        reusing_stage_inodes((Op::Rename, ".nyx-files-copy-*", 0, racer)),
     );
     let staged = stage(root.path(), false)?;
     let staged_path = root.path().join(&staged.name);
@@ -3042,7 +3042,7 @@ fn read_only_items_keep_their_xattrs() -> Result<(), Box<dyn Error>> {
         }
         rustix::fs::setxattr(
             &source,
-            "user.strata-test",
+            "user.nyx-files-test",
             b"metadata",
             rustix::fs::XattrFlags::empty(),
         )?;
@@ -3056,7 +3056,7 @@ fn read_only_items_keep_their_xattrs() -> Result<(), Box<dyn Error>> {
 
         let copied_mode = fs::metadata(&target).map(|metadata| metadata.mode() & 0o7777);
         let mut value = [0u8; 32];
-        let xattr = rustix::fs::getxattr(&target, "user.strata-test", &mut value[..]);
+        let xattr = rustix::fs::getxattr(&target, "user.nyx-files-test", &mut value[..]);
         for path in [&source, &target] {
             if path.is_dir() {
                 fs::set_permissions(path, fs::Permissions::from_mode(0o755))?;

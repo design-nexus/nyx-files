@@ -77,7 +77,7 @@ exiftool() {
         if entry
             .file_name()
             .to_string_lossy()
-            .starts_with("strata-original-")
+            .starts_with("nyx-files-original-")
         {
             assert_eq!(
                 entry.metadata().expect("directory").permissions().mode() & 0o077,
@@ -151,6 +151,6 @@ fn shell_recipes_report_missing_tools_before_modifying_files() {
                 .expect("entry")
                 .file_name()
                 .to_string_lossy()
-                .starts_with("strata-original-"))
+                .starts_with("nyx-files-original-"))
     );
 }

@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from strata_actions import context, require_tool
+from nyx_files_actions import context, require_tool
 
 ctx = context()
 ffmpeg = require_tool("ffmpeg")
@@ -12,7 +12,7 @@ for index, path in enumerate(ctx.paths, start=1):
     source = Path(path)
     if not source.is_file():
         raise ValueError(f"Not a file: {source}")
-    folder = Path(tempfile.mkdtemp(prefix="strata-mp4-", dir=source.parent))
+    folder = Path(tempfile.mkdtemp(prefix="nyx-files-mp4-", dir=source.parent))
     output = folder / "converted.mp4"
     # H.264 with yuv420p requires even dimensions.
     subprocess.run(

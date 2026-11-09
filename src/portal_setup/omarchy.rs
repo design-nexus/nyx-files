@@ -5,6 +5,32 @@ use super::*;
 #[cfg(test)]
 mod tests;
 
+/// The comments around Files' shortcut block; older Files wrote the legacy one.
+const MARKER: &str = "nyx-files: file-manager";
+const LEGACY_MARKER: &str = "strata-installer: file-manager";
+/// What the shortcut commands may end in: today's executable or an older one.
+const EXECUTABLE_NAMES: [&str; 2] = ["nyx-files", "strata"];
+
+/// The start and end comments of the block in `contents`, new or legacy.
+fn block_markers(contents: &str, major: u8) -> (String, String) {
+    let prefix = if major == 4 { "--" } else { "#" };
+    let marker = if contents.contains(&format!("{prefix} {LEGACY_MARKER} start")) {
+        LEGACY_MARKER
+    } else {
+        MARKER
+    };
+    (
+        format!("{prefix} {marker} start"),
+        format!("{prefix} {marker} end"),
+    )
+}
+
+fn ends_with_files(line: &str, tail: &str) -> bool {
+    EXECUTABLE_NAMES
+        .iter()
+        .any(|name| line.ends_with(&format!("{name}{tail}")))
+}
+
 fn bindings_path(context: &SetupContext) -> Option<(u8, PathBuf)> {
     let major = detected_major()?;
     let path = context.config_home.join("hypr").join(if major == 4 {
@@ -22,7 +48,10 @@ pub(super) fn has_installation(context: &SetupContext) -> Result<bool, String> {
     if !path.exists() {
         return Ok(false);
     }
-    Ok(read_utf8(&path)?.contains("strata-installer: file-manager start"))
+    let contents = read_utf8(&path)?;
+    Ok([MARKER, LEGACY_MARKER]
+        .iter()
+        .any(|marker| contents.contains(&format!("{marker} start"))))
 }
 
 pub(super) fn shortcuts_configured(context: &SetupContext) -> Result<Option<bool>, String> {
@@ -72,9 +101,9 @@ fn installed_bindings(original: &str, major: u8, executable: &Path) -> Result<St
             "The Files executable path contains characters unsupported by keyboard shortcuts.",
         ));
     }
+    let (start, end) = block_markers(original, major);
     let prefix = if major == 4 { "--" } else { "#" };
-    let start = format!("{prefix} strata-installer: file-manager start");
-    let end = format!("{prefix} strata-installer: file-manager end");
+    let (new_start, new_end) = (format!("{prefix} {MARKER} start"), format!("{prefix} {MARKER} end"));
     let commands = if major == 4 {
         format!(
             "hl.unbind(\"SUPER + SHIFT + F\")\nhl.unbind(\"SUPER + ALT + SHIFT + F\")\no.bind(\"SUPER + SHIFT + F\", \"File manager\", {{ launch = \"{executable}\" }})\no.bind(\"SUPER + ALT + SHIFT + F\", \"File manager (cwd)\",\n  \"uwsm-app -- {executable} \\\"$(omarchy-cmd-terminal-cwd)\\\"\")"
@@ -84,7 +113,7 @@ fn installed_bindings(original: &str, major: u8, executable: &Path) -> Result<St
             "unbind = SUPER SHIFT, F\nunbind = SUPER ALT SHIFT, F\nbindd = SUPER SHIFT, F, File manager, exec, uwsm-app -- {executable}\nbindd = SUPER ALT SHIFT, F, File manager (cwd), exec, uwsm-app -- {executable} \"$(omarchy-cmd-terminal-cwd)\""
         )
     };
-    let block = format!("{start}\n{commands}\n{end}");
+    let block = format!("{new_start}\n{commands}\n{new_end}");
     if restored_bindings(original, major)?.is_some() {
         let from = original
             .find(&start)
@@ -153,9 +182,7 @@ fn major_version(text: &str) -> Option<u8> {
 }
 
 fn restored_bindings(original: &str, major: u8) -> Result<Option<String>, String> {
-    let prefix = if major == 4 { "--" } else { "#" };
-    let start = format!("{prefix} strata-installer: file-manager start");
-    let end = format!("{prefix} strata-installer: file-manager end");
+    let (start, end) = block_markers(original, major);
     if !original.contains(&start) && !original.contains(&end) {
         return Ok(None);
     }
@@ -184,19 +211,19 @@ fn restored_bindings(original: &str, major: u8) -> Result<Option<String>, String
             && lines[0] == "hl.unbind(\"SUPER + SHIFT + F\")"
             && lines[1] == "hl.unbind(\"SUPER + ALT + SHIFT + F\")"
             && lines[2].starts_with("o.bind(\"SUPER + SHIFT + F\", \"File manager\", { launch = \"")
-            && lines[2].ends_with("strata\" })")
+            && ends_with_files(lines[2], "\" })")
             && lines[3] == "o.bind(\"SUPER + ALT + SHIFT + F\", \"File manager (cwd)\","
             && lines[4].starts_with("\"uwsm-app -- ")
-            && lines[4].ends_with("strata \\\"$(omarchy-cmd-terminal-cwd)\\\"\")")
+            && ends_with_files(lines[4], " \\\"$(omarchy-cmd-terminal-cwd)\\\"\")")
     } else {
         lines.len() == 4
             && lines[0] == "unbind = SUPER SHIFT, F"
             && lines[1] == "unbind = SUPER ALT SHIFT, F"
             && lines[2].starts_with("bindd = SUPER SHIFT, F, File manager, exec, uwsm-app -- ")
-            && lines[2].ends_with("strata")
+            && ends_with_files(lines[2], "")
             && lines[3]
                 .starts_with("bindd = SUPER ALT SHIFT, F, File manager (cwd), exec, uwsm-app -- ")
-            && lines[3].ends_with("strata \"$(omarchy-cmd-terminal-cwd)\"")
+            && ends_with_files(lines[3], " \"$(omarchy-cmd-terminal-cwd)\"")
     };
     if !recognized {
         return Err(crate::i18n::tr(
@@ -222,7 +249,7 @@ fn replace_bindings(
     validate: impl Fn() -> Result<(), String>,
 ) -> Result<(), String> {
     let mut backup = tempfile::Builder::new()
-        .prefix("strata-keybind-backup-")
+        .prefix("nyx-files-keybind-backup-")
         .tempfile_in(path.parent().ok_or("Invalid keyboard configuration path")?)
         .map_err(|error| path_error("back up", path, error))?;
     backup

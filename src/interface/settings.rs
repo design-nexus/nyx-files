@@ -738,7 +738,7 @@ fn section_swatches(section: &'static str, title: &str) -> gtk::Box {
                 "{title}: {tip}"
             ))]);
             let provider = gtk::CssProvider::new();
-            #[allow(deprecated)]
+            #[expect(deprecated, reason = "a per-widget colour has no non-deprecated provider")]
             button
                 .style_context()
                 .add_provider(&provider, gtk::STYLE_PROVIDER_PRIORITY_USER);

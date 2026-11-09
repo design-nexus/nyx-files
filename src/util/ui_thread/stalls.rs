@@ -50,7 +50,7 @@ pub(super) fn watch(
     mut report: impl FnMut(String) + Send + 'static,
 ) -> std::io::Result<()> {
     std::thread::Builder::new()
-        .name("strata-ui-stalls".to_owned())
+        .name("nyx-files-ui-stalls".to_owned())
         .spawn(move || {
             while !stopped.load(Ordering::Relaxed) {
                 let posted = Instant::now();

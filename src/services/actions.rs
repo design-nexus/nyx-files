@@ -524,7 +524,7 @@ fn outside<T: Send + 'static>(
 ) -> impl Future<Output = Option<T>> {
     let (answer, answered) = oneshot::channel();
     let started = std::thread::Builder::new()
-        .name("strata-actions".to_owned())
+        .name("nyx-files-actions".to_owned())
         .spawn(move || {
             let _ = answer.send(job());
         })

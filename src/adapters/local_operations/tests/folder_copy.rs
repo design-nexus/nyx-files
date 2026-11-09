@@ -101,7 +101,7 @@ fn copying_a_folder_keeps_folder_permissions_and_times() -> Result<(), Box<dyn E
         let folder = source.join(relative);
         rustix::fs::setxattr(
             &folder,
-            "user.strata-test",
+            "user.nyx-files-test",
             relative.as_bytes(),
             rustix::fs::XattrFlags::empty(),
         )?;
@@ -132,7 +132,7 @@ fn copying_a_folder_keeps_folder_permissions_and_times() -> Result<(), Box<dyn E
         assert_eq!(metadata.mtime(), seconds, "{relative:?}");
         assert_eq!(metadata.atime(), seconds - 1_000, "{relative:?}");
         let mut value = [0u8; 32];
-        let length = rustix::fs::getxattr(&folder, "user.strata-test", &mut value[..])?;
+        let length = rustix::fs::getxattr(&folder, "user.nyx-files-test", &mut value[..])?;
         assert_eq!(&value[..length], relative.as_bytes(), "{relative:?}");
     }
     assert_eq!(fs::read(target.join("private/file.txt"))?, b"contents");
@@ -556,7 +556,7 @@ fn assert_only_complete(
 ) -> Result<(), Box<dyn Error>> {
     for name in names(&live.join(relative))? {
         assert!(
-            !name.starts_with(".strata-"),
+            !name.starts_with(".nyx-files-"),
             "{row}: {name} left in {relative:?}"
         );
         let path = relative.join(&name);
@@ -677,7 +677,7 @@ fn a_folder_is_copied_in_place_where_nothing_can_place_it() -> Result<(), Box<dy
         fs::read(destination.join("target/nested/file.txt"))?,
         b"contents"
     );
-    assert!(!scope.used_name(".strata-*"), "{:?}", scope.calls());
+    assert!(!scope.used_name(".nyx-files-*"), "{:?}", scope.calls());
     Ok(())
 }
 
@@ -874,7 +874,7 @@ fn a_stage_with_read_only_folders_is_removed_when_it_cannot_be_published()
         let _scope = FsQuirks::install(
             &destination,
             Quirks {
-                before: vec![(Op::Rename, ".strata-copy-*", 0, racer)],
+                before: vec![(Op::Rename, ".nyx-files-copy-*", 0, racer)],
                 ..preset()
             },
         );
@@ -1045,7 +1045,7 @@ fn probing_for_hard_links_leaves_nothing_in_the_copy() -> Result<(), Box<dyn Err
     let _serial = ASYNC_MAIN_CONTEXT_DEFAULT.lock()?;
     // The probe's link is made, but its reply is lost, so it tries another name.
     let mounts = mounts(Quirks {
-        lost_reply: vec![(Op::Link, ".strata-probe-*", Errno::EXIST)],
+        lost_reply: vec![(Op::Link, ".nyx-files-probe-*", Errno::EXIST)],
         ..Quirks::nfs3()
     })?;
     let source = mounts.sources.join("source");

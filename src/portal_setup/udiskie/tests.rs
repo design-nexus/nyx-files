@@ -754,7 +754,7 @@ fn context(root: &Path) -> SetupContext {
 }
 
 fn executable(root: &Path) -> PathBuf {
-    let path = root.join("bin/strata");
+    let path = root.join("bin/nyx-files");
     fs::create_dir_all(path.parent().expect("executable parent")).expect("executable directory");
     fs::write(&path, b"binary").expect("executable file");
     fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).expect("executable permissions");
@@ -763,7 +763,7 @@ fn executable(root: &Path) -> PathBuf {
 
 fn fixture() -> tempfile::TempDir {
     tempfile::Builder::new()
-        .prefix("strata-udiskie-")
+        .prefix("nyx-files-udiskie-")
         .tempdir_in("target")
         .expect("fixture directory")
 }
@@ -820,4 +820,12 @@ fn write_process(root: &Path, pid: u32, euid: u32, comm: &str, cmdline: &[&str])
         format!("Name:\t{comm}\nUid:\t{euid}\t{euid}\t{euid}\t{euid}\n"),
     )
     .expect("status");
+}
+
+#[test]
+fn a_configuration_written_under_the_old_header_is_still_managed() {
+    for header in [super::MANAGED_HEADER, super::LEGACY_MANAGED_HEADER] {
+        assert!(super::is_managed(&format!("{header}\nprogram_options: {{}}\n")));
+    }
+    assert!(!super::is_managed("program_options: {}\n"));
 }

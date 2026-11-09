@@ -218,7 +218,7 @@ const UNSUPPORTED_REASON: &str =
     "This location can\u{2019}t guarantee that another item won\u{2019}t be overwritten";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, glib::ErrorDomain)]
-#[error_domain(name = "strata-unheld")]
+#[error_domain(name = "nyx-files-unheld")]
 enum Unheld {
     Symlink,
 }

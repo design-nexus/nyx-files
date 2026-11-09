@@ -610,7 +610,7 @@ pub(crate) fn stage_secret_anon(secret: &[u8]) -> Result<rustix::fd::OwnedFd, St
     use rustix::fs::{MemfdFlags, Mode, fchmod, memfd_create};
     use std::io::{Seek, Write};
 
-    let fd = memfd_create(c"strata-preview-password", MemfdFlags::CLOEXEC)
+    let fd = memfd_create(c"nyx-files-preview-password", MemfdFlags::CLOEXEC)
         .map_err(|error| format!("Unable to stage the preview secret: {error}"))?;
     fchmod(&fd, Mode::from_bits_truncate(0o600))
         .map_err(|error| format!("Unable to stage the preview secret: {error}"))?;
@@ -631,7 +631,7 @@ fn resolve_renderer_executable(
         return Ok(current.to_path_buf());
     }
 
-    let snapshot = private_output.join("strata-preview-helper");
+    let snapshot = private_output.join("nyx-files-preview-helper");
     fs::copy(running, &snapshot)
         .map_err(|error| format!("Unable to preserve the running Files executable: {error}"))?;
     Ok(snapshot)
@@ -960,7 +960,7 @@ fn sandbox_command(
 ) -> Command {
     let mut command = runtime_command(bwrap, operation.needs_media_libraries());
     let sandbox_input = sandbox_input_path(input);
-    command.arg("--ro-bind").arg(executable).arg("/app/strata");
+    command.arg("--ro-bind").arg(executable).arg("/app/nyx-files");
     command.arg("--ro-bind").arg(input).arg(&sandbox_input);
     if !operation.is_media() {
         command.arg("--bind").arg(output).arg("/output");
@@ -993,7 +993,7 @@ fn sandbox_command(
             .arg("--");
     }
     command.args([
-        "/app/strata",
+        "/app/nyx-files",
         "--preview-helper",
         operation.argument(),
         &sandbox_input,

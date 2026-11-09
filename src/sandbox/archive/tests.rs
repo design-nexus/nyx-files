@@ -160,7 +160,7 @@ fn rar_extraction_command_binds_the_archive_read_only_with_no_output_directory()
         .join(" ");
     assert!(joined.contains("--unshare-all"));
     assert!(joined.contains("--ro-bind /home/alice/Downloads/untrusted.rar /input.rar"));
-    assert!(joined.contains("--ro-bind /tmp/strata /app/strata"));
+    assert!(joined.contains("--ro-bind /tmp/strata /app/nyx-files"));
     let prlimit = super::runtime::current().prlimit.as_str();
     let arguments: Vec<_> = command.get_args().collect();
     assert!(arguments.windows(2).any(|args| args == ["--", prlimit]));

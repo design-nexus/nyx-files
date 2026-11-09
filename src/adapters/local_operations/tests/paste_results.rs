@@ -304,7 +304,7 @@ fn a_move_that_cannot_remove_the_original_it_replaced_keeps_it_and_its_undo()
                 after: match original {
                     Original::ClosesDuringTheWait => vec![(
                         Op::Unlink,
-                        ".strata-originals-*",
+                        ".nyx-files-originals-*",
                         0,
                         Box::new(move || releasing.lock().expect("the holds").clear()) as Racer,
                     )],
@@ -386,7 +386,7 @@ fn a_move_that_cannot_remove_the_original_it_replaced_keeps_it_and_its_undo()
         };
         let kept_original = destination.join(originals).join("replace.txt");
         assert_eq!(location, &Location::local(&kept_original), "{row}");
-        assert!(!error.contains(".strata-"), "{row}: {error}");
+        assert!(!error.contains(".nyx-files-"), "{row}: {error}");
         match original {
             Original::Undeletable => {
                 assert_eq!(fs::read(&kept_original)?, b"only copy", "{row}");

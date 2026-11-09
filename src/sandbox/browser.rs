@@ -34,7 +34,7 @@ const DEFAULT_WORKER_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 pub(crate) fn default_worker_limit() -> usize {
     let default = std::thread::available_parallelism().map_or(2, |n| n.get().min(4));
     configured_limit(
-        std::env::var("STRATA_THUMBNAIL_WORKERS").ok().as_deref(),
+        std::env::var("NYX_FILES_THUMBNAIL_WORKERS").ok().as_deref(),
         default,
     )
 }
@@ -421,7 +421,7 @@ fn pool() -> &'static Pool {
         changed: Condvar::new(),
         limit: AtomicUsize::new(default_worker_limit()),
         idle_timeout: configured_idle_timeout(
-            std::env::var("STRATA_THUMBNAIL_IDLE_SECONDS")
+            std::env::var("NYX_FILES_THUMBNAIL_IDLE_SECONDS")
                 .ok()
                 .as_deref(),
         ),
@@ -438,7 +438,7 @@ fn preview_pool() -> &'static Pool {
         changed: Condvar::new(),
         limit: AtomicUsize::new(default_worker_limit()),
         idle_timeout: configured_idle_timeout(
-            std::env::var("STRATA_THUMBNAIL_IDLE_SECONDS")
+            std::env::var("NYX_FILES_THUMBNAIL_IDLE_SECONDS")
                 .ok()
                 .as_deref(),
         ),
@@ -810,7 +810,7 @@ impl ProcessWorker {
         command
             .args(["--ro-bind"])
             .arg(executable)
-            .arg("/app/strata")
+            .arg("/app/nyx-files")
             .args([
                 "--setenv",
                 "MALLOC_ARENA_MAX",
@@ -828,7 +828,7 @@ impl ProcessWorker {
                 "GLYCIN_DISABLE_SANDBOX",
                 "i-know-the-risks",
                 "--",
-                "/app/strata",
+                "/app/nyx-files",
                 "--browser-worker",
             ])
             .stdin(Stdio::from(std::os::fd::OwnedFd::from(child_socket)))

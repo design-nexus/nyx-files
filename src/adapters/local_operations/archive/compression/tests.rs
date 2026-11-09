@@ -506,7 +506,7 @@ fn an_archive_replaced_without_trash_deletes_its_original() -> Result<(), Box<dy
         assert_eq!(fs::read(&archive)?, b"replacement");
         assert_eq!(fs::metadata(&archive)?.permissions().mode() & 0o777, 0o640);
         assert_eq!(names(root.path())?, ["existing.zip"]);
-        assert!(quirks.used_name(".strata-originals-*"));
+        assert!(quirks.used_name(".nyx-files-originals-*"));
         assert_eq!(
             quirks.count(Op::Exchange),
             usize::from(!sets_aside),
@@ -542,7 +542,7 @@ fn an_unplug_after_an_exchange_leaves_no_original_at_a_stage() -> Result<(), Box
     let [originals, published] = names.as_slice() else {
         return Err(format!("the original and the archive: {names:?}").into());
     };
-    assert!(originals.starts_with(".strata-originals-"), "{names:?}");
+    assert!(originals.starts_with(".nyx-files-originals-"), "{names:?}");
     assert_eq!(published, "existing.zip");
     assert_eq!(
         fs::read(root.path().join(originals).join("existing.zip"))?,
@@ -800,7 +800,7 @@ fn a_name_taken_during_replacement_keeps_the_original_aside() -> Result<(), Box<
         let names = names(root.path())?;
         let [kept] = names
             .iter()
-            .filter(|name| name.starts_with(".strata-originals-"))
+            .filter(|name| name.starts_with(".nyx-files-originals-"))
             .collect::<Vec<_>>()[..]
         else {
             return Err(format!("expected one kept original, found {names:?}").into());
@@ -839,7 +839,7 @@ fn keep_both_numbering_works_with_network_collision_errnos() -> Result<(), Box<d
         } else {
             // SMB with POSIX extensions: the first stage name is held by a folder.
             Quirks {
-                fail: vec![(Op::Create, ".strata-copy-*", 0, Errno::ISDIR)],
+                fail: vec![(Op::Create, ".nyx-files-copy-*", 0, Errno::ISDIR)],
                 ..Quirks::default()
             }
         };
@@ -1184,7 +1184,7 @@ fn staged_archives_are_not_published_after_cancellation_or_close_failure()
                 let folder = root.path().to_path_buf();
                 quirks.after.push((
                     Op::Close,
-                    ".strata-copy-*",
+                    ".nyx-files-copy-*",
                     0,
                     Box::new(move || {
                         if evicted {
@@ -1200,7 +1200,7 @@ fn staged_archives_are_not_published_after_cancellation_or_close_failure()
             } else if boundary == "close error" {
                 quirks
                     .fail
-                    .push((Op::Close, ".strata-copy-*", 0, Errno::IO));
+                    .push((Op::Close, ".nyx-files-copy-*", 0, Errno::IO));
             }
             let _scope = FsQuirks::install(root.path(), quirks);
             let on_write = cancelled.clone();

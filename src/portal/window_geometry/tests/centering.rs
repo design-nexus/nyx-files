@@ -33,7 +33,7 @@ fn lua_centering_rule_is_named_and_matches_only_chooser_windows() {
     assert_eq!(
         received,
         vec![
-            "/eval hl.window_rule({name='strata-file-chooser-center',match={class='^io[.]github[.]lgse[.]Strata[.]FileChooser$'},center=true})"
+            "/eval hl.window_rule({name='nyx-files-chooser-center',match={class='^io[.]github[.]design_nexus[.]nyx[.]Files[.]FileChooser$'},center=true})"
         ]
     );
     let (installed_again, repeated) =
@@ -57,11 +57,11 @@ fn legacy_centering_probes_support_then_batches_the_filter_and_effect() {
         assert_eq!(received, centering_commands());
         assert_eq!(
             received[1],
-            "/keyword windowrule[strata-file-chooser-center]:match:class ^io[.]github[.]lgse[.]Strata[.]FileChooser$"
+            "/keyword windowrule[nyx-files-chooser-center]:match:class ^io[.]github[.]design_nexus[.]nyx[.]Files[.]FileChooser$"
         );
         assert_eq!(
             received[2],
-            "[[BATCH]] keyword windowrule[strata-file-chooser-center]:match:class ^io[.]github[.]lgse[.]Strata[.]FileChooser$;keyword windowrule[strata-file-chooser-center]:center on"
+            "[[BATCH]] keyword windowrule[nyx-files-chooser-center]:match:class ^io[.]github[.]design_nexus[.]nyx[.]Files[.]FileChooser$;keyword windowrule[nyx-files-chooser-center]:center on"
         );
     }
 }

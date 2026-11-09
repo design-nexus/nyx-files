@@ -10,7 +10,7 @@ fn a_bundled_file_reads_back_by_path_listing_and_uri() {
         ("/", "top.xml", b"<top/>".as_slice()),
         (
             "/io/github/design_nexus/nyx/Files/generated/source-styles/",
-            "strata-current.xml",
+            "files-current.xml",
             b"<scheme/>",
         ),
         ("/a/", "caf\u{e9}.xml", b""),

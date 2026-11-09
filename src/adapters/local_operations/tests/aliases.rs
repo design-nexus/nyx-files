@@ -226,7 +226,7 @@ fn two_names_are_never_taken_for_one_where_the_listing_changes_their_case()
             let stage = names(&live)
                 .expect("destination")
                 .into_iter()
-                .find(|name| name.starts_with(".strata-copy-"))
+                .find(|name| name.starts_with(".nyx-files-copy-"))
                 .expect("stage");
             let lowered = live.join(stage).join("makefile");
             fs::rename(lowered.with_file_name("Makefile"), &lowered).expect("lower the name");

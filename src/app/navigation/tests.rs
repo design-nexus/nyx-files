@@ -3050,7 +3050,7 @@ fn keyed_sort_and_batch_merge_match_monitor_order() {
         "file2.txt",
         "café.png",
         "über.rs",
-        "unknown.strata-unknown-extension",
+        "unknown.nyx-files-unknown-extension",
         "same.txt",
         "same.txt",
     ]

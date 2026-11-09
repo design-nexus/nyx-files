@@ -4,7 +4,7 @@ from pathlib import Path
 import hashlib
 import os
 
-from strata_actions import context
+from nyx_files_actions import context
 
 ctx = context()
 for index, path in enumerate(ctx.paths, start=1):

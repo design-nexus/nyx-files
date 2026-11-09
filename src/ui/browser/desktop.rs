@@ -243,7 +243,7 @@ fn program_command(
             std::ffi::OsStr::new(
                 "cd -- \"$2\" && \"$1\"; status=$?; printf '\\n'; printf \"$3\" \"$status\"; IFS= read -r answer; exit \"$status\"",
             ),
-            std::ffi::OsStr::new("strata-run"),
+            std::ffi::OsStr::new("nyx-files-run"),
             path.as_os_str(),
             path.parent().unwrap_or_else(|| Path::new(".")).as_os_str(),
             std::ffi::OsStr::new(&exit_prompt_format()),

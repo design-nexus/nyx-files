@@ -123,7 +123,7 @@ fn a_file_being_copied_is_invisible_until_complete() -> Result<(), Box<dyn Error
             assert!(seen.is_empty(), "{case}: {seen:?}");
         } else {
             assert!(
-                matches!(seen.as_slice(), [stage] if stage.starts_with(".strata-copy-")),
+                matches!(seen.as_slice(), [stage] if stage.starts_with(".nyx-files-copy-")),
                 "{case}: {seen:?}"
             );
         }
@@ -145,13 +145,13 @@ fn a_stage_only_a_held_descriptor_tells_apart_is_held_until_it_is_published()
             let stage = names(&folder)
                 .expect("list the destination")
                 .into_iter()
-                .find(|name| name.starts_with(".strata-copy-"))
+                .find(|name| name.starts_with(".nyx-files-copy-"))
                 .expect("a stage");
             *outcome.lock().expect("outcome") = Some(evict(&folder.join(stage)));
         });
         Quirks {
             tmpfile: Support::Rejected(Errno::OPNOTSUPP),
-            before: vec![(Op::Rename, ".strata-copy-*", 0, evicting)],
+            before: vec![(Op::Rename, ".nyx-files-copy-*", 0, evicting)],
             ..Quirks::sshfs()
         }
     })?;
@@ -212,7 +212,7 @@ fn a_tmpfile_that_cannot_be_linked_is_published_without_rereading_the_source()
         copy(&source, &mounts.target())?;
 
         let scope = &mounts.destination_scope;
-        assert_eq!(scope.used_name(".strata-copy-*"), staged, "{case}");
+        assert_eq!(scope.used_name(".nyx-files-copy-*"), staged, "{case}");
         assert_eq!(names(&mounts.destination)?, ["target.bin"], "{case}");
         assert_eq!(fs::read(mounts.target())?, b"contents", "{case}");
     }
@@ -276,7 +276,7 @@ fn a_file_put_at_the_published_name_right_after_publishing_stays_there()
         let racer: Racer =
             Box::new(move || fs::rename(&saved, &over).expect("rename over the name"));
         Quirks {
-            after: vec![(Op::Unlink, ".strata-copy-*", 0, racer)],
+            after: vec![(Op::Unlink, ".nyx-files-copy-*", 0, racer)],
             ..Quirks::nfs3()
         }
     })?;
@@ -316,7 +316,7 @@ fn a_folder_removed_before_the_link_leaves_tmpfiles_in_use() -> Result<(), Box<d
     copy(&source, &root.path().join("target.txt"))?;
 
     assert_eq!(scope.count(Op::OpenTmpfile), 1, "{:?}", scope.calls());
-    assert!(!scope.used_name(".strata-copy-*"));
+    assert!(!scope.used_name(".nyx-files-copy-*"));
     assert_eq!(fs::read(root.path().join("target.txt"))?, b"contents");
     Ok(())
 }
@@ -385,7 +385,7 @@ fn what_a_mount_learns_of_its_copy_support_stays_with_that_mount() -> Result<(),
         assert_eq!(bystander_scope.count(Op::OpenTmpfile), 1, "{case}");
         assert_eq!(bystander_scope.count(Op::LinkFd), 1, "{case}");
         assert!(bystander_scope.count(Op::CopyRange) > 0, "{case}");
-        assert!(!bystander_scope.used_name(".strata-copy-*"), "{case}");
+        assert!(!bystander_scope.used_name(".nyx-files-copy-*"), "{case}");
         assert_eq!(fs::read(learning.path().join("second.bin"))?, b"contents");
         assert_eq!(fs::read(bystanding.path().join("target.bin"))?, b"contents");
     }
@@ -479,7 +479,7 @@ fn a_write_error_reported_at_close_fails_the_copy() -> Result<(), Box<dyn Error>
     let _serial = ASYNC_MAIN_CONTEXT_DEFAULT.lock()?;
     // An unnamed file is closed once linked, under its inode's name.
     for (case, closed, preset) in [
-        ("named stage", ".strata-copy-*", Quirks::nfs3 as Preset),
+        ("named stage", ".nyx-files-copy-*", Quirks::nfs3 as Preset),
         ("unnamed file", "#*", Quirks::default),
     ] {
         let mounts = mounts(Quirks::default(), |_| Quirks {
@@ -1036,7 +1036,7 @@ fn xattrs_are_kept_when_an_acl_takes_the_owners_write_access() -> Result<(), Box
     fs::write(&source, b"contents")?;
     setxattr(
         &source,
-        "user.strata-test",
+        "user.nyx-files-test",
         b"metadata",
         XattrFlags::empty(),
     )?;
@@ -1076,7 +1076,7 @@ fn xattrs_are_kept_when_an_acl_takes_the_owners_write_access() -> Result<(), Box
     copy(&source, &target)?;
 
     let mut value = [0u8; 64];
-    let length = getxattr(&target, "user.strata-test", &mut value[..])?;
+    let length = getxattr(&target, "user.nyx-files-test", &mut value[..])?;
     assert_eq!(&value[..length], b"metadata");
     let length = getxattr(&target, "system.posix_acl_access", &mut value[..])?;
     assert_eq!(&value[..length], acl);

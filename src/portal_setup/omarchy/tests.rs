@@ -61,7 +61,7 @@ fn restore_replaces_both_installer_shortcuts_and_keeps_unrelated_configuration()
 #[test]
 fn complete_setup_installs_repairs_and_reinstalls_shortcuts() {
     for major in [3, 4] {
-        let executable = Path::new("/home/test/strata/target/debug/strata");
+        let executable = Path::new("/home/test/nyx-files/target/debug/nyx-files");
         for original in [
             String::new(),
             "unrelated-setting\n".into(),
@@ -73,6 +73,7 @@ fn complete_setup_installs_repairs_and_reinstalls_shortcuts() {
             let configured =
                 installed_bindings(&original, major, executable).expect("complete setup");
             assert!(shortcuts_configured_in(&configured, major));
+            assert!(configured.contains(MARKER) && !configured.contains(LEGACY_MARKER));
             assert_eq!(
                 configured
                     .matches(executable.to_str().expect("UTF-8 executable"))
@@ -125,7 +126,7 @@ fn failed_reload_rolls_back_and_keeps_a_backup() {
             path.file_name()
                 .expect("valid test fixture")
                 .to_string_lossy()
-                .starts_with("strata-keybind-backup-")
+                .starts_with("nyx-files-keybind-backup-")
         })
         .collect();
     assert_eq!(backups.len(), 1);

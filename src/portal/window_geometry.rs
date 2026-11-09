@@ -54,14 +54,14 @@ fn hyprland_socket() -> Option<PathBuf> {
 fn centering_commands() -> [String; 3] {
     let class = format!("^{}$", super::CHOOSER_APPLICATION_ID.replace('.', "[.]"));
     let legacy_match =
-        format!("keyword windowrule[strata-file-chooser-center]:match:class {class}");
+        format!("keyword windowrule[nyx-files-chooser-center]:match:class {class}");
     [
         format!(
-            "/eval hl.window_rule({{name='strata-file-chooser-center',match={{class='{class}'}},center=true}})"
+            "/eval hl.window_rule({{name='nyx-files-chooser-center',match={{class='{class}'}},center=true}})"
         ),
         format!("/{legacy_match}"),
         format!(
-            "[[BATCH]] {legacy_match};keyword windowrule[strata-file-chooser-center]:center on"
+            "[[BATCH]] {legacy_match};keyword windowrule[nyx-files-chooser-center]:center on"
         ),
     ]
 }

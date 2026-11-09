@@ -487,7 +487,7 @@ fn linked_names_count_as_copied_before_their_folder_is_published() -> Result<(),
     let _destination = FsQuirks::install(
         &destination,
         Quirks {
-            before: vec![(Op::Rename, ".strata-copy-*", 0, racer)],
+            before: vec![(Op::Rename, ".nyx-files-copy-*", 0, racer)],
             ..Quirks::default()
         },
     );

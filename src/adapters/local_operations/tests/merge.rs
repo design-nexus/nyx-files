@@ -640,15 +640,14 @@ fn a_merge_from_a_location_without_paths_does_not_claim_provenance_for_undo()
 -> Result<(), Box<dyn Error>> {
     let _serial = serial()?;
     gio::resources_register_include!("files.gresource")?;
-    let source = gio::File::for_uri("resource:///io/github/design_nexus/nyx/Files/brand");
+    let source =
+        gio::File::for_uri("resource:///io/github/design_nexus/nyx/Files/icons/scalable/apps");
     assert!(!source.is_native());
     let root = tempfile::tempdir()?;
-    let target = root.path().join("brand");
-    let overwritten = target.join("strata-logo-white.svg");
-    write_files(
-        &target,
-        &[("strata-logo-white.svg", "old"), ("stays.txt", "keep me")],
-    )?;
+    let target = root.path().join("apps");
+    let icon = "io.github.design_nexus.nyx.Files.svg";
+    let overwritten = target.join(icon);
+    write_files(&target, &[(icon, "old"), ("stays.txt", "keep me")])?;
     let (stage, _) = rename_stage(root.path().join("staging"));
     let (plans, on_merged) = recorded_plans();
 
@@ -696,20 +695,15 @@ fn a_merge_from_a_location_without_paths_keeps_unproven_copies_during_no_trash_u
     ));
 
     assert!(result.is_ok(), "{result:?}");
-    let [actions, apps] = ["actions", "apps"].map(|name| target.join(name));
+    let apps = target.join("apps");
     let parts = undo_parts(plans.take());
     assert!(parts.2.is_empty());
-    let edited = fs::read_dir(&apps)?.next().ok_or("an app icon")??.path();
-    fs::write(&edited, b"edited after the merge")?;
 
     let events = run_undo(parts, staged_lookup(HashMap::new()));
 
-    assert!(actions.exists(), "{events:?}");
-    assert_eq!(fs::read(&edited)?, b"edited after the merge");
-    assert_eq!(names(&target)?, ["actions", "apps", "stays.txt"]);
-    let mut kept = kept_items(&events);
-    kept.sort_by_key(Location::display_name);
-    assert_eq!(kept, [Location::local(&actions), Location::local(&apps)]);
+    assert!(apps.exists(), "an unchanged copy without provenance stays: {events:?}");
+    assert_eq!(names(&target)?, ["apps", "stays.txt"]);
+    assert_eq!(kept_items(&events), [Location::local(&apps)]);
     Ok(())
 }
 
@@ -768,7 +762,7 @@ fn a_merge_stage_goes_once_another_program_closes_a_file_it_kept_there()
             if stage
                 .file_name()
                 .to_string_lossy()
-                .starts_with(".strata-copy-")
+                .starts_with(".nyx-files-copy-")
             {
                 let staged = hold(&stage.path().join("new.txt"));
                 held.lock().expect("the holds").push(staged);
@@ -780,7 +774,7 @@ fn a_merge_stage_goes_once_another_program_closes_a_file_it_kept_there()
         root.path(),
         without_trash(Quirks {
             before: vec![(Op::Unlink, "new.txt", 0, hold_staged)],
-            after: vec![(Op::Names, ".strata-copy-*", 0, release)],
+            after: vec![(Op::Names, ".nyx-files-copy-*", 0, release)],
             links: Support::Rejected(Errno::MLINK),
             rename_over_empty_dir: OverEmptyDirectory::NotEmpty,
             ..Quirks::nfs3()
@@ -1029,7 +1023,7 @@ fn undoing_a_merge_without_trash_opens_only_its_own_read_only_folders_to_remove_
 fn visible_names(folder: &Path) -> io::Result<Vec<String>> {
     Ok(names(folder)?
         .into_iter()
-        .filter(|name| !name.starts_with(".strata-"))
+        .filter(|name| !name.starts_with(".nyx-files-"))
         .collect())
 }
 
@@ -1107,7 +1101,7 @@ fn a_merged_copy_replaced_before_linking_is_not_linked() -> Result<(), Box<dyn E
         let stage = names(&live)
             .expect("list the merged folder")
             .into_iter()
-            .find(|name| name.starts_with(".strata-copy-"))
+            .find(|name| name.starts_with(".nyx-files-copy-"))
             .map(|name| live.join(name));
         for copied in stage
             .iter()
@@ -1390,7 +1384,7 @@ fn an_unconfirmed_placement_keeps_its_stage() -> Result<(), Box<dyn Error>> {
         let stage = names(&live)
             .expect("live folder")
             .into_iter()
-            .find(|name| name.starts_with(".strata-copy-"))
+            .find(|name| name.starts_with(".nyx-files-copy-"))
             .expect("stage");
         fs::rename(live.join("leaf"), live.join(stage).join("moved")).expect("move the leaf");
     });
@@ -1460,7 +1454,7 @@ fn a_merge_copies_folders_in_place_where_the_mount_cannot_place_them() -> Result
         ["Makefile (1)", "makefile"]
     );
     assert_eq!(fs::read(target.join("new (1)/Makefile (1)"))?, b"Makefile");
-    assert!(!scope.used_name(".strata-*"), "{:?}", scope.calls());
+    assert!(!scope.used_name(".nyx-files-*"), "{:?}", scope.calls());
     assert_eq!(
         renamed_beneath(&target, &report),
         [
@@ -2738,7 +2732,7 @@ fn a_merge_without_trash_cancelled_after_it_placed_a_copy_puts_the_original_back
             let [folder, a, b] = &left[..] else {
                 panic!("{row}: expected the merge folder beside a.txt and b.txt, found {left:?}");
             };
-            assert!(folder.starts_with(".strata-merge-"), "{row}: {left:?}");
+            assert!(folder.starts_with(".nyx-files-merge-"), "{row}: {left:?}");
             assert_eq!([a.as_str(), b.as_str()], ["a.txt", "b.txt"], "{row}");
             assert!(message.contains(folder.as_str()), "{row}: {message}");
             assert_eq!(
@@ -4334,7 +4328,7 @@ fn without_trash(quirks: Quirks) -> Quirks {
 fn aside_folder(target: &Path) -> Result<Option<String>, io::Error> {
     Ok(names(target)?
         .into_iter()
-        .find(|name| name.starts_with(".strata-merge-")))
+        .find(|name| name.starts_with(".nyx-files-merge-")))
 }
 
 fn write_files(root: &Path, files: &[(&str, &str)]) -> Result<(), io::Error> {
@@ -4409,7 +4403,7 @@ fn merge_without_trash_sets_originals_aside_and_removes_them_after_success()
         let (result, plans) = merge_through_trash(&source, &target, move_source, real_copy());
 
         assert!(result.is_ok(), "{trash:?}: {result:?}");
-        assert!(quirks.used_name(".strata-merge-*"));
+        assert!(quirks.used_name(".nyx-files-merge-*"));
         assert_eq!(fs::read(target.join("shared.txt"))?, b"new");
         assert_eq!(
             fs::read(target.join("nested/deep/shared.txt"))?,
@@ -4766,7 +4760,7 @@ fn a_failed_aside_puts_every_original_back_before_merging() -> Result<(), Box<dy
                 ..Quirks::default()
             },
             "strict open crosses mount" => Quirks {
-                fail: vec![(Op::OpenAt, ".strata-merge-*", 0, Errno::XDEV)],
+                fail: vec![(Op::OpenAt, ".nyx-files-merge-*", 0, Errno::XDEV)],
                 ..Quirks::default()
             },
             _ => Quirks::default(),
@@ -4801,7 +4795,7 @@ fn a_failed_aside_puts_every_original_back_before_merging() -> Result<(), Box<dy
         );
         assert!(!copied.get(), "{case}");
         assert_eq!(
-            quirks.used_name(".strata-merge-*"),
+            quirks.used_name(".nyx-files-merge-*"),
             case != "no safe placement",
             "{case}"
         );

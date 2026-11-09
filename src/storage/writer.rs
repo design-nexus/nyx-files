@@ -270,7 +270,7 @@ pub(crate) struct Held(
 
 fn shared() -> &'static Writer {
     static SHARED: OnceLock<&'static Writer> = OnceLock::new();
-    SHARED.get_or_init(|| Writer::start("strata-settings"))
+    SHARED.get_or_init(|| Writer::start("nyx-files-settings"))
 }
 
 pub(crate) fn run<T: Send + 'static>(

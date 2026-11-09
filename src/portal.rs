@@ -35,7 +35,7 @@ use gio::prelude::*;
 use crate::adapters::gio_close;
 use crate::model::{FileEntry, Location};
 
-const BACKEND_NAME: &str = "org.freedesktop.impl.portal.desktop.strata";
+const BACKEND_NAME: &str = "org.freedesktop.impl.portal.desktop.nyx_files";
 pub(crate) const CHOOSER_APPLICATION_ID: &str = "io.github.design_nexus.nyx.Files.FileChooser";
 const CHOOSER_APPLICATION_ID_OVERRIDE: &str = "NYX_FILES_CHOOSER_APP_ID";
 pub(crate) const FILE_CHOOSER_VERSION: u32 = 4;

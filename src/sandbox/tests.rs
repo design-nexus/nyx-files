@@ -238,7 +238,7 @@ fn sandbox_exposes_only_runtime_input_and_private_output() {
 fn workbook_parser_uses_resource_limited_sandbox_and_validated_output() {
     let command = sandbox_command(
         Path::new("/usr/bin/bwrap"),
-        Path::new("/app/strata"),
+        Path::new("/app/nyx-files"),
         Path::new("/fixtures/book.xlsx"),
         Path::new("/private-output"),
         ParseOperation::PreviewWorkbook,
@@ -267,7 +267,7 @@ fn workbook_parser_uses_resource_limited_sandbox_and_validated_output() {
 fn word_document_parser_uses_resource_limited_sandbox_and_validated_output() {
     let command = sandbox_command(
         Path::new("/usr/bin/bwrap"),
-        Path::new("/app/strata"),
+        Path::new("/app/nyx-files"),
         Path::new("/fixtures/report.docx"),
         Path::new("/private-output"),
         ParseOperation::PreviewDocument,
@@ -698,7 +698,7 @@ fn archive_listings_execute_inside_the_bounded_sandbox_without_leaking_secrets()
     assert!(joined.contains("--cpu=10"));
     assert!(joined.contains("--fsize=536870912"));
     assert!(joined.contains(
-        "/app/strata --preview-helper archive-list /input.zip /output/result.archive.json zip software"
+        "/app/nyx-files --preview-helper archive-list /input.zip /output/result.archive.json zip software"
     ));
     assert!(!joined.contains("s3cret"));
     assert!(!joined.contains("--share-net"));
@@ -830,9 +830,9 @@ fn video_thumbnails_execute_the_helper_inside_the_bounded_sandbox() {
     assert!(joined.contains("--as=2147483648"));
     assert!(joined.contains("--cpu=10"));
     assert!(joined.contains("--fsize=33554432"));
-    assert!(joined.contains("--ro-bind /tmp/strata /app/strata"));
+    assert!(joined.contains("--ro-bind /tmp/strata /app/nyx-files"));
     assert!(joined.contains(
-        "/app/strata --preview-helper thumbnail-video /input.mkv /output/result.png 128 software"
+        "/app/nyx-files --preview-helper thumbnail-video /input.mkv /output/result.png 128 software"
     ));
     assert!(!joined.contains("--share-net"));
 }
@@ -876,7 +876,7 @@ fn renderer_uses_a_private_snapshot_after_the_original_executable_is_replaced() 
     let executable = resolve_renderer_executable(&replaced, &running, directory.path())
         .expect("snapshot running executable");
 
-    assert_eq!(executable, directory.path().join("strata-preview-helper"));
+    assert_eq!(executable, directory.path().join("nyx-files-preview-helper"));
     assert_eq!(
         fs::read(executable).expect("read snapshot"),
         b"running executable"
@@ -897,7 +897,7 @@ fn renderer_uses_the_original_executable_while_it_is_available() {
     .expect("resolve current executable");
 
     assert_eq!(executable, current);
-    assert!(!directory.path().join("strata-preview-helper").exists());
+    assert!(!directory.path().join("nyx-files-preview-helper").exists());
 }
 
 #[test]

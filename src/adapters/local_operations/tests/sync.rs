@@ -1701,7 +1701,7 @@ fn an_original_that_cannot_be_deleted_stays_aside_and_its_replacing_move_complet
         let originals = fs::read_dir(&watched)
             .expect("list the destination")
             .filter_map(Result::ok)
-            .find(|entry| entry.file_name().to_string_lossy().starts_with(".strata-"))
+            .find(|entry| entry.file_name().to_string_lossy().starts_with(".nyx-files-"))
             .expect("the original is aside");
         fs::write(&foreign, b"foreign").expect("write the foreign file");
         fs::rename(&foreign, originals.path().join("notes.txt"))

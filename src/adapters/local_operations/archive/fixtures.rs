@@ -35,7 +35,7 @@ pub(super) fn tempdir_on_home_device() -> Result<tempfile::TempDir, Box<dyn Erro
     };
     fs::create_dir_all(&parent)?;
     Ok(tempfile::Builder::new()
-        .prefix(".strata-archive-test-")
+        .prefix(".nyx-files-archive-test-")
         .tempdir_in(parent)?)
 }
 
@@ -109,8 +109,8 @@ pub(super) fn test_file_entry(path: &Path) -> FileEntry {
     }
 }
 
-pub(super) const COMPRESSION_STAGE: &str = ".strata-copy-";
-pub(super) const EXTRACTION_STAGE: &str = ".strata-extraction-";
+pub(super) const COMPRESSION_STAGE: &str = ".nyx-files-copy-";
+pub(super) const EXTRACTION_STAGE: &str = ".nyx-files-extraction-";
 
 pub(super) fn stages(destination: &Path, prefix: &str) -> Result<Vec<OsString>, Box<dyn Error>> {
     Ok(fs::read_dir(destination)?

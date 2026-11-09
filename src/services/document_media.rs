@@ -54,7 +54,7 @@ pub(crate) fn render(
         }
     };
     let mut input = tempfile::Builder::new()
-        .prefix("strata-document-")
+        .prefix("nyx-files-document-")
         .suffix(&suffix)
         .tempfile()
         .map_err(|error| error.to_string())?;

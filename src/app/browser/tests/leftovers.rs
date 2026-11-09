@@ -44,7 +44,7 @@ fn folder(path: &str) -> Location {
 fn listed(folder: &Location, name: &str) -> FileEntry {
     let location = folder.child(OsStr::new(name)).expect("a child location");
     let mut entry = listing_file(location, name, name.starts_with('.'));
-    if !name.contains('.') || name.starts_with(".strata-originals-") {
+    if !name.contains('.') || name.starts_with(".nyx-files-originals-") {
         entry.kind = EntryKind::Directory;
     }
     entry
@@ -128,8 +128,8 @@ fn leftovers_wait_for_an_operation_in_their_folder_only() {
     ] {
         let parent = folder(&format!("{base}/{}", row.replace(' ', "-")));
         let child = parent.child(OsStr::new("child")).expect("child");
-        let originals = hidden(".strata-originals-");
-        let stage = hidden(".strata-copy-");
+        let originals = hidden(".nyx-files-originals-");
+        let stage = hidden(".nyx-files-copy-");
         let (browser, events) = browsing(&[
             (
                 &parent,
@@ -206,7 +206,7 @@ fn leftovers_wait_for_an_operation_in_their_folder_only() {
 fn peek_loads_announce_nothing_while_a_committed_load_does() {
     let parent = folder("/leftovers-peek");
     let child = parent.child(OsStr::new("album")).expect("child");
-    let merge = hidden(".strata-merge-");
+    let merge = hidden(".nyx-files-merge-");
     let (browser, events) = browsing(&[
         (&parent, &["album".into()]),
         (&child, &[merge.clone(), "track.flac".into()]),
@@ -226,10 +226,10 @@ fn peek_loads_announce_nothing_while_a_committed_load_does() {
 
 #[test]
 fn listed_names_surface_only_what_interrupted_operations_left_where_someone_browses() {
-    let probe = hidden(".strata-probe-");
-    let stage = hidden(".strata-copy-");
-    let replaced = hidden(".strata-replaced-");
-    let legacy = ".strata-replacement-aB3xY9".to_owned();
+    let probe = hidden(".nyx-files-probe-");
+    let stage = hidden(".nyx-files-copy-");
+    let replaced = hidden(".nyx-files-replaced-");
+    let legacy = ".nyx-files-replacement-aB3xY9".to_owned();
     let names = [
         probe.clone(),
         stage.clone(),
@@ -238,7 +238,7 @@ fn listed_names_surface_only_what_interrupted_operations_left_where_someone_brow
         ".nfs000000000000001a00000002".to_owned(),
         ".fuse_hidden0000000a00000001".to_owned(),
         ".__smbfile_silly1f".to_owned(),
-        ".strata-copy-notes".to_owned(),
+        ".nyx-files-copy-notes".to_owned(),
         "report.txt".to_owned(),
     ];
     let everything = vec![
@@ -354,8 +354,8 @@ fn a_folder_holding_originals_is_announced_once_per_session() {
     let copies = folder("/leftovers-once/copies");
     let elsewhere = folder("/leftovers-once/elsewhere");
     let (browser, events) = browsing(&[
-        (&originals, &[hidden(".strata-rename-")]),
-        (&copies, &[hidden(".strata-extraction-")]),
+        (&originals, &[hidden(".nyx-files-rename-")]),
+        (&copies, &[hidden(".nyx-files-extraction-")]),
         (&elsewhere, &["notes.txt".into()]),
     ]);
 

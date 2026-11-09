@@ -37,7 +37,7 @@ fn summary_on(row: &gtk::Box) -> std::rc::Rc<UdiskieIntegrationStatus> {
 fn udiskie_paths() -> (PathBuf, PathBuf) {
     (
         glib::user_config_dir().join("udiskie/config.yml"),
-        glib::user_data_dir().join("strata/udiskie-install/state.toml"),
+        glib::user_data_dir().join("nyx-files/udiskie-install/state.toml"),
     )
 }
 

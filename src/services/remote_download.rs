@@ -25,7 +25,8 @@ const MAX_NAME_BYTES: usize = 255;
 const CHUNK: usize = 64 * 1024;
 const PROGRESS_STRIDE: u64 = 256 * 1024;
 
-pub(crate) const DOWNLOAD_PREFIX: &str = "strata-download-";
+pub(crate) const DOWNLOAD_PREFIX: &str = "nyx-files-download-";
+const LEGACY_DOWNLOAD_PREFIX: &str = "strata-download-";
 
 #[derive(Debug)]
 pub(crate) enum RemoteDownload {
@@ -58,7 +59,7 @@ pub(crate) fn remote_file_name(url: &str) -> Option<String> {
 pub(crate) fn download_remote(url: String, cancelled: Arc<AtomicBool>) -> Receiver<RemoteDownload> {
     let (sender, receiver) = mpsc::channel();
     std::thread::Builder::new()
-        .name("strata-remote-download".into())
+        .name("nyx-files-remote-download".into())
         .spawn(move || {
             let event = match fetch(&url, &cancelled, &sender) {
                 Ok(path) => RemoteDownload::Finished(path),
@@ -89,7 +90,7 @@ fn fetch(
     let agent: ureq::Agent = config.into();
     let mut response = agent
         .get(url)
-        .header("User-Agent", "strata-file-manager")
+        .header("User-Agent", "nyx-files")
         .call()
         .map_err(|error| download_failed(&NetworkError::from_ureq(&error)))?;
     if response.status().is_redirection() {
@@ -292,11 +293,10 @@ fn prune_stale_downloads_in(tmp: &Path) {
     };
     let now = SystemTime::now();
     for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
         let is_ours = entry.file_type().is_ok_and(|kind| kind.is_dir())
-            && entry
-                .file_name()
-                .to_string_lossy()
-                .starts_with(DOWNLOAD_PREFIX);
+            && (name.starts_with(DOWNLOAD_PREFIX) || name.starts_with(LEGACY_DOWNLOAD_PREFIX));
         if !is_ours {
             continue;
         }

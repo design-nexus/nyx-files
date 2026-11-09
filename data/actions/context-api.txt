@@ -1,4 +1,4 @@
-Strata supplies context() when this script runs as an action; no pip install.
+Files supplies context() when this script runs as an action; no pip install.
 Scripts run with your permissions. Review code before enabling an action.
 
 Inputs and locations:
@@ -29,6 +29,6 @@ Reporting (these methods do not modify your files):
 
 Paths use Python's surrogateescape encoding so native names round-trip.
 Exit 0 for success; raise an exception or exit nonzero for failure.
-Strata captures stdout/stderr. Cancellation does not undo filesystem changes.
+Files captures stdout/stderr. Cancellation does not undo filesystem changes.
 Other imports: find_tool(name) returns an executable path or None;
 require_tool(name) returns it or raises ContextError if it is missing.

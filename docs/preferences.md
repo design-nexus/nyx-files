@@ -3,7 +3,7 @@
 Application-wide preferences live in `ui::preferences::Preferences`. The
 `ui::preferences::PreferenceManager` loads them once per application process and
 persists changes atomically to
-`$XDG_CONFIG_HOME/strata/settings.toml` (normally `~/.config/strata/settings.toml`).
+`$XDG_CONFIG_HOME/nyx-files/settings.toml` (normally `~/.config/nyx-files/settings.toml`).
 The file may be a symlink, for example into a dotfiles repository: Files follows
 up to eight links owned by the current user to a regular file the user owns,
 replaces that target atomically in its own directory, keeps its permission bits
@@ -128,7 +128,7 @@ control that might be midway through synchronization.
 | Restore open tabs | Plain launches reopen the previous tabs in strip order with the previously active tab selected, when the Startup toggle is on (the default). Explicit folder arguments, reveal requests, and unlock flows bypass restore. Toggle it under General → Startup; the toggle binds live across Settings windows. |
 | Window buttons (minimize, maximize, close) | Every window header binds at construction and updates live. Minimize and maximize are hidden by default; close is shown. The maximize button also restores a maximized window. |
 
-Tab locations persist in a separate session store (`$XDG_CONFIG_HOME/strata/tabs.toml`),
+Tab locations persist in a separate session store (`$XDG_CONFIG_HOME/nyx-files/tabs.toml`),
 saved whenever tabs change and validated on load.
 
 Reading the files that build the first window happens on the interface thread
@@ -153,7 +153,7 @@ catalog filters, dialogs, and preview playback position remain window-local.
 Pinned places, portal integration and other externally managed state have their
 own stores and are not fields in the application preferences schema. Udiskie
 encrypted-volume integration is stored in `$XDG_CONFIG_HOME/udiskie/config.yml`
-plus `$XDG_DATA_HOME/strata/udiskie-install/state.toml`.
+plus `$XDG_DATA_HOME/nyx-files/udiskie-install/state.toml`.
 Synchronization between independently running application processes, or manual
 external edits to `settings.toml` while Files runs, is not supported by this
 in-process binding mechanism. External edits are read on the next launch.
@@ -213,8 +213,8 @@ yet keep their values. Changes made by other applications leave entries that the
 least-recently-used limit of 5,000 folders eventually evicts; opening a folder
 counts as using it, while re-sorting open columns does not.
 
-Values live in `$XDG_STATE_HOME/strata/folder-views.toml` (normally
-`~/.local/state/strata/folder-views.toml`), never in `settings.toml` or in the
+Values live in `$XDG_STATE_HOME/nyx-files/folder-views.toml` (normally
+`~/.local/state/nyx-files/folder-views.toml`), never in `settings.toml` or in the
 folders themselves. Writes are batched, so a burst of changes such as a slider drag
 is one write, and run on the settings writer, never on the click that made them;
 pending changes are written when Files or the portal chooser quits. Saves from another Files process, such as
@@ -241,7 +241,7 @@ playback.
 
 The count is saved as `thumbnail_workers` and applies immediately. Busy jobs finish
 normally when the count is lowered. Idle excess supervisors retire asynchronously;
-lightweight executor threads remain available for reuse. `STRATA_THUMBNAIL_WORKERS`
+lightweight executor threads remain available for reuse. `NYX_FILES_THUMBNAIL_WORKERS`
 seeds the default only when no saved count exists; an explicit saved choice wins.
 The reset value also honors that environment variable.
 

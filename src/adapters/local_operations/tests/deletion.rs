@@ -154,7 +154,7 @@ fn cancellation_after_enumeration_stops_and_joins_workers() -> Result<(), Box<dy
             .expect("fixture entry")
             .file_name()
             .to_string_lossy()
-            .starts_with(".strata-trash-")
+            .starts_with(".nyx-files-trash-")
     }));
     Ok(())
 }

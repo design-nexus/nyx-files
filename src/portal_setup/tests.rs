@@ -9,7 +9,7 @@ use std::{
 
 use super::{
     SetupContext, disable_config, enable_config, install_at, install_file_manager_at,
-    refresh_configured_portal_at, refresh_stale_portal_at, secure_executable, uninstall_at,
+    migrate_legacy_portal_at, refresh_configured_portal_at, refresh_stale_portal_at, secure_executable, uninstall_at,
     uninstall_file_manager_at,
 };
 
@@ -18,20 +18,20 @@ const FILE_CHOOSER: &str = "org.freedesktop.impl.portal.FileChooser";
 #[test]
 fn chooser_preference_uses_existing_backends_and_round_trips() {
     let original = "[preferred]\ndefault=hyprland;gtk;\norg.example.Other=gtk;\n";
-    let enabled = enable_config(original).expect("enable Strata");
+    let enabled = enable_config(original).expect("enable Files");
 
-    assert!(enabled.contains(&format!("{FILE_CHOOSER}=strata;hyprland;gtk;")));
+    assert!(enabled.contains(&format!("{FILE_CHOOSER}=nyx_files;hyprland;gtk;")));
     assert_eq!(enable_config(&enabled).expect("enable again"), enabled);
-    assert_eq!(disable_config(&enabled).expect("disable Strata"), original);
+    assert_eq!(disable_config(&enabled).expect("disable Files"), original);
 }
 
 #[test]
 fn chooser_preference_preserves_explicit_fallbacks() {
     let original = format!("[preferred]\ndefault=gnome;gtk;\n{FILE_CHOOSER}=kde;gtk;\n");
-    let enabled = enable_config(&original).expect("enable Strata");
+    let enabled = enable_config(&original).expect("enable Files");
 
-    assert!(enabled.contains(&format!("{FILE_CHOOSER}=strata;kde;gtk;")));
-    assert_eq!(disable_config(&enabled).expect("disable Strata"), original);
+    assert!(enabled.contains(&format!("{FILE_CHOOSER}=nyx_files;kde;gtk;")));
+    assert_eq!(disable_config(&enabled).expect("disable Files"), original);
 }
 
 #[test]
@@ -150,23 +150,23 @@ fn install_and_uninstall_restore_an_existing_user_configuration() {
     assert!(
         fs::read_to_string(&config)
             .expect("installed config")
-            .contains("strata;gtk;")
+            .contains("nyx_files;gtk;")
     );
     assert!(
         context
             .data_home
-            .join("xdg-desktop-portal/portals/strata.portal")
+            .join("xdg-desktop-portal/portals/nyx_files.portal")
             .is_file()
     );
     assert!(
         fs::read_to_string(
             context
                 .data_home
-                .join("dbus-1/services/org.freedesktop.impl.portal.desktop.strata.service")
+                .join("dbus-1/services/org.freedesktop.impl.portal.desktop.nyx_files.service")
         )
         .expect("D-Bus service")
         .contains(&format!(
-            "Exec={}/bin/strata --portal",
+            "Exec={}/bin/nyx-files --portal",
             fixture.path().display()
         ))
     );
@@ -191,15 +191,70 @@ fn uninstall_keeps_later_configuration_edits() {
     fs::write(
         &config,
         format!(
-            "[preferred]\ndefault=gtk;\n{FILE_CHOOSER}=strata;gtk;\norg.example.Other=custom;\n"
+            "[preferred]\ndefault=gtk;\n{FILE_CHOOSER}=nyx_files;gtk;\norg.example.Other=custom;\n"
         ),
     )
     .expect("edit portal config");
 
     assert!(uninstall_at(&context).expect("uninstall portal"));
     let remaining = fs::read_to_string(config).expect("preserved config");
-    assert!(!remaining.contains("strata"));
+    assert!(!remaining.contains("nyx_files"));
     assert!(remaining.contains("org.example.Other=custom;"));
+}
+
+#[test]
+fn a_portal_installed_as_strata_is_moved_to_its_current_name() {
+    let fixture = fixture();
+    let context = context(fixture.path());
+    let config = context.portal_directory().join("portals.conf");
+    fs::create_dir_all(config.parent().expect("config parent")).expect("config directory");
+    let original = "[preferred]\ndefault=gtk;\n";
+    fs::write(&config, original).expect("portal config");
+    let executable = executable(fixture.path());
+    install_at(&context, &executable).expect("install portal");
+
+    let portals = context.data_home.join("xdg-desktop-portal/portals");
+    let services = context.data_home.join("dbus-1/services");
+    fs::remove_file(portals.join(super::PORTAL_FILE)).expect("remove current portal");
+    fs::write(portals.join(super::LEGACY_PORTAL_FILE), "legacy").expect("legacy portal");
+    fs::remove_file(services.join(super::SERVICE_FILE)).expect("remove current service");
+    fs::write(
+        services.join(super::LEGACY_SERVICE_FILE),
+        "[D-BUS Service]\nExec=/opt/old/strata --portal\n",
+    )
+    .expect("legacy service");
+    let legacy_state = context.data_home.join(super::LEGACY_STATE_DIRECTORY);
+    fs::create_dir_all(legacy_state.parent().expect("state parent")).expect("state parent");
+    fs::rename(context.state_directory(), &legacy_state).expect("legacy state");
+    let state = legacy_state.join(super::STATE_FILE);
+    let legacy = |path: &Path| {
+        let contents = fs::read_to_string(path).expect("read for legacy");
+        fs::write(path, contents.replace("nyx_files", "strata")).expect("write legacy");
+    };
+    legacy(&config);
+    legacy(&state);
+
+    assert!(migrate_legacy_portal_at(&context).expect("migrate"));
+    assert!(!migrate_legacy_portal_at(&context).expect("migrate once"));
+
+    let migrated = fs::read_to_string(&config).expect("migrated config");
+    assert!(migrated.contains("nyx_files;gtk;"), "{migrated}");
+    assert!(!migrated.contains("strata"), "{migrated}");
+    assert!(!portals.join(super::LEGACY_PORTAL_FILE).exists());
+    assert!(!services.join(super::LEGACY_SERVICE_FILE).exists());
+    assert!(!legacy_state.exists());
+    assert!(portals.join(super::PORTAL_FILE).is_file());
+    assert!(
+        fs::read_to_string(services.join(super::SERVICE_FILE))
+            .expect("current service")
+            .contains("Exec=/opt/old/strata --portal")
+    );
+    assert!(super::status_at(&context).expect("status").has_installation);
+    assert!(!uninstall_at(&context).expect("uninstall migrated portal"));
+    assert_eq!(
+        fs::read_to_string(config).expect("restored config"),
+        original
+    );
 }
 
 #[test]
@@ -217,7 +272,7 @@ fn generated_override_is_removed_on_uninstall() {
     assert!(
         fs::read_to_string(&generated)
             .expect("generated config")
-            .contains("strata;")
+            .contains("nyx_files;")
     );
     assert!(!uninstall_at(&context).expect("uninstall portal"));
     assert!(!generated.exists());
@@ -306,7 +361,7 @@ fn status_uses_the_active_configuration_and_requires_activation_files() {
     let status = super::status_at(&context).expect("external preference");
     assert!(!status.configured);
     assert!(status.has_installation);
-    fs::write(&config, "[preferred]\ndefault=strata;gtk;\n").expect("prefer Strata");
+    fs::write(&config, "[preferred]\ndefault=nyx_files;gtk;\n").expect("prefer Files");
     assert!(
         super::status_at(&context)
             .expect("default preference")
@@ -361,7 +416,7 @@ fn context(root: &std::path::Path) -> SetupContext {
 }
 
 fn executable(root: &std::path::Path) -> PathBuf {
-    let path = root.join("bin/strata");
+    let path = root.join("bin/nyx-files");
     fs::create_dir_all(path.parent().expect("executable parent")).expect("executable directory");
     fs::write(&path, b"binary").expect("executable file");
     fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).expect("executable permissions");
@@ -370,7 +425,7 @@ fn executable(root: &std::path::Path) -> PathBuf {
 
 fn fixture() -> tempfile::TempDir {
     tempfile::Builder::new()
-        .prefix("strata-portal-")
+        .prefix("nyx-files-portal-")
         .tempdir_in("target")
         .expect("fixture directory")
 }

@@ -67,6 +67,14 @@ fn leftovers_are_named_by_prefix_and_suffix() {
             (".strata-compression-aB3xY", None, None),
             (".strata-compression-aB3_Y9", None, None),
             (".strata-write-123-4.tmp", None, None),
+            (".nyx-files-write-123-4.tmp", None, None),
+            (".nyx-files-symlink-<uuid>", None, None),
+            (".nyx-files-copy-notes", None, None),
+            (
+                ".nyx-files-replacement-aB3xY9",
+                Some(Leftover::MaybeOriginal),
+                None,
+            ),
             ("notes.strata-copy-<uuid>", None, None),
             (".Strata-copy-<uuid>", None, None),
             (

@@ -6,7 +6,7 @@ command -v wc >/dev/null 2>&1 || {
     exit 1
 }
 
-# STRATA_ACTION_PATHS contains NUL-delimited absolute paths, not shell words.
+# NYX_FILES_ACTION_PATHS contains NUL-delimited absolute paths, not shell words.
 # wc -l counts newline characters, not an unterminated final line.
 total=0
 files=0
@@ -16,5 +16,5 @@ while IFS= read -r -d '' path; do
     total=$((total + lines))
     files=$((files + 1))
     printf '%s lines\t%q\n' "$lines" "$path"
-done < "$STRATA_ACTION_PATHS"
+done < "$NYX_FILES_ACTION_PATHS"
 printf 'Total: %s lines across %s files\n' "$total" "$files"

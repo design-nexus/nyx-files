@@ -832,7 +832,7 @@ fn index_reports_truncated_once_the_entry_budget_is_exceeded() {
 
 #[test]
 fn limit_stops_point_to_the_search_limit_settings() {
-    let settings_pointer = "Raise the limits in Settings → General → Search & filtering.";
+    let settings_pointer = "Raise the limits in Settings → Search.";
     for coverage in [
         super::SearchCoverage {
             time_limit: true,

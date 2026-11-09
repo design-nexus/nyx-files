@@ -764,7 +764,7 @@ pub(crate) fn folder_monitoring() -> Check {
         .ok()
         .and_then(|text| text.trim().parse().ok());
     let monitored = tempfile::Builder::new()
-        .prefix("strata-diagnostics-")
+        .prefix("nyx-files-diagnostics-")
         .tempdir()
         .map_err(|error| crate::services::io_error_message(&error))
         .and_then(|directory| {
@@ -829,7 +829,7 @@ struct Samples {
 impl Samples {
     fn create() -> std::io::Result<Self> {
         let directory = tempfile::Builder::new()
-            .prefix("strata-diagnostics-")
+            .prefix("nyx-files-diagnostics-")
             .tempdir()?;
         let path = |name: &str| directory.path().join(name);
         let (image, pdf, video, audio) = (

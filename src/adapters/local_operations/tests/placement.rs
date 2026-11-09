@@ -933,8 +933,8 @@ fn the_probe_learns_each_quirk_and_leaves_nothing_behind() -> Result<(), Box<dyn
             // a taken name, but from mkdir it is not.
             || Quirks {
                 fail: vec![
-                    (Op::Create, ".strata-probe-*", 0, Errno::ISDIR),
-                    (Op::Mkdir, ".strata-probe-*", 0, Errno::ISDIR),
+                    (Op::Create, ".nyx-files-probe-*", 0, Errno::ISDIR),
+                    (Op::Mkdir, ".nyx-files-probe-*", 0, Errno::ISDIR),
                 ],
                 ..Quirks::default()
             },
@@ -1044,7 +1044,7 @@ fn the_probe_keeps_files_it_cannot_prove_are_its_own() -> Result<(), Box<dyn Err
         root.path(),
         Quirks {
             // After the probe saw its link, before it removes it.
-            before: vec![(Op::Stat, ".strata-probe-*", 2, racer)],
+            before: vec![(Op::Stat, ".nyx-files-probe-*", 2, racer)],
             ..Quirks::sshfs()
         },
     );
@@ -1300,7 +1300,7 @@ fn a_failed_case_only_rename_moves_back_or_names_the_temporary() -> Result<(), B
             assert_eq!(left, ["report"]);
             assert_eq!(identity(&source), original);
         } else {
-            assert!(left[0].starts_with(".strata-originals-"), "{left:?}");
+            assert!(left[0].starts_with(".nyx-files-originals-"), "{left:?}");
             assert_eq!(names(&root.path().join(&left[0]))?, ["report"]);
             assert_eq!(
                 identity(&root.path().join(&left[0]).join("report")),
@@ -1556,7 +1556,7 @@ fn a_reservation_swapped_before_its_check_keeps_the_swapped_in_item() -> Result<
 #[test]
 fn the_reserved_name_rung_needs_the_missing_primitives_confirmed() -> Result<(), Box<dyn Error>> {
     let noreplace_unsettled = || Quirks {
-        fail: vec![(Op::Rename, ".strata-probe-*", 0, Errno::IO)],
+        fail: vec![(Op::Rename, ".nyx-files-probe-*", 0, Errno::IO)],
         ..Quirks::vboxsf()
     };
     let links_unsettled: Preset = Quirks::without_placement;
@@ -1665,7 +1665,7 @@ fn names_ntfs_3g_would_cut_are_never_renamed_over() -> Result<(), Box<dyn Error>
         ..ntfs_3g()
     };
     let probe_unsettled = || Quirks {
-        fail: vec![(Op::Create, ".strata-probe-*", 0, Errno::IO)],
+        fail: vec![(Op::Create, ".nyx-files-probe-*", 0, Errno::IO)],
         ..ntfs_3g()
     };
     let (fits, cut, accented) = ("x".repeat(236), "x".repeat(237), "é".repeat(120));

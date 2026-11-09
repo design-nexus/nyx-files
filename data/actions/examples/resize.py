@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from strata_actions import context, find_tool, require_tool
+from nyx_files_actions import context, find_tool, require_tool
 
 ctx = context()
 magick = find_tool("magick") or require_tool("convert")
@@ -12,7 +12,7 @@ for index, path in enumerate(ctx.paths, start=1):
     source = Path(path)
     if not source.is_file():
         raise ValueError(f"Not a file: {source}")
-    folder = Path(tempfile.mkdtemp(prefix="strata-resize-", dir=source.parent))
+    folder = Path(tempfile.mkdtemp(prefix="nyx-files-resize-", dir=source.parent))
     output = folder / "resized.png"
     # Fit within 1024 x 1024, preserving aspect ratio; never enlarge an image.
     with source.open("rb") as input_file, output.open("xb") as output_file:

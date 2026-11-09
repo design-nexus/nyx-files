@@ -243,7 +243,7 @@ fn coalescing_preserves_a_move_when_metadata_follows_it() {
 #[test]
 fn hidden_monitor_changes_are_skipped_but_atomic_publication_stays_visible() {
     let watched = Location::local("/fixture");
-    let hidden = Location::local("/fixture/.strata-replacement-123");
+    let hidden = Location::local("/fixture/.nyx-files-replacement-123");
     let visible = Location::local("/fixture/report.pdf");
 
     assert!(

@@ -250,7 +250,7 @@ impl SearchCoverage {
                 crate::i18n::join_sentences(
                     &message,
                     &crate::i18n::tr(
-                        "Raise the limits in Settings → General → Search & filtering.",
+                        "Raise the limits in Settings → Search.",
                     ),
                 )
             } else {
@@ -876,7 +876,7 @@ fn request_index_refresh(
     for attempt in 0..2 {
         let worker_index = index.clone();
         match std::thread::Builder::new()
-            .name("strata-search-refresh".into())
+            .name("nyx-files-search-refresh".into())
             .spawn(move || refresh_index(&worker_index))
         {
             Ok(_) => return,
@@ -1095,7 +1095,7 @@ fn start_search_session(
     let worker_cancelled = cancelled.clone();
     let worker_index = index.clone();
     let worker = std::thread::Builder::new()
-        .name("strata-search-query".into())
+        .name("nyx-files-search-query".into())
         .spawn(move || {
             run_search_session(
                 &worker_index,
@@ -1204,7 +1204,7 @@ fn start_indexer(
         .budget = budget;
     let worker_index = index.clone();
     let worker = std::thread::Builder::new()
-        .name("strata-search-index".into())
+        .name("nyx-files-search-index".into())
         .spawn(move || {
             if recursive {
                 build_index(&worker_index, roots, show_hidden, budget, exclusions);
