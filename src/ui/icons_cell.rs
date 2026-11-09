@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-use gtk::prelude::*;
 
 mod layout;
 mod name_tooltip;

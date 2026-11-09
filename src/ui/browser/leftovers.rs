@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-use std::cell::RefCell;
 
 use gtk::prelude::*;
 
-use crate::{
-    model::{Location, hidden_names::Leftover},
-    services::LoadHandle,
-};
+use crate::model::{Location, hidden_names::Leftover};
 
 pub(crate) fn title() -> String {
     crate::i18n::tr("Items left by an interrupted operation")

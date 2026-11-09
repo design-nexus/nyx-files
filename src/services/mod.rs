@@ -43,7 +43,7 @@ pub(crate) use document::{
 pub use file_source::{
     DirectoryChange, DirectoryEvent, DirectoryRequest, DirectoryStamp, FileSource, LoadHandle,
     LocationValidationError, MetadataOutcome, MetadataRequest, MetadataUpdate, MountToken,
-    RequestId, Responsiveness, StampAnswer, UriCredentials, Watching, backend_unavailable_message,
+    RequestId, Responsiveness, StampAnswer, Watching, backend_unavailable_message,
     sanitize_uri_credentials, validate_uri_credentials,
 };
 pub(crate) use file_source::{
@@ -58,7 +58,7 @@ pub use jobs::{
     expand_command_arguments,
 };
 pub(crate) use listeners::ListenerGuard;
-pub use mime_type::{EntryType, FOLDER_TYPE_NAME, OTHER_TYPE_NAME, entry_type};
+pub use mime_type::{EntryType, entry_type};
 pub(crate) use model_preview::ModelRender;
 pub use model_preview::{ModelEncoding, ModelFormat, ModelMesh, ModelPalette, ModelView};
 pub(crate) use native_fs::{
@@ -101,11 +101,11 @@ pub(crate) use remote_download::{
     RemoteDownload, download_remote, prune_stale_downloads, remote_file_name, remote_file_url,
 };
 pub(crate) use search::{
-    RESULT_LIMIT as SEARCH_RESULT_LIMIT, RenameScope, rebase_search_indexes,
+    RenameScope, rebase_search_indexes,
     refresh_search_indexes_for_directory, refresh_search_indexes_for_rename,
 };
 pub(crate) use search::{
     RefusedFolders, SearchCoverage, SearchEvent, SearchExclusions, SearchHandle, SearchItem,
-    SearchLimits, filter_name_matches, filter_query_allows_typos, fold_for_search, index_filter,
+    SearchLimits, filter_name_matches, fold_for_search, index_filter,
     index_folder_paths, index_paths, index_trees_with_exclusions,
 };

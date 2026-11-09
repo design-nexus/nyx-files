@@ -5,7 +5,6 @@ mod tests;
 
 use std::{
     fmt,
-    path::Path,
     rc::Rc,
     time::{Duration, SystemTime},
 };

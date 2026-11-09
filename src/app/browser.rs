@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-pub use crate::app::navigation::{ColumnEntryCounts, VisualKind, VisualRange};
+pub use crate::app::navigation::{ColumnEntryCounts, VisualKind};
 #[cfg(test)]
 pub use crate::app::navigation::CursorToggle;
 

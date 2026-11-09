@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-use gtk::prelude::*;
 
 /// A brief confirmation as a toast over the window (or `overlay` when it is
 /// not in a window), replacing any toast showing.

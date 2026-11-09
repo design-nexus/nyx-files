@@ -7,9 +7,6 @@ use std::{
 
 use gtk::{gio, glib, prelude::*, subclass::prelude::*};
 
-use crate::{
-    assets::icons,
-};
 
 
 
@@ -22,7 +19,6 @@ mod install_command;
 mod search;
 mod theme;
 
-use super::keys::{self, bindings::SELECT_ALL};
 
 
 pub struct ResponsiveActivationRow {

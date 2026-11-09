@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::model::FileEntry;
-use crate::services::{
-    PathMatcher, PathQuery, filter_name_matches, fold_for_search,
-};
+use crate::services::PathMatcher;
 use gtk::prelude::*;
 use std::cell::RefCell;
 

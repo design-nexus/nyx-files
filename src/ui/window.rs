@@ -26,9 +26,6 @@ pub(crate) mod volume_password;
 
 #[cfg(test)]
 pub(super) use devices::offer_removable_destinations_for_test;
-pub(super) use devices::{
-    RemovableDestination, removable_destinations,
-    send_to_recent_folders, };
 pub use unlock_argument::{UnlockTarget};
 
 /// How a device is released: eject where the drive reports it (USB sticks,

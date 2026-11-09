@@ -5,12 +5,9 @@ mod navigation;
 mod peek;
 
 pub use browser::{
-    Browser, BrowserColumnSnapshot, BrowserEvent, FreshnessInput, Presence, SelectionUpdate,
+    Browser, BrowserEvent, FreshnessInput, Presence,
     VisibleDepths, VisualKind,
 };
 #[cfg(test)]
 pub use browser::CursorToggle;
-pub(crate) use browser::{folder_destination_texts, trash_destination_texts};
-pub(crate) use navigation::{
-    EntryInsertion, EntrySplice, FolderSortResolver, compare_display_names,
-};
+pub(crate) use navigation::FolderSortResolver;

@@ -15,9 +15,8 @@ pub(crate) mod transfer_report;
 
 pub(crate) use crate::ui::browser::clipboard::{ClipboardMark, clear_active_drag, drag_preview_icon};
 pub(in crate::ui) use crate::ui::browser::clipboard::file_drag_content;
-pub(super) use crate::ui::browser::desktop::{launch_terminal, open_location_at};
+pub(super) use crate::ui::browser::desktop::open_location_at;
 pub(super) use crate::ui::browser::entry::{format_file_size, metadata_needs_fill};
-pub use crate::ui::browser::properties::format_permissions;
 
 /// The narrowest a preview or a column grows to when it is resized by hand.
 pub(in crate::ui) const COLUMN_WIDTH: i32 = 300;

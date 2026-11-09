@@ -4,9 +4,8 @@ use crate::adapters::gio_file_for_location;
 use crate::model::{FileEntry, Location};
 use gtk::prelude::*;
 use gtk::{glib, graphene};
-use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
-use std::rc::{Rc, Weak};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const DRAG_PROXY_PADDING: f64 = 3.0;
 const DRAG_PROXY_STACK_OFFSET: f64 = 5.0;

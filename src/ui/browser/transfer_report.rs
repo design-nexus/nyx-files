@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-use std::{ffi::OsStr, time::Duration};
+use std::ffi::OsStr;
 
 use crate::model::Location;
 use crate::services::{
