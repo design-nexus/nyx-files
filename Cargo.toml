@@ -25,8 +25,8 @@ invariant-checks = []
 [dependencies]
 nyx-cloud = { git = "https://github.com/design-nexus/nyx-cloud.git", rev = "072cb06bf7a975e536b8fcdd2d19ec7a911e14d7" }
 nyx-core = { git = "https://github.com/design-nexus/nyx-core.git", rev = "0b511a6e338f4c2c818bad6ebd351ae406578c00" }
-nyx-theme = { git = "https://github.com/design-nexus/nyx-design.git", rev = "3774422d68d25be74952d5b93ce00599b7869397" }
-nyx-ui = { git = "https://github.com/design-nexus/nyx-design.git", rev = "3774422d68d25be74952d5b93ce00599b7869397" }
+nyx-theme = { git = "https://github.com/design-nexus/nyx-design.git", rev = "40db521bab468d54f18f65c6aabd7fc8533d6a4d" }
+nyx-ui = { git = "https://github.com/design-nexus/nyx-design.git", rev = "40db521bab468d54f18f65c6aabd7fc8533d6a4d" }
 anyhow = "1"
 ashpd = { version = "=0.13.13", default-features = false, features = ["backend", "file_chooser", "async-io", "tracing"] }
 async-io = "2.6.0"
