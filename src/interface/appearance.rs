@@ -17,6 +17,7 @@ use super::{tab::Tab, window::Window};
 
 thread_local! {
     static PROVIDER: gtk::CssProvider = gtk::CssProvider::new();
+    static INSTALLED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn css() -> String {
@@ -45,17 +46,22 @@ fn css() -> String {
 
 /// Applies density and text size now and whenever they change.
 pub(super) fn install(anchor: &impl IsA<gtk::Widget>) {
-    PROVIDER.with(|provider| {
-        if let Some(display) = gdk::Display::default() {
-            gtk::style_context_add_provider_for_display(
-                &display,
-                provider,
-                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 5,
-            );
-        }
-        provider.load_from_string(&css());
-    });
     let reload = || PROVIDER.with(|p| p.load_from_string(&css()));
+    // One provider and one theme callback for the whole app; each window only
+    // binds the preferences it outlives.
+    if !INSTALLED.with(|installed| installed.replace(true)) {
+        PROVIDER.with(|provider| {
+            if let Some(display) = gdk::Display::default() {
+                gtk::style_context_add_provider_for_display(
+                    &display,
+                    provider,
+                    gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 5,
+                );
+            }
+        });
+        nyx_theme::on_change(reload);
+    }
+    reload();
     let prefs = PreferenceManager::shared();
     prefs.bind_preference(anchor, PreferenceManager::text_size, move |_, _| reload());
     prefs.bind_preference(anchor, PreferenceManager::browser_density, move |_, _| {
@@ -64,7 +70,6 @@ pub(super) fn install(anchor: &impl IsA<gtk::Widget>) {
     prefs.bind_preference(anchor, PreferenceManager::frame_density, move |_, _| {
         reload()
     });
-    nyx_theme::on_change(reload);
 }
 
 pub(super) fn step_text(delta: i32) {

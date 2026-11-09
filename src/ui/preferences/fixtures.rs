@@ -149,18 +149,7 @@ pub(in crate::ui) fn seed_saved_preferences_for_test() {
     .expect("persist complete fixture");
 }
 
-pub(in crate::ui) fn seed_omarchy_for_test() {
-    seed_omarchy_colors_for_test(
-        "background = '#112233'\nforeground = '#ddeeff'\naccent = '#445566'\n",
-    );
-}
 
-pub(in crate::ui) fn seed_omarchy_colors_for_test(colors: &str) {
-    let state = super::super::theme::omarchy_state_dir();
-    fs::create_dir_all(state.join("theme")).expect("isolated Omarchy theme directory");
-    fs::write(state.join("theme.name"), "fixture").expect("isolated Omarchy name");
-    fs::write(state.join("theme/colors.toml"), colors).expect("isolated Omarchy colors");
-}
 
 impl PreferenceManager {
     pub(in crate::ui) fn seed_saved_preferences_for_test() {

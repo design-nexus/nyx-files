@@ -591,7 +591,7 @@ colorchooser button.circular:disabled {
 
 .preview-document-table > header sort-indicator.ascending,
 .preview-document-table > header sort-indicator.descending {
-  -gtk-icon-source: -gtk-recolor(url("resource:///io/github/design_nexus/nyx/Files/icons/scalable/actions/strata-caret.svg"));
+  -gtk-icon-source: -gtk-icontheme("pan-up-symbolic");
   -gtk-icon-size: 10px;
   min-width: 12px;
   min-height: 12px;

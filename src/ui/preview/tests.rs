@@ -129,7 +129,7 @@ fn model_progress_and_theme_reloads_follow_the_current_request_in_each_drawer() 
                 "#ff0000"
             }
             .into();
-            manager.preview(&tokens);
+            manager.apply_for_test(&tokens);
             {
                 let pending = provider.0.borrow();
                 assert_eq!(pending.len(), 6);
@@ -156,7 +156,7 @@ fn model_progress_and_theme_reloads_follow_the_current_request_in_each_drawer() 
             assert!(first.state.current_request.get().is_none());
             assert!(first.state.model.borrow().is_none());
             tokens.surface = "#102030".into();
-            manager.preview(&tokens);
+            manager.apply_for_test(&tokens);
             assert_eq!(
                 provider.0.borrow().len(),
                 7,

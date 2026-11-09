@@ -21,8 +21,7 @@ use crate::{
     ui::{
         browser_modes::{BrowserDensity, BrowserMode, ClickCount, DensityScale, FrameDensity},
         preferences::fixtures::{
-            non_default_preferences, seed_omarchy_colors_for_test, seed_omarchy_for_test,
-            seed_saved_preferences_for_test,
+            non_default_preferences, seed_saved_preferences_for_test,
         },
         theme::ThemeManager,
     },
@@ -519,20 +518,13 @@ fn unlisted_search_limits_round_up_on_load_and_set() {
 }
 
 #[test]
-fn fresh_preferences_select_tokyo_night_before_settings_opens() {
+fn fresh_preferences_are_not_written_before_settings_opens() {
     gtk_test(
-        "ui::preferences::tests::preferences::fresh_preferences_select_tokyo_night_before_settings_opens",
+        "ui::preferences::tests::preferences::fresh_preferences_are_not_written_before_settings_opens",
         || {
             assert!(!settings_path().exists());
-            let themes = ThemeManager::shared();
             let manager = PreferenceManager::shared();
-            assert_eq!(themes.selected_id(), "tokyo-night");
             assert!(manager.filter_include_subfolders());
-            assert!(!themes.follows_omarchy());
-            assert_eq!(
-                themes.current_tokens().expect("selected theme").name,
-                "Tokyo Night"
-            );
             assert!(!settings_path().exists());
         },
     );
@@ -541,70 +533,9 @@ fn fresh_preferences_select_tokyo_night_before_settings_opens() {
 
 
 
-fn assert_theme_colors(widget: &impl IsA<gtk::Widget>, tokens: &crate::ui::theme::ThemeTokens) {
-    for (name, expected) in [
-        ("strata_bg", &tokens.background),
-        ("strata_surface", &tokens.surface),
-        ("strata_accent", &tokens.accent),
-        ("strata_text", &tokens.text),
-    ] {
-        #[expect(deprecated, reason = "GTK has no replacement for named CSS colors")]
-        let actual = widget
-            .style_context()
-            .lookup_color(name)
-            .expect("applied theme color");
-        assert_eq!(
-            actual,
-            gtk::gdk::RGBA::parse(expected).expect("valid token"),
-            "{name}"
-        );
-    }
-}
-
-#[test]
-fn omarchy_colors_in_gtk_only_hex_forms_apply_to_css_and_icons() {
-    gtk_test(
-        "ui::preferences::tests::preferences::omarchy_colors_in_gtk_only_hex_forms_apply_to_css_and_icons",
-        || {
-            seed_omarchy_colors_for_test(
-                "background = '#112233'\nforeground = '#ddeeff'\naccent = '#000aaafff'\nselection = '#1111222233338888'\n",
-            );
-            let themes = ThemeManager::shared();
-            assert!(themes.follows_omarchy());
-            let tokens = themes.appearance_tokens();
-            assert_eq!(tokens.accent, "#00aaff");
-            assert_eq!(tokens.highlight, "#11223388");
-            let window = gtk::Window::new();
-            for (name, expected) in [
-                ("strata_accent", "#00aaff"),
-                ("strata_highlight", "#11223388"),
-            ] {
-                #[expect(deprecated, reason = "GTK has no replacement for named CSS colors")]
-                let applied = window.style_context().lookup_color(name);
-                assert_eq!(
-                    applied,
-                    Some(gtk::gdk::RGBA::parse(expected).expect("canonical color")),
-                    "{name}"
-                );
-            }
-            assert_eq!(crate::assets::primary_icon_color(), "#00aaff");
-            window.close();
-        },
-    );
-}
 
 
-fn wait_for_theme(mut ready: impl FnMut() -> bool) {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    while !ready() {
-        assert!(
-            std::time::Instant::now() < deadline,
-            "live Omarchy refresh timed out"
-        );
-        glib::MainContext::default().iteration(false);
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
-}
+
 
 
 #[test]

@@ -4,31 +4,32 @@ use super::*;
 use sourceview5::prelude::*;
 
 #[test]
-fn bundled_syntax_palettes_load_in_gtksourceview() {
+fn suite_syntax_palettes_load_in_gtksourceview() {
     gtk_test(
-        "ui::theme::tests::syntax::bundled_syntax_palettes_load_in_gtksourceview",
+        "ui::theme::tests::syntax::suite_syntax_palettes_load_in_gtksourceview",
         || {
-            let themes = builtins();
+            let themes = nyx_theme::all();
             assert!(!themes.is_empty());
             for theme in themes {
-                let tokens = theme.tokens;
+                let tokens = super::super::tokens_from(&theme);
+                let palette = super::super::resolved_source_palette(&tokens, None);
                 let directory = tempfile::tempdir().expect("scheme directory");
                 std::fs::write(
-                    directory.path().join("strata-current.xml"),
+                    directory.path().join(format!("{}.xml", super::super::SOURCE_SCHEME)),
                     source_style_scheme_xml(&tokens, None),
                 )
                 .expect("write scheme");
                 let manager = sourceview5::StyleSchemeManager::new();
                 manager.set_search_path(&[directory.path().to_str().expect("UTF-8 scheme path")]);
-                let scheme = manager.scheme("strata-current").expect(&theme.id);
+                let scheme = manager.scheme(super::super::SOURCE_SCHEME).expect(&theme.id);
+                // A theme without its own syntax colours gets them from its accent.
                 for (style, color) in [
-                    ("def:statement", tokens.syntax_keyword),
-                    ("def:string", tokens.syntax_string),
-                    ("def:constant", tokens.syntax_constant),
-                    ("def:type", tokens.syntax_type),
-                    ("def:preprocessor", tokens.syntax_preprocessor),
+                    ("def:statement", palette.statement),
+                    ("def:string", palette.string),
+                    ("def:constant", palette.constant),
+                    ("def:type", palette.type_color),
+                    ("def:preprocessor", palette.preprocessor),
                 ] {
-                    let color = color.expect("bundled theme must provide every syntax role");
                     assert_eq!(
                         scheme
                             .style(style)

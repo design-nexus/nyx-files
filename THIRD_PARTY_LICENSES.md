@@ -1,6 +1,6 @@
 # Third-party notices
 
-Strata includes or derives assets from the following projects.
+Files includes or derives assets from the following projects.
 
 ## MathJax
 
@@ -11,7 +11,7 @@ Strata includes or derives assets from the following projects.
 - Included asset: `data/math-renderer.js` (bundled/minified base and AMS renderer with TeX SVG glyph data)
 - Full license: [`data/licenses/MathJax-Apache-2.0.txt`](data/licenses/MathJax-Apache-2.0.txt)
 
-The bundle adds Strata's bounded offline rendering entry point. Build inputs and
+The bundle adds Files' bounded offline rendering entry point. Build inputs and
 regeneration instructions are in [`packaging/math-renderer/`](packaging/math-renderer/README.md).
 
 ## JetBrains Mono
@@ -23,29 +23,7 @@ regeneration instructions are in [`packaging/math-renderer/`](packaging/math-ren
 - Included asset: `data/fonts/JetBrainsMono[wght].ttf`
 - Full license: [`data/licenses/JetBrainsMono-OFL-1.1.txt`](data/licenses/JetBrainsMono-OFL-1.1.txt)
 
-The font is distributed unmodified. Strata materializes the embedded font in its private cache at runtime so it is available without changing the user's system font installation.
-
-## Lucide
-
-- Project: <https://github.com/lucide-icons/lucide>
-- Version: 1.35.0
-- Copyright: Lucide Contributors and Feather Icons contributors
-- License: ISC
-- Included assets: curated and namespaced SVG icons under `data/icons/scalable/actions/`
-- Full license: [`data/licenses/Lucide-ISC.txt`](data/licenses/Lucide-ISC.txt)
-
-The SVGs retain Lucide geometry. The table sort caret uses the Lucide triangle with a filled foreground, rotated by GTK for descending order. The `-symbolic` chevron-down, plus, and minus icons outline Lucide's 2px round strokes as filled paths, because older GTK releases recolor only the fill of symbolic icons. Their foreground color was changed from `currentColor` to GTK's symbolic foreground color so GTK can recolor them according to the active theme.
-
-## Catppuccin VSCode Icons
-
-- Project: <https://github.com/catppuccin/vscode-icons>
-- Revision: `b6915da9f6889b683a110aa747de96c2820a537d` (v1.26.0)
-- Copyright: 2023 Catppuccin, 2023 thang-nm
-- License: MIT
-- Included assets: file-type icons under `data/icons/catppuccin/strata-ctp-*.svg`, copied from the upstream `icons/css-variables/` set, and the filename and extension associations in `src/ui/browser/entry/catppuccin.rs`, both generated from upstream by `scripts/catppuccin_icons.py`
-- Full license: [`data/licenses/Catppuccin-VSCode-Icons-MIT.txt`](data/licenses/Catppuccin-VSCode-Icons-MIT.txt)
-
-The SVG geometry is unchanged. Each `var(--vscode-ctp-*)` color is resolved at render time to the Catppuccin Mocha or Latte palette depending on the active theme's background, and strokes are scaled with the same weight factor as the Lucide icons.
+The font is distributed unmodified. Files materializes the embedded font in its private cache at runtime so it is available without changing the user's system font installation.
 
 ## Tinted Theming schemes
 

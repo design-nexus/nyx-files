@@ -25,27 +25,16 @@ const CELL_ACTIONS: [(Binding, &str); 2] = [
     (SELECT_ALL, "selection.select-all"),
 ];
 
-#[expect(
-    deprecated,
-    reason = "GTK exposes named theme colors through StyleContext"
-)]
-fn selection_colors(widget: &impl IsA<gtk::Widget>) -> Vec<u16> {
-    let context = widget.style_context();
-    let mut colors = Vec::new();
-    for color in [
-        context.lookup_color("theme_accent"),
-        context.lookup_color("theme_bg"),
-    ]
-    .into_iter()
-    .flatten()
-    {
-        colors.extend([
-            (color.red() * 65535.0) as u16,
-            (color.green() * 65535.0) as u16,
-            (color.blue() * 65535.0) as u16,
-        ]);
-    }
-    colors
+/// The selection's accent and background from the current theme, as 16-bit channels.
+fn selection_colors(_widget: &impl IsA<gtk::Widget>) -> Vec<u16> {
+    let tokens = crate::ui::theme::ThemeManager::shared().appearance_tokens();
+    [tokens.accent, tokens.background]
+        .iter()
+        .filter_map(|value| gtk::gdk::RGBA::parse(value.as_str()).ok())
+        .flat_map(|color| {
+            [color.red(), color.green(), color.blue()].map(|channel| (channel * 65535.0) as u16)
+        })
+        .collect()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

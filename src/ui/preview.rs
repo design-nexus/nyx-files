@@ -4149,9 +4149,7 @@ fn pdf_selected_text(
 }
 
 fn pdf_selection_color() -> Option<gtk::gdk::RGBA> {
-    crate::ui::theme::ThemeManager::shared()
-        .current_tokens()
-        .and_then(|tokens| gtk::gdk::RGBA::parse(&tokens.accent).ok())
+    gtk::gdk::RGBA::parse(&crate::ui::theme::ThemeManager::shared().appearance_tokens().accent).ok()
 }
 
 fn rounded_rect(cr: &cairo::Context, x: f64, y: f64, w: f64, h: f64, r: f64) {

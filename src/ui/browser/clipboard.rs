@@ -64,13 +64,8 @@ pub(crate) fn drag_preview_icon(
 ) -> Option<(gtk::gdk::Texture, i32, i32)> {
     let icon_name = entries
         .first()
-        .map(super::entry::entry_icon)
-        .unwrap_or(crate::assets::icons::DOCUMENTS);
-    let icon = crate::assets::drag_icon_texture(
-        icon_name,
-        &crate::assets::primary_icon_color(),
-        DRAG_PREVIEW_ICON_PX as i32,
-    )?;
+        .map_or_else(|| "text-x-generic".to_owned(), crate::ui::file_icons::name_for);
+    let icon = crate::assets::theme_texture(&icon_name, DRAG_PREVIEW_ICON_PX as i32, 1, None)?;
     let icon_w = f64::from(icon.width()).max(1.0);
     let icon_h = f64::from(icon.height()).max(1.0);
 

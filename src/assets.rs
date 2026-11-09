@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::{
-    cell::{Cell, RefCell},
+    cell::RefCell,
     collections::{HashMap, VecDeque},
     ffi::CString,
     fs, io,
@@ -10,8 +10,6 @@ use std::{
 };
 
 use gtk::{gdk, gio, glib, prelude::*};
-
-mod vector;
 
 pub mod icons {
     //! Themed symbolic icon names (Umbra in the suite, any freedesktop theme
@@ -148,99 +146,12 @@ pub mod icons {
 const FONT_VERSION: &str = "2.304";
 const ICON_TEXTURE_PX: i32 = 96;
 const ICON_TEXTURE_CACHE_LIMIT: usize = 256;
-
-/// File icons from catppuccin/vscode-icons keep their own palette instead of the theme accent.
-pub const CATPPUCCIN_ICON_PREFIX: &str = "strata-ctp-";
-
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
-pub enum CatppuccinFlavor {
-    #[default]
-    Mocha,
-    Latte,
-}
-
-impl CatppuccinFlavor {
-    pub fn for_dark_background(dark: bool) -> Self {
-        if dark { Self::Mocha } else { Self::Latte }
-    }
-
-    fn name(self) -> &'static str {
-        match self {
-            Self::Mocha => "mocha",
-            Self::Latte => "latte",
-        }
-    }
-
-    fn palette(self) -> &'static [(&'static str, &'static str); 16] {
-        match self {
-            Self::Mocha => &CATPPUCCIN_MOCHA,
-            Self::Latte => &CATPPUCCIN_LATTE,
-        }
-    }
-}
-
-const CATPPUCCIN_MOCHA: [(&str, &str); 16] = [
-    ("rosewater", "#f5e0dc"),
-    ("flamingo", "#f2cdcd"),
-    ("pink", "#f5c2e7"),
-    ("mauve", "#cba6f7"),
-    ("red", "#f38ba8"),
-    ("maroon", "#eba0ac"),
-    ("peach", "#fab387"),
-    ("yellow", "#f9e2af"),
-    ("green", "#a6e3a1"),
-    ("teal", "#94e2d5"),
-    ("sky", "#89dceb"),
-    ("sapphire", "#74c7ec"),
-    ("blue", "#89b4fa"),
-    ("lavender", "#b4befe"),
-    ("text", "#cdd6f4"),
-    ("overlay1", "#7f849c"),
-];
-
-const CATPPUCCIN_LATTE: [(&str, &str); 16] = [
-    ("rosewater", "#dc8a78"),
-    ("flamingo", "#dd7878"),
-    ("pink", "#ea76cb"),
-    ("mauve", "#8839ef"),
-    ("red", "#d20f39"),
-    ("maroon", "#e64553"),
-    ("peach", "#fe640b"),
-    ("yellow", "#df8e1d"),
-    ("green", "#40a02b"),
-    ("teal", "#179299"),
-    ("sky", "#04a5e5"),
-    ("sapphire", "#209fb5"),
-    ("blue", "#1e66f5"),
-    ("lavender", "#7287fd"),
-    ("text", "#4c4f69"),
-    ("overlay1", "#8c8fa1"),
-];
-
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) enum IconContext {
-    #[default]
-    Interface,
-    Grid,
-}
 const JETBRAINS_MONO: &[u8] = include_bytes!("../data/fonts/JetBrainsMono[wght].ttf");
 
 thread_local! {
     static PRIMARY_ICON_COLOR: RefCell<String> = RefCell::new("#8bc9eb".to_owned());
     static MUTED_ICON_COLOR: RefCell<String> = RefCell::new("#9097a8".to_owned());
     static ICON_TEXTURES: RefCell<IconTextureCache> = RefCell::new(IconTextureCache::default());
-    static CATPPUCCIN_FLAVOR: Cell<CatppuccinFlavor> = const { Cell::new(CatppuccinFlavor::Mocha) };
-    static CATPPUCCIN_THEME_COLORS: Cell<bool> = const { Cell::new(false) };
-}
-
-/// Call before the icon colors so the accent refresh re-renders file icons in the new flavor.
-pub fn set_catppuccin_flavor(flavor: CatppuccinFlavor) {
-    CATPPUCCIN_FLAVOR.set(flavor);
-}
-
-/// Renders every Catppuccin palette color as the accent instead; same ordering rule as the flavor.
-pub fn set_catppuccin_theme_colors(enabled: bool) {
-    CATPPUCCIN_THEME_COLORS.set(enabled);
 }
 
 pub fn prepare() -> Result<(), Box<dyn std::error::Error>> {
@@ -261,9 +172,6 @@ pub fn prepare() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn register_icon_theme() {
-    if let Some(display) = gdk::Display::default() {
-        gtk::IconTheme::for_display(&display).add_resource_path("/io/github/design_nexus/nyx/Files/icons");
-    }
     // Desktop shells resolve the window icon by matching the application ID to a
     // desktop entry, but GTK also needs the name to expose the bundled icon on its
     // own surfaces and on compositors that accept a toplevel icon.
@@ -319,31 +227,6 @@ pub fn set_muted_icon_color(color: &str) {
     MUTED_ICON_COLOR.with(|current| current.replace(color.to_owned()));
 }
 
-
-pub fn set_custom_colored_icon(image: &gtk::Image, name: &str, color: &str) {
-    apply_primary_icon(image, name, color);
-}
-
-pub fn set_folder_decoration_icon(image: &gtk::Image, decoration: &str, color: &str) {
-    if let Some(texture) = sized_folder_decoration_paintable(
-        decoration,
-        color,
-        image.pixel_size(),
-        image.scale_factor(),
-        IconContext::Interface,
-    ) {
-        image.set_paintable(Some(&texture));
-    } else {
-        apply_primary_icon(image, icons::FOLDER, color);
-    }
-}
-
-pub fn set_emoji_icon(image: &gtk::Image, emoji: &str) {
-    if let Some(texture) = emoji_texture(emoji) {
-        image.set_paintable(Some(&texture));
-    }
-}
-
 pub fn emoji_icon_paintable(emoji: &str) -> Option<gdk::Texture> {
     emoji_texture(emoji)
 }
@@ -352,354 +235,66 @@ pub fn primary_icon_color() -> String {
     PRIMARY_ICON_COLOR.with(|color| color.borrow().clone())
 }
 
-fn apply_primary_icon(image: &gtk::Image, name: &str, color: &str) {
-    let texture_px = if image.has_css_class("chrome-icon") {
-        texture_px_for_pixel_size(image.pixel_size())
-            .max(image.pixel_size().saturating_mul(image.scale_factor()))
-            .clamp(24, 768)
-    } else {
-        ICON_TEXTURE_PX
-            .max(image.pixel_size().saturating_mul(image.scale_factor()))
-            .clamp(24, 768)
-    };
-    if let Some(texture) = primary_icon_texture_at(
-        name,
-        color,
-        texture_px,
-        image.pixel_size(),
-        IconContext::Interface,
-    ) {
-        image.set_paintable(Some(&texture));
-    } else {
-        image.set_icon_name(Some(name));
-    }
-}
-
-fn texture_px_for_pixel_size(pixel_size: i32) -> i32 {
-    // Avoid excessive downsampling of toolbar strokes while supporting 2× displays.
-    if pixel_size > 0 {
-        pixel_size.saturating_mul(2).clamp(24, 768)
-    } else {
-        ICON_TEXTURE_PX
-    }
-}
-
-pub(crate) fn sized_icon_paintable(
+/// A theme icon as a texture of `logical_px` at `scale`: full colour, or a
+/// symbolic one drawn in `color`. `None` when the theme has no such icon.
+pub(crate) fn theme_texture(
     name: &str,
-    color: &str,
     logical_px: i32,
-    scale_factor: i32,
-    context: IconContext,
+    scale: i32,
+    color: Option<&str>,
 ) -> Option<gdk::Texture> {
-    let texture_px = ICON_TEXTURE_PX
-        .max(logical_px.saturating_mul(scale_factor))
-        .clamp(24, 768);
-    primary_icon_texture_at(name, color, texture_px, logical_px, context)
-}
-
-pub(crate) fn drag_icon_texture(name: &str, color: &str, texture_px: i32) -> Option<gdk::Texture> {
-    let texture_px = texture_px.clamp(24, 768);
-    primary_icon_texture_at(name, color, texture_px, texture_px, IconContext::Interface)
-}
-
-fn primary_icon_texture_at(
-    name: &str,
-    color: &str,
-    texture_px: i32,
-    logical_px: i32,
-    context: IconContext,
-) -> Option<gdk::Texture> {
-    if name.starts_with(CATPPUCCIN_ICON_PREFIX) {
-        return catppuccin_icon_texture_at(name, color, texture_px, logical_px, context);
-    }
-    let cache_name = if name == icons::FOLDER {
-        format!("{name}@{:.2}", folder_stroke_width(logical_px))
-    } else {
-        name.to_owned()
-    };
-    texture_from_svg(
-        &stroke_cache_name(&cache_name, logical_px, context),
-        color,
-        texture_px,
-        || {
-            let path = format!("/io/github/design_nexus/nyx/Files/icons/scalable/actions/{name}.svg");
-            let data = gio::resources_lookup_data(&path, gio::ResourceLookupFlags::NONE).ok()?;
-            let source = std::str::from_utf8(data.as_ref()).ok()?;
-            let mut source = recolor_icon_source(source, color);
-            if name == icons::FOLDER {
-                source = folder_outline_at(&source, logical_px).replacen(
-                    "fill=\"none\"",
-                    &format!("fill=\"{color}\" fill-opacity=\"0.15\""),
-                    1,
-                );
-            }
-            let source = compensate_icon_strokes(source, logical_px, context);
-            Some(svg_at_texture_size(source, texture_px))
-        },
-    )
-}
-
-fn catppuccin_icon_texture_at(
-    name: &str,
-    color: &str,
-    texture_px: i32,
-    logical_px: i32,
-    context: IconContext,
-) -> Option<gdk::Texture> {
-    let flavor = CATPPUCCIN_FLAVOR.get();
-    let themed = CATPPUCCIN_THEME_COLORS.get();
-    let palette = if themed {
-        format!("accent:{color}")
-    } else {
-        flavor.name().to_owned()
-    };
-    texture_from_svg(
-        &stroke_cache_name(name, logical_px, context),
-        &palette,
-        texture_px,
-        || {
-            let path = format!("/io/github/design_nexus/nyx/Files/icons/catppuccin/{name}.svg");
-            let data = gio::resources_lookup_data(&path, gio::ResourceLookupFlags::NONE).ok()?;
-            let mut source = std::str::from_utf8(data.as_ref()).ok()?.to_owned();
-            for (variable, hex) in flavor.palette() {
-                let replacement = if themed { color } else { hex };
-                source = source.replace(&format!("var(--vscode-ctp-{variable})"), replacement);
-            }
-            if themed {
-                // Tint the outlines the same way the folder icon is tinted.
-                source = source.replace(
-                    "fill=\"none\"",
-                    &format!("fill=\"{color}\" fill-opacity=\"0.15\""),
-                );
-            }
-            Some(scale_catppuccin_strokes(
-                source,
-                icon_stroke_factor(logical_px, context) * catppuccin_stroke_weight(context),
-            ))
-        },
-    )
-}
-
-/// Catppuccin draws 1-unit strokes on a 16-unit grid where Lucide draws 2 on 24, so the
-/// file icons read a quarter lighter than the folder beside them; match Lucide on cards.
-fn catppuccin_stroke_weight(context: IconContext) -> f64 {
-    match context {
-        IconContext::Interface => 1.0,
-        IconContext::Grid => 4.0 / 3.0,
-    }
-}
-
-fn scale_catppuccin_strokes(source: String, factor: f64) -> String {
-    if factor == 1.0 {
-        return source;
-    }
-    const MARKER: &str = "stroke-width=\"";
-    let mut scaled = String::with_capacity(source.len());
-    let mut rest = source.as_str();
-    while let Some(start) = rest.find(MARKER) {
-        let value_start = start + MARKER.len();
-        let Some(length) = rest[value_start..].find('"') else {
-            break;
-        };
-        let value = &rest[value_start..value_start + length];
-        scaled.push_str(&rest[..value_start]);
-        match value.parse::<f64>() {
-            Ok(width) => scaled.push_str(&(width * factor).to_string()),
-            Err(_) => scaled.push_str(value),
-        }
-        rest = &rest[value_start + length..];
-    }
-    scaled.push_str(rest);
-    // Upstream icons rely on the SVG default width of 1 unless they set their own.
-    scaled.replacen("<svg ", &format!("<svg stroke-width=\"{factor}\" "), 1)
-}
-
-fn stroke_cache_name(name: &str, logical_px: i32, context: IconContext) -> String {
-    let context = match context {
-        IconContext::Interface if logical_px <= 64 => return name.to_owned(),
-        IconContext::Interface => "interface",
-        IconContext::Grid => "grid",
-    };
-    format!("{name}:{context}:stroke-size:{logical_px}")
-}
-
-fn icon_stroke_factor(logical_px: i32, context: IconContext) -> f64 {
-    let weight = match context {
-        IconContext::Interface => 1.0,
-        IconContext::Grid => 0.5,
-    };
-    // Logical size controls perceived weight; raster resolution only controls sharpness.
-    weight * (64.0 / f64::from(logical_px.max(64))).powf(0.35)
-}
-
-fn compensate_icon_strokes(source: String, logical_px: i32, context: IconContext) -> String {
-    let factor = icon_stroke_factor(logical_px, context);
-    source
-        .replace(
-            "stroke-width=\"2\"",
-            &format!("stroke-width=\"{}\"", 2.0 * factor),
-        )
-        .replace(
-            "stroke-width=\"2.7\"",
-            &format!("stroke-width=\"{}\"", 2.7 * factor),
-        )
-}
-
-pub(crate) fn sized_folder_decoration_paintable(
-    decoration: &str,
-    color: &str,
-    logical_px: i32,
-    scale_factor: i32,
-    context: IconContext,
-) -> Option<gdk::Texture> {
-    let texture_px = ICON_TEXTURE_PX
-        .max(logical_px.saturating_mul(scale_factor))
-        .clamp(24, 768);
-    let folder_data = gio::resources_lookup_data(
-        "/io/github/design_nexus/nyx/Files/icons/scalable/actions/strata-folder.svg",
-        gio::ResourceLookupFlags::NONE,
-    )
-    .ok()?;
-    let folder = std::str::from_utf8(folder_data.as_ref()).ok()?;
-    let mut source = svg_at_texture_size(recolor_icon_source(folder, color), texture_px).replacen(
-        "fill=\"none\"",
-        &format!("fill=\"{color}\" fill-opacity=\"0.92\""),
-        1,
-    );
-    if let Some(emoji) = icons::custom_emoji(decoration) {
-        return folder_emoji_texture(
-            &compensate_icon_strokes(source, logical_px, context),
-            emoji,
-            color,
-            logical_px,
-            texture_px,
-            context,
-        );
-    }
-
-    let foreground = contrasting_foreground(color);
-    let path = format!("/io/github/design_nexus/nyx/Files/icons/scalable/actions/{decoration}.svg");
-    let data = gio::resources_lookup_data(&path, gio::ResourceLookupFlags::NONE).ok()?;
-    let badge = std::str::from_utf8(data.as_ref()).ok()?;
-    let body = svg_body(badge)?;
-    let overlay = format!(
-        r#"<g transform="translate(5.5 6.8) scale(.54)" fill="none" stroke="{foreground}" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">{body}</g>"#,
-    );
-    source = source.replacen("</svg>", &format!("{overlay}</svg>"), 1);
-    texture_from_svg(
-        &stroke_cache_name(
-            &format!("folder-decoration:{decoration}"),
-            logical_px,
-            context,
-        ),
-        color,
-        texture_px,
-        || Some(compensate_icon_strokes(source, logical_px, context)),
-    )
-}
-
-/// The folder outline's line weight at `logical_px`: the thin 0.8 line on large
-/// icons, heavier at list and sidebar sizes where 0.8 renders under a pixel and
-/// reads dull beside the other icons.
-fn folder_stroke_width(logical_px: i32) -> f64 {
-    let t = ((f64::from(logical_px) - 20.0) / 28.0).clamp(0.0, 1.0);
-    1.6 + (0.8 - 1.6) * t
-}
-
-/// The largest size (list rows, columns, the sidebar) at which a special folder
-/// shows only its glyph; the grid starts at 32.
-const SMALL_FOLDER_GLYPH_PX: i32 = 24;
-
-fn folder_outline_at(source: &str, logical_px: i32) -> String {
-    source.replacen(
-        "stroke-width=\"0.8\"",
-        &format!("stroke-width=\"{:.2}\"", folder_stroke_width(logical_px)),
-        1,
-    )
-}
-
-/// The plain outline folder with `glyph` drawn small in its middle, in the same
-/// colour and line weight: how folders that hold one kind of thing look.
-pub(crate) fn sized_folder_glyph_paintable(
-    glyph: &str,
-    color: &str,
-    logical_px: i32,
-    scale_factor: i32,
-    context: IconContext,
-) -> Option<gdk::Texture> {
-    let texture_px = ICON_TEXTURE_PX
-        .max(logical_px.saturating_mul(scale_factor))
-        .clamp(24, 768);
-    // At list and sidebar sizes a glyph inside a folder is too small to read; show
-    // the glyph alone, like the sidebar's places.
-    if logical_px <= SMALL_FOLDER_GLYPH_PX {
-        return primary_icon_texture_at(glyph, color, texture_px, logical_px, context);
-    }
-    let width = folder_stroke_width(logical_px);
-    texture_from_svg(
-        &stroke_cache_name(&format!("folder-glyph:{glyph}@{width:.2}"), logical_px, context),
-        color,
-        texture_px,
-        || {
-            let folder_data = gio::resources_lookup_data(
-                "/io/github/design_nexus/nyx/Files/icons/scalable/actions/strata-folder.svg",
-                gio::ResourceLookupFlags::NONE,
-            )
-            .ok()?;
-            let folder = std::str::from_utf8(folder_data.as_ref()).ok()?;
-            let path = format!("/io/github/design_nexus/nyx/Files/icons/scalable/actions/{glyph}.svg");
-            let data = gio::resources_lookup_data(&path, gio::ResourceLookupFlags::NONE).ok()?;
-            let body = svg_body(std::str::from_utf8(data.as_ref()).ok()?)?.to_owned();
-            // Centred in the folder body (x 3–21, y 8–19), drawn at the folder's own
-            // line weight once scaled.
-            let glyph_width = width / 0.4;
-            let overlay = format!(
-                r#"<g transform="translate(7.2 8.7) scale(.4)" fill="none" stroke="{color}" stroke-width="{glyph_width:.2}" stroke-linecap="round" stroke-linejoin="round">{body}</g>"#,
-            );
-            let source = folder_outline_at(&recolor_icon_source(folder, color), logical_px)
-                .replacen(
-                    "fill=\"none\"",
-                    &format!("fill=\"{color}\" fill-opacity=\"0.15\""),
-                    1,
-                )
-                .replacen("</svg>", &format!("{overlay}</svg>"), 1);
-            Some(svg_at_texture_size(source, texture_px))
-        },
-    )
-}
-
-pub fn set_folder_glyph_icon(image: &gtk::Image, glyph: &str, color: &str) {
-    if let Some(texture) = sized_folder_glyph_paintable(
-        glyph,
-        color,
-        image.pixel_size(),
-        image.scale_factor(),
-        IconContext::Interface,
-    ) {
-        image.set_paintable(Some(&texture));
-    } else {
-        apply_primary_icon(image, icons::FOLDER, color);
-    }
-}
-
-fn folder_emoji_texture(
-    folder_source: &str,
-    emoji: &str,
-    color: &str,
-    logical_px: i32,
-    texture_px: i32,
-    context: IconContext,
-) -> Option<gdk::Texture> {
-    let key = (
-        stroke_cache_name(&format!("folder-emoji:{emoji}"), logical_px, context),
-        color.to_owned(),
-        texture_px,
-    );
+    let key = (format!("theme:{name}"), color.unwrap_or_default().to_owned(), logical_px * scale.max(1));
     if let Some(texture) = cached_icon_texture(&key) {
         return Some(texture);
     }
-    let folder = vector::surface(folder_source, texture_px)?;
-    render_emoji_texture(key, emoji, 52.0, (44.0, 44.0), (48.0, 56.0), Some(&folder))
+    let display = gdk::Display::default()?;
+    let theme = gtk::IconTheme::for_display(&display);
+    if !theme.has_icon(name) {
+        return None;
+    }
+    let icon = theme.lookup_icon(
+        name,
+        &[],
+        logical_px,
+        scale.max(1),
+        gtk::TextDirection::None,
+        gtk::IconLookupFlags::empty(),
+    );
+    let path = icon.file()?.path()?;
+    let px = logical_px * scale.max(1);
+    let pixbuf = gdk_pixbuf::Pixbuf::from_file_at_size(path, px, px).ok()?;
+    let pixbuf = match color.and_then(|color| gdk::RGBA::parse(color).ok()) {
+        Some(rgba) => recolored(&pixbuf, &rgba)?,
+        None => pixbuf,
+    };
+    Some(cache_icon_texture(key, gdk::Texture::for_pixbuf(&pixbuf)))
+}
+
+/// A one-colour symbolic icon in `color`, keeping its shape's alpha.
+fn recolored(pixbuf: &gdk_pixbuf::Pixbuf, color: &gdk::RGBA) -> Option<gdk_pixbuf::Pixbuf> {
+    let pixbuf = if pixbuf.has_alpha() {
+        pixbuf.copy()?
+    } else {
+        pixbuf.add_alpha(false, 0, 0, 0).ok()?
+    };
+    let channel = |value: f32| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let (red, green, blue) = (channel(color.red()), channel(color.green()), channel(color.blue()));
+    let (width, height) = (pixbuf.width() as usize, pixbuf.height() as usize);
+    let stride = pixbuf.rowstride() as usize;
+    let channels = pixbuf.n_channels() as usize;
+    // SAFETY: `pixbuf` is a fresh copy no one else holds, and every index stays
+    // inside its `height` rows of `stride` bytes.
+    #[expect(unsafe_code, reason = "GdkPixbuf exposes mutable pixels only through this call")]
+    let pixels = unsafe { pixbuf.pixels() };
+    for row in 0..height {
+        for column in 0..width {
+            let i = row * stride + column * channels;
+            pixels[i] = red;
+            pixels[i + 1] = green;
+            pixels[i + 2] = blue;
+        }
+    }
+    Some(pixbuf)
 }
 
 fn emoji_texture(emoji: &str) -> Option<gdk::Texture> {
@@ -765,53 +360,6 @@ fn fitted_emoji_layout(
         ink = layout.pixel_extents().0;
     }
     (layout, ink)
-}
-
-fn contrasting_foreground(color: &str) -> &'static str {
-    let Some(rgb) = color.strip_prefix('#').filter(|hex| hex.len() >= 6) else {
-        return "#f8fafc";
-    };
-    let Ok(red) = u8::from_str_radix(&rgb[0..2], 16) else {
-        return "#f8fafc";
-    };
-    let Ok(green) = u8::from_str_radix(&rgb[2..4], 16) else {
-        return "#f8fafc";
-    };
-    let Ok(blue) = u8::from_str_radix(&rgb[4..6], 16) else {
-        return "#f8fafc";
-    };
-    let luminance = u32::from(red) * 299 + u32::from(green) * 587 + u32::from(blue) * 114;
-    if luminance > 150_000 {
-        "#172033"
-    } else {
-        "#f8fafc"
-    }
-}
-
-fn svg_body(source: &str) -> Option<&str> {
-    let start = source.find('>')? + 1;
-    let end = source.rfind("</svg>")?;
-    source.get(start..end)
-}
-
-fn svg_at_texture_size(source: String, texture_px: i32) -> String {
-    source
-        .replacen("width=\"24\"", &format!("width=\"{texture_px}\""), 1)
-        .replacen("height=\"24\"", &format!("height=\"{texture_px}\""), 1)
-}
-
-fn texture_from_svg(
-    cache_name: &str,
-    color: &str,
-    texture_px: i32,
-    source: impl FnOnce() -> Option<String>,
-) -> Option<gdk::Texture> {
-    let key = (cache_name.to_owned(), color.to_owned(), texture_px);
-    if let Some(texture) = cached_icon_texture(&key) {
-        return Some(texture);
-    }
-    let surface = vector::surface(&source()?, texture_px)?;
-    Some(cache_icon_texture(key, texture_from_surface(&surface)?))
 }
 
 fn texture_from_surface(surface: &cairo::ImageSurface) -> Option<gdk::Texture> {
@@ -906,19 +454,17 @@ impl IconTextureCache {
     }
 }
 
+/// Drops cached theme icons; a new or regenerated icon theme draws them again.
+pub(crate) fn forget_theme_textures() {
+    ICON_TEXTURES.with(|textures| *textures.borrow_mut() = IconTextureCache::default());
+}
+
 fn cached_icon_texture(key: &IconTextureKey) -> Option<gdk::Texture> {
     ICON_TEXTURES.with(|textures| textures.borrow_mut().get(key))
 }
 
 fn cache_icon_texture(key: IconTextureKey, texture: gdk::Texture) -> gdk::Texture {
     ICON_TEXTURES.with(|textures| textures.borrow_mut().insert(key, texture))
-}
-
-fn recolor_icon_source(source: &str, color: &str) -> String {
-    source
-        .replace("#8bc9eb", color)
-        .replace("#22d3ee", color)
-        .replace("#2e3436", color)
 }
 
 fn write_if_changed(path: &Path, contents: &[u8]) -> io::Result<()> {
@@ -971,7 +517,3 @@ fn register_application_fonts(
 
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-pub(crate) use tests::{
-    custom_colored_icon_paintable, folder_decoration_paintable, primary_icon_paintable,
-};

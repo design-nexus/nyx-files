@@ -132,10 +132,11 @@ fn retained_selections_follow_live_theme_in_two_windows_and_rebuilt_tables() {
                 "selection is highlighted before Settings opens"
             );
             assert_eq!(colors(&windows[1].1), original);
-            let mut preview = themes.starter_tokens();
+            let starting = themes.appearance_tokens();
+            let mut preview = starting.clone();
             preview.accent = "#ff0000".into();
             preview.background = "#0000ff".into();
-            themes.preview(&preview).expect("valid live theme preview");
+            themes.apply_for_test(&preview);
             while context.pending() {
                 context.iteration(false);
             }
@@ -152,7 +153,7 @@ fn retained_selections_follow_live_theme_in_two_windows_and_rebuilt_tables() {
                 changed,
                 "rebuilt tables use the active theme"
             );
-            themes.cancel_preview();
+            themes.apply_for_test(&starting);
             while context.pending() {
                 context.iteration(false);
             }

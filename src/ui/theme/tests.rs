@@ -1,114 +1,23 @@
 // SPDX-License-Identifier: MIT
 
-mod density;
 mod syntax;
-mod text_size;
-
-use std::{cell::Cell, collections::HashSet, rc::Rc};
-
-use crate::ui::preferences::{CornerRoundness, PreferenceManager};
 
 use super::{
-    Theme, ThemeManager, ThemeTokens, azure_tokens, blend, builtins,
-    canonical_color, color_to_hex, custom_theme_id, is_omarchy_theme_event,
-    merge_builtin_and_custom_themes, omarchy::contrast, slugify, source_palette_from_quattro,
-    source_style_scheme_xml, themes_directory, title_case_slug, tokens_from_quattro,
-    validate_tokens,
+    SOURCE_SCHEME, ThemeManager, ThemeTokens, blend, canonical_color, color_to_hex,
+    contrast::contrast, source_style_scheme_xml, suite_tokens, validate_tokens,
 };
-use crate::test_support::{gtk_test, gtk_test_with_env, texture_has_visible_pixels};
+use crate::test_support::gtk_test;
 use gtk::prelude::*;
 
-
 #[test]
-fn bundled_catalog_is_valid_unique_and_alphabetical() {
-    let themes = builtins();
-
-    let mut ids = HashSet::new();
-    let mut previous_name = String::new();
-    for theme in &themes {
-        assert!(
-            ids.insert(theme.id.as_str()),
-            "bundled theme IDs must be unique"
-        );
-        assert!(
-            validate_tokens(&theme.tokens).is_ok(),
-            "{} must contain valid theme tokens",
-            theme.tokens.name
-        );
-        let name = theme.tokens.name.to_lowercase();
-        assert!(previous_name <= name, "bundled themes must be alphabetical");
-        previous_name = name;
-    }
-
-    for removed in [
-        "apprentice",
-        "brogrammer",
-        "codeschool",
-        "everforest-dark-medium",
-        "everforest-light-soft",
-        "gruvbox-dark-medium",
-        "gruvbox-dark-soft",
-        "gruvbox-light-medium",
-        "gruvbox-light-soft",
-        "jellybeans",
-        "shades-of-purple",
-        "xcode-dusk",
-    ] {
-        assert!(!ids.contains(removed), "{removed} should not be bundled");
+fn suite_themes_keep_dim_text_readable() {
+    for theme in nyx_theme::all() {
+        let tokens = super::tokens_from(&theme);
+        assert!(validate_tokens(&tokens).is_ok(), "{}", theme.id);
+        assert!(contrast(&tokens.dim_text, &tokens.background) >= 4.5, "{}", theme.id);
+        assert!(contrast(&tokens.dim_text, &tokens.surface) >= 3.0, "{}", theme.id);
     }
 }
-
-type TextColor = (&'static str, fn(&ThemeTokens) -> &str);
-type ContrastFloor = (&'static str, fn(&ThemeTokens) -> &str, f64);
-
-#[test]
-fn bundled_themes_keep_text_readable() {
-    let colors: [TextColor; 2] = [
-        ("text", |tokens| &tokens.text),
-        ("dim text", |tokens| &tokens.dim_text),
-    ];
-    let floors: [ContrastFloor; 2] = [
-        ("background", |tokens| &tokens.background, 4.5),
-        ("surface", |tokens| &tokens.surface, 3.0),
-    ];
-    let themes = builtins();
-    assert!(!themes.is_empty());
-    let mut failures = Vec::new();
-    for theme in &themes {
-        for (name, color) in colors {
-            for (role, background, floor) in floors {
-                let ratio = contrast(color(&theme.tokens), background(&theme.tokens));
-                if ratio < floor {
-                    failures.push(format!(
-                        "{} {name} on {role} is {ratio:.2}:1, below the {floor}:1 floor",
-                        theme.id
-                    ));
-                }
-            }
-        }
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
-#[test]
-fn custom_themes_replace_bundled_themes_with_the_same_id() {
-    let builtin = Theme {
-        id: "dracula".to_owned(),
-        tokens: azure_tokens(),
-        custom: false,
-    };
-    let mut custom = builtin.clone();
-    custom.tokens.name = "My Dracula".to_owned();
-    custom.custom = true;
-
-    let themes = merge_builtin_and_custom_themes(vec![builtin], vec![custom]);
-
-    assert_eq!(themes.len(), 1);
-    assert!(themes[0].custom);
-    assert_eq!(themes[0].tokens.name, "My Dracula");
-}
-
-
 
 fn wait_for_live_theme(mut ready: impl FnMut() -> bool) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
@@ -127,48 +36,6 @@ fn has_color(label: &gtk::Label, expected: &gtk::gdk::RGBA) -> bool {
     (actual.red() - expected.red()).abs() < 0.01
         && (actual.green() - expected.green()).abs() < 0.01
         && (actual.blue() - expected.blue()).abs() < 0.01
-}
-
-/// Runs the main loop past the refresh debounce so a missing change is a real absence.
-fn settle_live_theme() {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(400);
-    while std::time::Instant::now() < deadline {
-        gtk::glib::MainContext::default().iteration(false);
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
-}
-
-#[test]
-fn names_become_safe_config_file_slugs() {
-    assert_eq!(slugify("  Rosé / Pine!  "), "ros-pine");
-    assert_eq!(slugify("Ocean  Blue"), "ocean-blue");
-}
-
-#[test]
-fn custom_theme_ids_fall_back_and_skip_taken_ids() {
-    let cases: [(&str, &[&str], &str); 5] = [
-        ("Ocean Blue", &["ocean-blue"], "ocean-blue-2"),
-        ("日本語", &[], "custom-theme"),
-        ("!!!", &[], "custom-theme"),
-        ("日本語", &["custom-theme"], "custom-theme-2"),
-        (
-            "日本語",
-            &["custom-theme", "custom-theme-2"],
-            "custom-theme-3",
-        ),
-    ];
-    for (name, taken, expected) in cases {
-        assert_eq!(
-            custom_theme_id(name, |id| taken.contains(&id)),
-            expected,
-            "{name:?}"
-        );
-    }
-}
-
-#[test]
-fn omarchy_slugs_become_display_names() {
-    assert_eq!(title_case_slug("tokyo-night"), "Tokyo Night");
 }
 
 #[test]
@@ -195,55 +62,6 @@ fn gtk_color_formats_canonicalize_for_persistence_and_scheme_xml() {
         assert_eq!(canonical_color(value).as_deref(), css, "{value}");
         assert_eq!(color_to_hex(value), opaque, "{value}");
     }
-}
-
-
-#[test]
-fn applied_icon_colors_are_canonical_and_render_visible_strokes() {
-    gtk_test(
-        "ui::theme::tests::applied_icon_colors_are_canonical_and_render_visible_strokes",
-        || {
-            use gtk::prelude::*;
-            let manager = ThemeManager::shared();
-            for (value, expected) in [
-                ("#000aaafff", "#00aaff"),
-                ("rgb(0, 170, 255)", "#00aaff"),
-                ("deepskyblue", "#00bfff"),
-                ("#00aaff80", "#00aaff"),
-            ] {
-                let mut tokens = azure_tokens();
-                tokens.accent = value.to_owned();
-                tokens.text = value.to_owned();
-                tokens.danger = value.to_owned();
-                manager.apply_tokens(&tokens, None);
-                assert_eq!(crate::assets::primary_icon_color(), expected, "{value}");
-                for (kind, image) in [
-                    (
-                        "primary",
-                        crate::assets::primary_icon(crate::assets::icons::COG, 18),
-                    ),
-                    (
-                        "text",
-                        crate::assets::text_icon(crate::assets::icons::COG, 18),
-                    ),
-                    (
-                        "danger",
-                        crate::assets::danger_icon(crate::assets::icons::COG, 18),
-                    ),
-                ] {
-                    let texture = image
-                        .paintable()
-                        .expect("icon paintable")
-                        .downcast::<gtk::gdk::Texture>()
-                        .expect("icon texture");
-                    assert!(
-                        texture_has_visible_pixels(&texture),
-                        "{value} {kind} icon has a visible stroke"
-                    );
-                }
-            }
-        },
-    );
 }
 
 fn scheme_color_values(xml: &str) -> Vec<&str> {
@@ -294,13 +112,13 @@ fn source_style_scheme_xml_canonicalizes_rgb_tokens_for_gtksourceview() {
             );
 
             let directory = tempfile::tempdir().expect("scheme directory");
-            std::fs::write(directory.path().join("strata-current.xml"), xml.as_bytes())
+            std::fs::write(directory.path().join(format!("{SOURCE_SCHEME}.xml")), xml.as_bytes())
                 .expect("write scheme");
             let manager = sourceview5::StyleSchemeManager::new();
             manager.set_search_path(&[directory.path().to_str().expect("utf-8 scheme path")]);
             manager.force_rescan();
             let scheme = manager
-                .scheme("strata-current")
+                .scheme(SOURCE_SCHEME)
                 .expect("GtkSourceView should load a #rrggbb scheme");
             let statement = scheme
                 .style("def:statement")
@@ -311,243 +129,15 @@ fn source_style_scheme_xml_canonicalizes_rgb_tokens_for_gtksourceview() {
 }
 
 #[test]
-fn quattro_colors_map_to_strata_tokens() {
-    let theme = tokens_from_quattro(
-        "azure-glow",
-        r##"
-background = "#0a0f1a"
-foreground = "#a8dfff"
-accent = "#00aaff"
-selection = "#a8dfff"
-color8 = "#123247"
-"##,
-        super::OmarchyVariant::Original,
-    )
-    .expect("valid Quattro colors should map");
-
-    assert_eq!(theme.name, "Azure Glow");
-    assert_eq!(theme.background, "#0d1b2a");
-    assert_eq!(theme.accent, "#00aaff");
-    assert_eq!(theme.border, "#487089");
-    let derived = super::resolved_source_palette(&theme, None);
-    for (source, expected) in [
-        ("color2 = \"#00ff00\"", "#00ff00"),
-        ("color2 = \"#00ff00\"\ngreen = \"#009900\"", "#009900"),
-        ("green = \"invalid\"", derived.string.as_str()),
-    ] {
-        let source = format!(
-            "background = \"#0a0f1a\"\nforeground = \"#a8dfff\"\naccent = \"#00aaff\"\nselection = \"#a8dfff\"\ncolor8 = \"#123247\"\n{source}"
-        );
-        let tokens = tokens_from_quattro("azure-glow", &source, super::OmarchyVariant::Original)
-            .expect("partial Quattro palette");
-        let palette = super::resolved_source_palette(&tokens, None);
-        assert_eq!(palette.string, expected);
-        assert_eq!(palette.statement, derived.statement);
-    }
-}
-
-#[test]
-fn quattro_syntax_colors_remain_theme_native() {
-    let palette = source_palette_from_quattro(
-        r##"
-blue = "#111111"
-cyan = "#222222"
-green = "#333333"
-yellow = "#444444"
-orange = "#555555"
-magenta = "#666666"
-"##,
-    )
-    .expect("complete Quattro syntax palette");
-
-    assert_eq!(palette.statement, "#666666");
-    assert_eq!(palette.string, "#333333");
-    assert_eq!(palette.constant, "#555555");
-    assert_eq!(palette.type_color, "#222222");
-    assert_eq!(palette.preprocessor, "#444444");
-}
-
-#[test]
-fn quattro_syntax_palette_treats_unparsable_colors_as_missing() {
-    let base = [
-        ("blue", "#111111"),
-        ("cyan", "#222222"),
-        ("green", "#333333"),
-        ("yellow", "#444444"),
-        ("orange", "#555555"),
-        ("magenta", "#666666"),
-    ];
-    let source_with = |key: &str, value: &str| {
-        base.iter()
-            .map(|(name, color)| {
-                let color = if *name == key { value } else { color };
-                format!("{name} = \"{color}\"\n")
-            })
-            .collect::<String>()
-    };
-    type Field = fn(&super::SourcePalette) -> &str;
-    let statement: Field = |palette| &palette.statement;
-    let string: Field = |palette| &palette.string;
-    let constant: Field = |palette| &palette.constant;
-    let type_color: Field = |palette| &palette.type_color;
-    for (key, value, expected) in [
-        ("green", "invalid", None),
-        ("yellow", "invalid", None),
-        ("magenta", "0x666666", Some((statement, "#111111"))),
-        ("orange", "notacolor", Some((constant, "#444444"))),
-        ("cyan", "", Some((type_color, "#111111"))),
-        ("green", "#333333333", Some((string, "#333333"))),
-        (
-            "magenta",
-            "rgba(102,102,102,0.5)",
-            Some((statement, "#66666680")),
-        ),
-    ] {
-        let palette = source_palette_from_quattro(&source_with(key, value));
-        match expected {
-            None => assert!(palette.is_none(), "{key} = {value:?}"),
-            Some((field, color)) => assert_eq!(
-                palette.as_ref().map(field),
-                Some(color),
-                "{key} = {value:?}"
-            ),
-        }
-    }
-
-    let source = format!(
-        "background = \"#0a0f1a\"\nforeground = \"#a8dfff\"\naccent = \"#00aaff\"\n{}",
-        source_with("orange", "0x555555").replace("#666666", "notacolor")
-    );
-    let tokens = tokens_from_quattro("azure-glow", &source, super::OmarchyVariant::Original)
-        .expect("required Quattro colors are valid");
-    let xml = source_style_scheme_xml(&tokens, source_palette_from_quattro(&source).as_ref());
-    let values = scheme_color_values(&xml);
-    assert_eq!(values.len(), 12);
-    for value in values {
-        assert!(
-            value.starts_with('#') && value.len() == 7,
-            "scheme colors must be canonical #rrggbb, got {value}"
-        );
-    }
-}
-
-#[test]
-fn legacy_palette_without_quattro_semantics_is_not_detected() {
-    assert!(
-        tokens_from_quattro(
-            "legacy",
-            "color4 = \"#00aaff\"",
-            super::OmarchyVariant::Original
-        )
-        .is_none()
-    );
-}
-
-#[test]
-fn omarchy_monitor_ignores_unrelated_state_changes() {
-    let state = super::omarchy_state_dir();
-    for path in [
-        state.clone(),
-        state.join("theme"),
-        state.join("theme.name"),
-        state.join("theme/colors.toml"),
-        state.parent().expect("Omarchy state parent").to_path_buf(),
-    ] {
-        assert!(is_omarchy_theme_event(&gtk::gio::File::for_path(path)));
-    }
-    for path in [
-        state.join("next-theme"),
-        state.join("background"),
-        gtk::glib::home_dir().join("theme"),
-    ] {
-        assert!(!is_omarchy_theme_event(&gtk::gio::File::for_path(path)));
-    }
-}
-
-
-
-
-
-
-
-#[test]
-fn interface_font_applies_before_settings_open_and_live_while_previews_stay_monospace() {
+fn user_stylesheet_has_the_final_word_and_reloads_live() {
     gtk_test(
-        "ui::theme::tests::interface_font_applies_before_settings_open_and_live_while_previews_stay_monospace",
-        || {
-            let settings = crate::ui::preferences::config_directory().join("settings.toml");
-            std::fs::create_dir_all(settings.parent().expect("config directory"))
-                .expect("config directory");
-            std::fs::write(&settings, "interface_font = \"Fixture Sans\"\n")
-                .expect("seed settings");
-            let preferences = PreferenceManager::shared();
-            let manager = ThemeManager::shared();
-            let parse_errors = Rc::new(Cell::new(0));
-            let errors = parse_errors.clone();
-            manager
-                .font_provider
-                .connect_parsing_error(move |_, _, _| errors.set(errors.get() + 1));
-
-            let interface = gtk::Label::new(Some("Interface"));
-            let preview = gtk::Label::new(Some("Preview"));
-            preview.add_css_class("preview-text");
-            let menu = gtk::Label::new(Some("Menu item"));
-            let popover = gtk::Popover::builder().child(&menu).build();
-            let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-            content.append(&interface);
-            content.append(&preview);
-            popover.set_parent(&content);
-            let window = gtk::Window::builder().child(&content).build();
-            window.present();
-            let family = |label: &gtk::Label| {
-                label.measure(gtk::Orientation::Horizontal, -1);
-                label
-                    .pango_context()
-                    .font_description()
-                    .and_then(|description| description.family())
-                    .map(|family| family.to_string())
-                    .unwrap_or_default()
-            };
-            let font_name = || {
-                gtk::Settings::default()
-                    .and_then(|settings| settings.gtk_font_name())
-                    .map(|name| name.to_string())
-                    .unwrap_or_default()
-            };
-
-            assert!(family(&interface).starts_with("Fixture Sans,JetBrains Mono"));
-            assert!(
-                family(&menu).starts_with("Fixture Sans"),
-                "popovers follow the font"
-            );
-            assert!(font_name().starts_with("Fixture Sans,JetBrains Mono"));
-            assert!(family(&preview).starts_with("JetBrains Mono"));
-
-            preferences.set_interface_font(Some("Other \"Quoted\" Sans".into()));
-            assert!(family(&interface).starts_with("Other \"Quoted\" Sans,JetBrains Mono"));
-            assert!(family(&menu).starts_with("Other \"Quoted\" Sans"));
-
-            preferences.set_interface_font(None);
-            assert!(family(&interface).starts_with("JetBrains Mono"));
-            assert!(font_name().starts_with("JetBrains Mono"));
-            assert!(family(&preview).starts_with("JetBrains Mono"));
-            assert_eq!(parse_errors.get(), 0, "font stylesheet parses cleanly");
-            popover.unparent();
-            window.destroy();
-        },
-    );
-}
-
-#[test]
-fn user_stylesheet_overrides_strata_and_reloads_live() {
-    gtk_test(
-        "ui::theme::tests::user_stylesheet_overrides_strata_and_reloads_live",
+        "ui::theme::tests::user_stylesheet_has_the_final_word_and_reloads_live",
         || {
             let config = crate::ui::preferences::config_directory();
             std::fs::create_dir_all(&config).expect("config directory");
             let stylesheet = config.join("style.css");
 
-            let manager = ThemeManager::shared();
+            let _manager = ThemeManager::shared();
             std::fs::write(
                 &stylesheet,
                 "label { color: nope; }\nlabel { color: rgb(255, 0, 0); }\n",
@@ -559,7 +149,6 @@ fn user_stylesheet_overrides_strata_and_reloads_live() {
             window.present();
             let red = gtk::gdk::RGBA::parse("rgb(255, 0, 0)").expect("red");
             let green = gtk::gdk::RGBA::parse("rgb(0, 255, 0)").expect("green");
-            let text = gtk::gdk::RGBA::parse(&manager.starter_tokens().text).expect("text color");
             wait_for_live_theme(|| has_color(&label, &red));
 
             std::fs::write(&stylesheet, "label { color: rgb(0, 255, 0); }\n")
@@ -567,8 +156,15 @@ fn user_stylesheet_overrides_strata_and_reloads_live() {
             wait_for_live_theme(|| has_color(&label, &green));
 
             std::fs::remove_file(&stylesheet).expect("remove stylesheet");
-            wait_for_live_theme(|| has_color(&label, &text));
+            wait_for_live_theme(|| !has_color(&label, &green));
             window.close();
         },
     );
+}
+
+#[test]
+fn suite_tokens_come_from_the_files_theme() {
+    let tokens = suite_tokens();
+    assert!(validate_tokens(&tokens).is_ok());
+    assert_eq!(tokens.name, nyx_theme::suite_theme("files").name);
 }

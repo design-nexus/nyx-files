@@ -1285,7 +1285,6 @@ fn set_fallback_icon(
         icon,
         image.icon_pixel_size(),
         image.scale_factor(),
-        image.icon_context(),
     );
     image.set_fallback(icon, texture.as_ref());
     if let Some(p) = path {
@@ -1394,34 +1393,9 @@ fn with_color_badge(texture: &gdk::Texture, color: &str) -> gdk::Texture {
     gdk::MemoryTexture::new(width, height, format, &glib::Bytes::from_owned(data), stride).upcast()
 }
 
-thread_local! {
-    static THEME_TEXTURES: RefCell<HashMap<(String, i32, i32), Option<gdk::Texture>>> =
-        RefCell::new(HashMap::new());
-}
 
 fn theme_icon_texture(name: &str, size: i32, scale: i32) -> Option<gdk::Texture> {
-    let key = (name.to_owned(), size, scale);
-    if let Some(cached) = THEME_TEXTURES.with_borrow(|t| t.get(&key).cloned()) {
-        return cached;
-    }
-    let texture = gdk::Display::default().and_then(|display| {
-        let theme = gtk::IconTheme::for_display(&display);
-        let icon = theme.lookup_icon(
-            name,
-            &[],
-            size,
-            scale,
-            gtk::TextDirection::None,
-            gtk::IconLookupFlags::empty(),
-        );
-        let path = icon.file()?.path()?;
-        let px = size * scale.max(1);
-        let pixbuf = gdk_pixbuf::Pixbuf::from_file_at_size(path, px, px).ok()?;
-        let texture = gdk::Texture::for_pixbuf(&pixbuf);
-        Some(texture)
-    });
-    THEME_TEXTURES.with_borrow_mut(|t| t.insert(key, texture.clone()));
-    texture
+    crate::assets::theme_texture(name, size, scale, None)
 }
 
 fn path_icon_texture(
@@ -1429,7 +1403,6 @@ fn path_icon_texture(
     fallback_icon: &str,
     size: i32,
     scale_factor: i32,
-    _context: crate::assets::IconContext,
 ) -> (Option<gdk::Texture>, bool) {
     let (name, folder) = split_theme_icon(fallback_icon).unwrap_or((fallback_icon, false));
     let preferences = super::preferences::PreferenceManager::shared();
@@ -1460,7 +1433,6 @@ fn apply_path_customization(image: &ThumbnailSlot, path: &Path, fallback_icon: &
         fallback_icon,
         image.icon_pixel_size(),
         image.scale_factor(),
-        image.icon_context(),
     );
     image.set_fallback(fallback_icon, texture.as_ref());
     customized
@@ -1472,7 +1444,6 @@ fn apply_path_customization_image(image: &gtk::Image, path: &Path, default_icon:
         default_icon,
         image.pixel_size(),
         image.scale_factor(),
-        crate::assets::IconContext::Interface,
     );
     image.set_paintable(texture.as_ref());
 }
@@ -1494,8 +1465,7 @@ pub(super) fn refresh_slot_icon(image: &ThumbnailSlot) {
             &icon,
             image.icon_pixel_size(),
             image.scale_factor(),
-            image.icon_context(),
-        );
+            );
         image.set_fallback(&icon, texture.as_ref());
     }
 }
@@ -1537,7 +1507,7 @@ pub(super) fn sidebar_icon_muted(image: &gtk::Image) -> bool {
 /// Redraws every tracked icon from the icon theme's current files, which a
 /// theme switch can rewrite under the same theme name.
 pub(crate) fn refresh_all_customized_icons() {
-    THEME_TEXTURES.with_borrow_mut(HashMap::clear);
+    crate::assets::forget_theme_textures();
     refresh_tracked_icons(|_| true);
     refresh_tracked_images(|_| true);
 }

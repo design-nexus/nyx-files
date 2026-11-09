@@ -79,10 +79,8 @@ pub(in crate::ui) use crate::ui::browser::collection::{FilterQueryBinding};
 pub(super) use crate::ui::browser::context_menu::{
     ContextMenuTrigger, };
 pub(super) use crate::ui::browser::desktop::{launch_terminal, open_location_at};
-#[cfg(test)]
-pub(in crate::ui) use crate::ui::browser::entry::catppuccin;
 pub(super) use crate::ui::browser::entry::{
-    entry_icon, format_file_size, icon_for_name, metadata_needs_fill, };
+    format_file_size, metadata_needs_fill, };
 pub(in crate::ui) use crate::ui::browser::listing_filter::{
     FilterStatus, results_step_target, scroll_results_to, selected_cursor,
 };
