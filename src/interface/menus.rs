@@ -543,7 +543,7 @@ pub(super) fn item_menu(
                 e.iter().for_each(|x| t.open(x))
             })
             .icon("document-open-symbolic")
-            .key("Enter"),
+            .key(&crate::i18n::tr("keys.name.enter")),
         );
     }
     if !entries.is_empty() && entries.iter().all(|e| e.recent_uri.is_some()) {
@@ -591,7 +591,7 @@ pub(super) fn item_menu(
                     )
                 })
                 .icon("view-reveal-symbolic")
-                .key("Space"),
+                .key(&crate::i18n::tr("keys.name.space")),
             );
         }
         if desktop::entry_is_regular_executable(&entry) {
