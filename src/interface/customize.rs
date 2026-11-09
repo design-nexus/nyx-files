@@ -24,11 +24,10 @@ fn hex(rgba: &gdk::RGBA) -> String {
 }
 
 pub(super) fn show(path: PathBuf, directory: bool, name: &str) {
-    let fallback = if directory {
-        icons::FOLDER
-    } else {
-        icons::DOCUMENTS
-    };
+    let fallback = crate::ui::thumbnail::theme_icon(
+        if directory { "folder" } else { "text-x-generic" },
+        directory,
+    );
     let title = crate::i18n::tr(if directory {
         "Customize Folder"
     } else {
@@ -39,13 +38,13 @@ pub(super) fn show(path: PathBuf, directory: bool, name: &str) {
     let head = widgets::hbox(12);
     let preview = gtk::Image::new();
     preview.set_pixel_size(56);
-    crate::ui::thumbnail::show_customized_icon_image(&preview, &path, fallback, 56);
+    crate::ui::thumbnail::show_customized_icon_image(&preview, &path, &fallback, 56);
     head.append(&preview);
     head.append(&widgets::label(name, "properties-name"));
     card.append(&head);
     let refresh = {
         let (preview, path) = (preview.clone(), path.clone());
-        move || crate::ui::thumbnail::show_customized_icon_image(&preview, &path, fallback, 56)
+        move || crate::ui::thumbnail::show_customized_icon_image(&preview, &path, &fallback, 56)
     };
 
     card.append(&widgets::label(

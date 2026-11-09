@@ -837,7 +837,7 @@ impl PreferenceManager {
             .custom_icons
             .get(key.as_ref())
             .filter(|name| crate::assets::icons::is_customization_choice(name))
-            .cloned()
+            .map(|name| crate::assets::icons::current_choice(name).to_owned())
     }
 
     pub fn set_custom_icon(&self, path: &Path, icon_name: Option<&str>) {

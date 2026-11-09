@@ -71,13 +71,6 @@ struct TrackedCustomizedImage {
     image: glib::WeakRef<gtk::Image>,
     path: PathBuf,
     default_icon: String,
-    kind: ImageIconKind,
-}
-
-#[derive(Clone, Copy)]
-enum ImageIconKind {
-    Default,
-    Folder,
 }
 
 struct ActiveRequest {
@@ -1221,22 +1214,13 @@ pub(super) fn show_fallback_icon(image: &ThumbnailSlot, icon: &str, size: i32) {
 }
 
 
+/// `path`'s icon as it shows in the listing, customization included, in an
+/// image (the Customize dialog's preview); `fallback_icon` is a [`theme_icon`].
 pub(crate) fn show_customized_icon_image(
     image: &gtk::Image,
     path: &Path,
     fallback_icon: &str,
     size: i32,
-) {
-    show_path_icon_image(image, path, fallback_icon, size, ImageIconKind::Default);
-}
-
-
-fn show_path_icon_image(
-    image: &gtk::Image,
-    path: &Path,
-    default_icon: &str,
-    size: i32,
-    kind: ImageIconKind,
 ) {
     if image.pixel_size() != size {
         image.set_pixel_size(size);
@@ -1244,7 +1228,7 @@ fn show_path_icon_image(
     if image.width_request() != size || image.height_request() != size {
         image.set_size_request(size, size);
     }
-    apply_path_customization_image(image, path, default_icon, kind);
+    apply_path_customization_image(image, path, fallback_icon);
     TRACKED_CUSTOMIZED_IMAGES.with_borrow_mut(|images| {
         images.retain(|_, tracked| tracked.image.upgrade().is_some());
         images.insert(
@@ -1252,8 +1236,7 @@ fn show_path_icon_image(
             TrackedCustomizedImage {
                 image: image.downgrade(),
                 path: path.to_path_buf(),
-                default_icon: default_icon.to_owned(),
-                kind,
+                default_icon: fallback_icon.to_owned(),
             },
         );
     });
@@ -1319,12 +1302,96 @@ const THEME_ICON: &str = "theme:";
 
 /// A fallback drawn from the icon theme by name. `asset` is the built-in icon
 /// used when the user has customized the item (colour or custom icon).
-pub(crate) fn theme_icon(name: &str, asset: &str) -> String {
-    format!("{THEME_ICON}{name}|{asset}")
+/// An item's icon: `name` from the icon theme, and whether the item is a folder,
+/// which picks the folder variant of a custom icon.
+pub(crate) fn theme_icon(name: &str, folder: bool) -> String {
+    format!("{THEME_ICON}{name}|{}", if folder { "folder" } else { "file" })
 }
 
-fn split_theme_icon(icon: &str) -> Option<(&str, &str)> {
-    icon.strip_prefix(THEME_ICON)?.split_once('|')
+fn split_theme_icon(icon: &str) -> Option<(&str, bool)> {
+    let (name, kind) = icon.strip_prefix(THEME_ICON)?.split_once('|')?;
+    Some((name, kind == "folder"))
+}
+
+/// A custom icon choice from the theme: the folder variant for folders, else
+/// the kind of item it names. `None` when the theme has none of them.
+fn choice_theme_icon(choice: &str, folder: bool) -> Option<&'static str> {
+    use crate::assets::icons;
+    let (folders, files): (&[&'static str], &[&'static str]) = match choice {
+        icons::DOCUMENTS => (&["folder-documents"], &["x-office-document", "text-x-generic"]),
+        icons::DOWNLOADS => (&["folder-download"], &["folder-download"]),
+        icons::FILE_CODE => (&["folder-code", "folder-development"], &["text-x-script"]),
+        icons::FILE_ARCHIVE => (&["folder-backup", "folder-box"], &["package-x-generic"]),
+        icons::PICTURES => (&["folder-pictures"], &["image-x-generic"]),
+        icons::VIDEOS => (&["folder-videos"], &["video-x-generic"]),
+        icons::TERMINAL => (&["utilities-terminal"], &["utilities-terminal"]),
+        icons::HOME => (&["folder-home", "user-home"], &["user-home"]),
+        icons::HARD_DRIVE => (&["drive-harddisk"], &["drive-harddisk"]),
+        icons::NETWORK => (&["folder-network", "folder-remote"], &["network-workgroup"]),
+        icons::MONITOR => (&["computer"], &["computer"]),
+        icons::KEY => (&["folder-private"], &["dialog-password"]),
+        icons::PIN => (&["folder-bookmarks"], &["emblem-favorite"]),
+        icons::PLAY => (&["folder-music"], &["audio-x-generic"]),
+        icons::SETTINGS => (&["folder-applications"], &["preferences-system"]),
+        icons::LIST_CHECKS => (&["folder-projects", "folder-work"], &["x-office-spreadsheet"]),
+        _ => (&[], &[]),
+    };
+    let theme = gdk::Display::default().map(|display| gtk::IconTheme::for_display(&display))?;
+    (if folder { folders } else { files })
+        .iter()
+        .copied()
+        .find(|name| theme.has_icon(name))
+}
+
+/// `texture` with a dot of `color` at its corner: how a coloured item shows.
+fn with_color_badge(texture: &gdk::Texture, color: &str) -> gdk::Texture {
+    let Ok(rgba) = gdk::RGBA::parse(color) else {
+        return texture.clone();
+    };
+    let (width, height) = (texture.width(), texture.height());
+    let stride = width as usize * 4;
+    let mut data = vec![0_u8; stride * height as usize];
+    // Native-endian premultiplied ARGB, as `download` writes it.
+    texture.download(&mut data, stride);
+    let side = f64::from(width.min(height));
+    let radius = side * 0.2;
+    let ring = (side * 0.06).max(1.0);
+    let (cx, cy) = (
+        f64::from(width) - radius - side * 0.02,
+        f64::from(height) - radius - side * 0.02,
+    );
+    let fill = [
+        f64::from(rgba.blue()),
+        f64::from(rgba.green()),
+        f64::from(rgba.red()),
+    ];
+    let border = [0.10, 0.09, 0.08];
+    for y in 0..height as usize {
+        for x in 0..width as usize {
+            let distance = ((x as f64 + 0.5 - cx).powi(2) + (y as f64 + 0.5 - cy).powi(2)).sqrt();
+            let outer = (radius + 0.5 - distance).clamp(0.0, 1.0);
+            if outer <= 0.0 {
+                continue;
+            }
+            let inner = (radius - ring + 0.5 - distance).clamp(0.0, 1.0);
+            let border_alpha = (outer - inner) * 0.85;
+            let alpha = inner + border_alpha;
+            let i = y * stride + x * 4;
+            for c in 0..3 {
+                let source = fill[c] * inner + border[c] * border_alpha;
+                let destination = f64::from(data[i + c]) / 255.0;
+                data[i + c] = ((source + destination * (1.0 - alpha)) * 255.0).round() as u8;
+            }
+            let destination = f64::from(data[i + 3]) / 255.0;
+            data[i + 3] = ((alpha + destination * (1.0 - alpha)) * 255.0).round() as u8;
+        }
+    }
+    let format = if cfg!(target_endian = "little") {
+        gdk::MemoryFormat::B8g8r8a8Premultiplied
+    } else {
+        gdk::MemoryFormat::A8r8g8b8Premultiplied
+    };
+    gdk::MemoryTexture::new(width, height, format, &glib::Bytes::from_owned(data), stride).upcast()
 }
 
 thread_local! {
@@ -1362,83 +1429,27 @@ fn path_icon_texture(
     fallback_icon: &str,
     size: i32,
     scale_factor: i32,
-    context: crate::assets::IconContext,
+    _context: crate::assets::IconContext,
 ) -> (Option<gdk::Texture>, bool) {
-    if let Some((name, asset)) = split_theme_icon(fallback_icon) {
-        let preferences = super::preferences::PreferenceManager::shared();
-        let customized = path.is_some_and(|path| {
-            preferences.custom_icon(path).is_some() || preferences.folder_color(path).is_some()
-        });
-        if customized {
-            return path_icon_texture(path, asset, size, scale_factor, context);
-        }
-        return (theme_icon_texture(name, size, scale_factor), false);
-    }
-    let Some(path) = path else {
-        return (
-            crate::assets::sized_icon_paintable(
-                fallback_icon,
-                &crate::assets::primary_icon_color(),
+    let (name, folder) = split_theme_icon(fallback_icon).unwrap_or((fallback_icon, false));
+    let preferences = super::preferences::PreferenceManager::shared();
+    let custom_icon = path.and_then(|path| preferences.custom_icon(path));
+    let color = path.and_then(|path| preferences.folder_color(path));
+    let customized = custom_icon.is_some() || color.is_some();
+    let texture = match custom_icon.as_deref() {
+        Some(icon) => match crate::assets::icons::custom_emoji(icon) {
+            Some(emoji) => crate::assets::emoji_icon_paintable(emoji),
+            None => theme_icon_texture(
+                choice_theme_icon(icon, folder).unwrap_or(name),
                 size,
                 scale_factor,
-                context,
             ),
-            false,
-        );
+        },
+        None => theme_icon_texture(name, size, scale_factor),
     };
-    let preference_manager = super::preferences::PreferenceManager::shared();
-    let custom_icon = preference_manager.custom_icon(path);
-    let color = preference_manager.folder_color(path);
-    let special = (custom_icon.is_none() && fallback_icon == crate::assets::icons::FOLDER)
-        .then(|| super::special_folders::default_decoration(path))
-        .flatten();
-    let customized = custom_icon.is_some() || color.is_some() || special.is_some();
-    let texture = if let Some(glyph) = special {
-        let color = color
-            .as_ref()
-            .map_or_else(crate::assets::primary_icon_color, |color| {
-                color.hex().to_owned()
-            });
-        crate::assets::sized_folder_glyph_paintable(glyph, &color, size, scale_factor, context)
-    } else if fallback_icon == crate::assets::icons::FOLDER
-        && let Some(decoration) = custom_icon.as_deref()
-    {
-        let color = color
-            .as_ref()
-            .map_or_else(crate::assets::primary_icon_color, |color| {
-                color.hex().to_owned()
-            });
-        crate::assets::sized_folder_decoration_paintable(
-            decoration,
-            &color,
-            size,
-            scale_factor,
-            context,
-        )
-    } else if let Some(emoji) = custom_icon
-        .as_deref()
-        .and_then(crate::assets::icons::custom_emoji)
-    {
-        crate::assets::emoji_icon_paintable(emoji)
-    } else {
-        let rendered_icon = custom_icon.as_deref().unwrap_or(fallback_icon);
-        if let Some(color) = color {
-            crate::assets::sized_icon_paintable(
-                rendered_icon,
-                color.hex(),
-                size,
-                scale_factor,
-                context,
-            )
-        } else {
-            crate::assets::sized_icon_paintable(
-                rendered_icon,
-                &crate::assets::primary_icon_color(),
-                size,
-                scale_factor,
-                context,
-            )
-        }
+    let texture = match (texture, color) {
+        (Some(texture), Some(color)) => Some(with_color_badge(&texture, color.hex())),
+        (texture, _) => texture,
     };
     (texture, customized)
 }
@@ -1455,57 +1466,15 @@ fn apply_path_customization(image: &ThumbnailSlot, path: &Path, fallback_icon: &
     customized
 }
 
-fn apply_path_customization_image(
-    image: &gtk::Image,
-    path: &Path,
-    default_icon: &str,
-    kind: ImageIconKind,
-) -> bool {
-    let preference_manager = super::preferences::PreferenceManager::shared();
-    let custom_icon = preference_manager.custom_icon(path);
-    let color = preference_manager.folder_color(path);
-    // Places that bring their own glyph keep it.
-    let special = (custom_icon.is_none() && default_icon == crate::assets::icons::FOLDER)
-        .then(|| super::special_folders::default_decoration(path))
-        .flatten();
-    let customized = custom_icon.is_some() || color.is_some() || special.is_some();
-    let muted = sidebar_icon_muted(image);
-    let default_color = || {
-        if muted {
-            crate::assets::muted_icon_color()
-        } else {
-            crate::assets::primary_icon_color()
-        }
-    };
-
-    if let Some(glyph) = special {
-        let color = color
-            .as_ref()
-            .map_or_else(default_color, |color| color.hex().to_owned());
-        crate::assets::set_folder_glyph_icon(image, glyph, &color);
-    } else if (matches!(kind, ImageIconKind::Folder) || default_icon == crate::assets::icons::FOLDER)
-        && let Some(decoration) = custom_icon.as_deref()
-    {
-        let color = color
-            .as_ref()
-            .map_or_else(default_color, |color| color.hex().to_owned());
-        crate::assets::set_folder_decoration_icon(image, decoration, &color);
-    } else if let Some(emoji) = custom_icon
-        .as_deref()
-        .and_then(crate::assets::icons::custom_emoji)
-    {
-        crate::assets::set_emoji_icon(image, emoji);
-    } else {
-        let rendered_icon = custom_icon.as_deref().unwrap_or(default_icon);
-        if let Some(color) = color {
-            crate::assets::set_custom_colored_icon(image, rendered_icon, color.hex());
-        } else if muted {
-            crate::assets::set_muted_icon(image, rendered_icon);
-        } else {
-            crate::assets::set_primary_icon(image, rendered_icon);
-        }
-    }
-    customized
+fn apply_path_customization_image(image: &gtk::Image, path: &Path, default_icon: &str) {
+    let (texture, _) = path_icon_texture(
+        Some(path),
+        default_icon,
+        image.pixel_size(),
+        image.scale_factor(),
+        crate::assets::IconContext::Interface,
+    );
+    image.set_paintable(texture.as_ref());
 }
 
 pub(super) fn refresh_slot_icon(image: &ThumbnailSlot) {
@@ -1584,13 +1553,12 @@ fn refresh_tracked_images(matches: impl Fn(&Path) -> bool) {
                     tracked.image.upgrade()?,
                     tracked.path.clone(),
                     tracked.default_icon.clone(),
-                    tracked.kind,
                 ))
             })
             .collect::<Vec<_>>()
     });
-    for (image, path, default_icon, kind) in pending {
-        apply_path_customization_image(&image, &path, &default_icon, kind);
+    for (image, path, default_icon) in pending {
+        apply_path_customization_image(&image, &path, &default_icon);
     }
 }
 
