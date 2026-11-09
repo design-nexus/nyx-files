@@ -14,7 +14,7 @@ use crate::{
     model::{ActionInput, FOLDER_CONTENT_TYPE, FileEntry, InputKind, Location},
     services::{ActionHandle, ActionRegistry, InvocationSource, JobRequest},
     ui::{
-        controls::{ModalTone, focus_button, message_dialog_description, message_dialog_layout},
+        controls::{ModalTone, message_dialog_description},
         modal::{
             ModalHost, dismiss_modal_layer, dismiss_modal_layer_then, modal_layer,
             show_error_dialog, show_error_dialog_after_close,

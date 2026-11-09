@@ -67,13 +67,6 @@ pub(crate) fn set_date_format(format: DateFormat) {
     MODIFIED_DATE_FORMAT.with(|current| current.set(format));
 }
 
-pub fn modified_date(entry: &FileEntry) -> String {
-    let MetadataValue::Known(seconds) = entry.modified_unix_seconds else {
-        return "—".to_owned();
-    };
-    modified_date_for_seconds(seconds, DateDisplay::Preferred)
-}
-
 pub(crate) fn set_full_modified_date(label: &gtk::Label, seconds: Option<i64>) {
     bind_modified_date(label, seconds, "—", DateDisplay::Full);
 }

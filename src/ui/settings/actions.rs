@@ -18,7 +18,7 @@ use crate::ui::{
     actions::{ACTION_ICON_CHOICES, action_icon, is_known_action_icon},
     controls::{
         ModalTone, form_check_button, form_entry, form_error_label, message_dialog_description,
-        message_dialog_layout, modal_layout, segmented_control,
+        modal_layout, segmented_control,
     },
     modal::{ModalHost, close_on_escape, dismiss_modal_layer, modal_layer, show_error_dialog},
 };

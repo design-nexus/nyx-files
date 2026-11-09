@@ -592,8 +592,6 @@ impl WeakPromptBar {
     }
 }
 
-
-
 impl ShortcutFooter {
     pub fn new(mode: BrowserMode) -> Self {
         let root = gtk::Stack::builder()
@@ -976,19 +974,6 @@ impl ShortcutFooter {
         });
     }
 
-    /// Refreshes once on idle, after focus settles on the cursor row.
-    pub(in crate::ui) fn schedule_filter_refresh(&self) {
-        if self.filter_retry.replace(true) {
-            return;
-        }
-        let footer = self.clone();
-        glib::idle_add_local_once(move || {
-            footer.filter_retry.set(false);
-            footer.refresh_filter();
-        });
-    }
-
-
     pub(in crate::ui) fn refresh_filter(&self) {
         self.filter.set_visible(false);
         self.current.set(None);
@@ -1008,7 +993,6 @@ impl ShortcutFooter {
         let scope = self.reference_scope.get();
         self.set_reference_scope(ReferenceScope { mode, ..scope });
     }
-
 
     fn set_reference_scope(&self, scope: ReferenceScope) {
         self.reference_scope.set(scope);
@@ -1093,7 +1077,6 @@ impl ShortcutFooter {
         });
     }
 
-
     #[cfg(test)]
     pub(in crate::ui) fn prompt_hint(&self) -> Option<String> {
         self.prompt
@@ -1101,7 +1084,6 @@ impl ShortcutFooter {
             .is_visible()
             .then(|| self.prompt.hint.text().to_string())
     }
-
 
     #[cfg(test)]
     pub(in crate::ui) fn filter_mark(&self) -> Option<String> {
@@ -1147,7 +1129,6 @@ impl ShortcutFooter {
         self.prompt.entry.text().to_string()
     }
 
-
     #[cfg(test)]
     pub(in crate::ui) fn prompt_label(&self) -> Option<String> {
         (self.root.visible_child().as_ref() == Some(self.prompt.bar.upcast_ref()))
@@ -1158,16 +1139,9 @@ impl ShortcutFooter {
         self.prompt.close();
     }
 
-
-
-
-
-
-
     pub(crate) fn connect_prompt_activated(&self, listener: impl Fn() + 'static) {
         self.prompt.entry.connect_activate(move |_| listener());
     }
-
 
     #[cfg(test)]
     pub(in crate::ui) fn candidates(&self) -> Vec<PathBuf> {
@@ -1211,10 +1185,6 @@ impl ShortcutFooter {
         self.chords.clear();
     }
 
-    pub(crate) fn connect_chord_changed(&self, listener: impl Fn(Option<Chord>) + 'static) {
-        self.chords.listeners.borrow_mut().push(Box::new(listener));
-    }
-
     #[cfg(test)]
     pub(in crate::ui) fn chord(&self) -> gtk::Label {
         self.chords.mark.upgrade().expect("chord mark")
@@ -1225,11 +1195,9 @@ impl ShortcutFooter {
         self.chords.panel.shown_options()
     }
 
-
     pub(crate) fn prompt_has_focus(&self) -> bool {
         self.prompt.has_focus()
     }
-
 
     /// Opens the shortcut reference, or closes it, as F1 does.
     pub(crate) fn toggle_reference(&self) {
@@ -1977,7 +1945,6 @@ fn append_section(parent: &gtk::Box, title: &str, shortcuts: &[Shortcut], compac
 
 mod candidates;
 mod chord_panel;
-
 
 #[cfg(test)]
 mod tests;

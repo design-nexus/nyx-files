@@ -5,8 +5,7 @@ use crate::app::Browser;
 use crate::model::{FileEntry, Location};
 use crate::ui::browser::is_trash_location;
 use crate::ui::controls::{
-    ModalTone, focus_button, message_dialog_description, message_dialog_layout,
-};
+    ModalTone, message_dialog_description, };
 use crate::ui::modal::{ModalHost, dismiss_modal_layer, modal_layer, show_error_dialog};
 use crate::ui::terminal;
 use gtk::gio;

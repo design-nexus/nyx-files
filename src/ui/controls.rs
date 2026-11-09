@@ -4,16 +4,11 @@ use std::{cell::Cell, ops::Range, rc::Rc, time::Duration};
 
 use gtk::prelude::*;
 
-
-
-
 pub(super) fn form_entry() -> gtk::Entry {
     let entry = gtk::Entry::new();
     entry.add_css_class("form-control");
     entry
 }
-
-
 
 #[cfg(test)]
 mod tests;
@@ -64,15 +59,11 @@ pub(super) fn copyable_command(command: &str) -> gtk::Overlay {
     overlay
 }
 
-
-
-
 pub(super) fn form_password_entry() -> gtk::PasswordEntry {
     let entry = gtk::PasswordEntry::new();
     entry.add_css_class("form-control");
     entry
 }
-
 
 pub(super) fn form_error_label() -> gtk::Label {
     let label = gtk::Label::new(None);
@@ -97,21 +88,11 @@ pub(super) fn set_form_field_error(
     }
 }
 
-
 pub(super) fn form_check_button(label: &str) -> gtk::CheckButton {
     let button = gtk::CheckButton::with_label(label);
     button.add_css_class("form-check");
     button
 }
-
-
-
-
-
-
-
-
-
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(super) enum ModalTone {
@@ -294,18 +275,6 @@ pub(super) struct ModalLayout {
     pub icon: gtk::Image,
 }
 
-pub(super) fn focus_button(button: &gtk::Button) {
-    let weak = button.downgrade();
-    glib::idle_add_local_once(move || {
-        if let Some(button) = weak.upgrade() {
-            button.grab_focus();
-            if let Some(window) = button.root().and_downcast::<gtk::Window>() {
-                window.set_focus_visible(false);
-            }
-        }
-    });
-}
-
 impl ModalLayout {
     pub fn set_loading(&self, loading: bool, description: Option<&str>) {
         set_modal_loading(&self.loading, loading, description);
@@ -318,7 +287,6 @@ fn modal_loading_spinner() -> gtk::Spinner {
     loading.set_visible(false);
     loading
 }
-
 
 /// [`ModalLayout::set_loading`] for a dialog that keeps only its spinner.
 pub(super) fn set_modal_loading(spinner: &gtk::Spinner, loading: bool, description: Option<&str>) {
@@ -343,32 +311,6 @@ pub(super) fn modal_layout(
 ) -> ModalLayout {
     modal_layout_with_tone(icon, title, subtitle, confirm_label, ModalTone::Accent)
 }
-
-pub(super) fn message_dialog_layout(
-    icon: &str,
-    title: &str,
-    subtitle: &str,
-    confirm_label: &str,
-    tone: ModalTone,
-) -> ModalLayout {
-    let layout = modal_layout_with_tone(
-        icon,
-        &dialog_text(title),
-        &dialog_text(subtitle),
-        confirm_label,
-        tone,
-    );
-    layout.content.add_css_class("message-dialog");
-    layout.content.set_size_request(560, -1);
-    for label in [&layout.title, &layout.subtitle] {
-        label.set_max_width_chars(MESSAGE_DIALOG_WIDTH_CHARS as i32);
-        label.set_wrap(true);
-        label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-        keep_words_whole(label);
-    }
-    layout
-}
-
 
 pub(super) fn modal_layout_with_tone(
     icon: &str,

@@ -141,6 +141,8 @@ impl std::fmt::Display for DriveOpError {
     }
 }
 
+impl std::error::Error for DriveOpError {}
+
 impl DriveOpError {
     pub(crate) fn user_message(&self) -> String {
         match self {
@@ -159,7 +161,6 @@ impl DriveOpError {
     }
 }
 
-impl std::error::Error for DriveOpError {}
 
 impl From<std::io::Error> for DriveOpError {
     fn from(error: std::io::Error) -> Self {

@@ -202,15 +202,6 @@ impl Choices {
     }
 }
 
-pub(super) fn choices_for_type(
-    history: &recent_apps::State,
-    content_type: &str,
-    requires_uris: bool,
-) -> Choices {
-    let (recommended, other) = categorized_apps(content_type, requires_uris);
-    Choices::new(history, &[content_type.to_owned()], recommended, other)
-}
-
 pub(crate) struct Applications {
     pub(crate) choices: Choices,
     pub(crate) default: Option<gio::AppInfo>,

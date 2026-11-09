@@ -50,35 +50,6 @@ pub(super) fn set_own_label(widget: &impl IsA<gtk::Widget>, label: &str) {
     set_label(widget, label);
 }
 
-pub(super) fn set_stand_in_label(widget: &impl IsA<gtk::Widget>, label: &str) {
-    let widget = widget.upcast_ref::<gtk::Widget>();
-    if OWN_LABELS.with(|own| holds(own, widget)) {
-        return;
-    }
-    STAND_INS.with(|stand_ins| {
-        if !holds(stand_ins, widget) {
-            stand_ins.borrow_mut().push(widget.downgrade());
-        }
-    });
-    set_label(widget, label);
-}
-
-pub(super) fn clear_stand_in_label(widget: &impl IsA<gtk::Widget>) {
-    let widget = widget.upcast_ref::<gtk::Widget>();
-    let wore_one = STAND_INS.with(|stand_ins| {
-        let held = holds(stand_ins, widget);
-        stand_ins
-            .borrow_mut()
-            .retain(|kept| kept.upgrade().as_ref() != Some(widget));
-        held
-    });
-    if wore_one {
-        widget.reset_property(gtk::AccessibleProperty::Label);
-        #[cfg(feature = "qa")]
-        qa::record(widget, |naming| naming.label = None);
-    }
-}
-
 pub(super) fn set_description(widget: &impl IsA<gtk::Accessible>, description: Option<&str>) {
     widget.update_property(&[gtk::accessible::Property::Description(
         description.unwrap_or(""),
@@ -89,23 +60,13 @@ pub(super) fn set_description(widget: &impl IsA<gtk::Accessible>, description: O
     });
 }
 
-
-
-
-
-
-
 pub(super) fn set_busy(widget: &impl IsA<gtk::Accessible>, busy: bool) {
     widget.update_state(&[gtk::accessible::State::Busy(busy)]);
     #[cfg(feature = "qa")]
     qa::record(widget, |naming| naming.busy = Some(busy));
 }
 
-
-
-
 // Location controls require explicit accessible names.
-
 
 /// A plain `GtkBox` has the `generic` accessible role, and ARIA forbids naming
 /// those, so GTK silently drops any label set on one.
@@ -130,16 +91,6 @@ pub(super) fn dialog_box(title: &str) -> gtk::Box {
     });
     content
 }
-
-
-
-
-
-
-
-
-
-
 
 #[cfg(test)]
 mod tests;

@@ -157,6 +157,7 @@ impl PartialEq for PlacedSnapshot {
 
 impl Eq for PlacedSnapshot {}
 
+
 impl fmt::Debug for PlacedSnapshot {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("PlacedSnapshot")

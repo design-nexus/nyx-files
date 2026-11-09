@@ -235,11 +235,6 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
-impl ResponsiveBin {
-
-
-
-}
 
 /// Whether a segmented control gives any choice less than its one-line width.
 fn choice_label_wraps(control: &gtk::Widget) -> bool {

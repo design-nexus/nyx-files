@@ -23,7 +23,6 @@ use super::drive_ops::{self, FilesystemType};
 
 mod format_progress;
 
-
 #[derive(Clone)]
 pub(crate) enum PropertiesTarget {
     Volume(gio::Volume),
@@ -55,51 +54,6 @@ impl PropertiesTarget {
     }
 
 }
-
-
-
-
-
-fn field_block(label_text: &str, field: &impl IsA<gtk::Widget>) -> gtk::Box {
-    let block = gtk::Box::new(gtk::Orientation::Vertical, 4);
-    let label = gtk::Label::new(Some(&crate::i18n::tr(label_text)));
-    label.set_xalign(0.0);
-    block.append(&label);
-    field.set_hexpand(true);
-    block.append(field);
-    block
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #[cfg(test)]
 mod tests;

@@ -4,7 +4,6 @@ use crate::services::{BuildKind, Version};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const COMMIT: &str = env!("STRATA_BUILD_COMMIT");
-pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 pub const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
 
 /// The release tag this build was published under, e.g. `v0.5.0` or

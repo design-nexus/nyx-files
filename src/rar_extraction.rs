@@ -103,6 +103,7 @@ impl std::fmt::Display for Failure {
 
 impl std::error::Error for Failure {}
 
+
 /// Error records use kinds from this value up, one per [`FailureKind`].
 const ERROR_RECORD: u32 = 3;
 /// Failed member trailers use statuses from this value up, one per [`FailureKind`].

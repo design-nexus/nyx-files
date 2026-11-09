@@ -33,6 +33,7 @@ impl fmt::Display for Refused {
 
 impl std::error::Error for Refused {}
 
+
 impl From<Refused> for io::Error {
     fn from(refused: Refused) -> Self {
         Self::other(refused)

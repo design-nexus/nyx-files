@@ -80,6 +80,11 @@ pub(crate) fn load_restorable() -> Option<RestoredSession> {
     })
 }
 
+#[cfg(test)]
+pub(crate) fn load_from(path: &Path) -> Option<RestoredSession> {
+    load_where(path, |_| true)
+}
+
 fn session_contents(tabs: &[Location], active: usize) -> io::Result<String> {
     let mut stored = Vec::new();
     let mut stored_active = 0;
@@ -106,10 +111,6 @@ fn session_contents(tabs: &[Location], active: usize) -> io::Result<String> {
         tabs: stored,
     };
     toml::to_string(&session).map_err(io::Error::other)
-}
-
-pub(crate) fn load_from(path: &Path) -> Option<RestoredSession> {
-    load_where(path, |_| true)
 }
 
 fn load_where(path: &Path, supported: impl Fn(&str) -> bool) -> Option<RestoredSession> {

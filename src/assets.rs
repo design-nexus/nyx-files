@@ -15,58 +15,38 @@ pub mod icons {
     //! Themed symbolic icon names (Umbra in the suite, any freedesktop theme
     //! elsewhere) for the interface's glyphs.
 
-    pub const ARROW_DOWN: &str = "go-down-symbolic";
-    pub const ARROW_LEFT: &str = "go-previous-symbolic";
-    pub const ARROW_UP: &str = "go-up-symbolic";
     pub const BLOCKS: &str = "application-x-addon-symbolic";
-    pub const BOX: &str = "package-x-generic-symbolic";
-    pub const BRIEFCASE: &str = "x-office-document-symbolic";
     pub const BUG: &str = "applications-science-symbolic";
     pub const CHECK: &str = "object-select-symbolic";
-    pub const CHEVRON_RIGHT: &str = "go-next-symbolic";
     pub const CIRCLE_CHECK: &str = "object-select-symbolic";
     pub const CIRCLE_X: &str = "dialog-error-symbolic";
     pub const CLOUD: &str = "weather-overcast-symbolic";
     pub const CODE_XML: &str = "text-html-symbolic";
-    pub const COG: &str = "emblem-system-symbolic";
     pub const COPY: &str = "edit-copy-symbolic";
-    pub const DISC: &str = "media-optical-symbolic";
     pub const DOCUMENTS: &str = "text-x-generic-symbolic";
     pub const DOWNLOADS: &str = "folder-download-symbolic";
-    pub const DROPBOX: &str = "folder-remote-symbolic";
-    pub const EIGHTEEN_PLUS: &str = "emblem-important-symbolic";
     pub const EJECT: &str = "media-eject-symbolic";
-    pub const EXTERNAL_LINK: &str = "document-open-symbolic";
     pub const EYE: &str = "view-reveal-symbolic";
     pub const EYE_OFF: &str = "view-conceal-symbolic";
     pub const FILE_ARCHIVE: &str = "package-x-generic-symbolic";
-    pub const FILE_AUDIO: &str = "audio-x-generic-symbolic";
     pub const FILE_CODE: &str = "text-x-script-symbolic";
-    pub const FILE_SPREADSHEET: &str = "x-office-spreadsheet-symbolic";
-    pub const FILE_TERMINAL: &str = "application-x-executable-symbolic";
-    pub const FILE_TYPE: &str = "font-x-generic-symbolic";
     pub const FOLDER: &str = "folder-symbolic";
-    pub const GAMEPAD: &str = "applications-games-symbolic";
     pub const GIT_BRANCH: &str = "folder-remote-symbolic";
     pub const GLOBE: &str = "web-browser-symbolic";
     pub const HARD_DRIVE: &str = "drive-harddisk-symbolic";
     pub const HOME: &str = "user-home-symbolic";
-    pub const INFO: &str = "dialog-information-symbolic";
     pub const KEY: &str = "dialog-password-symbolic";
-    pub const KEY_ROUND: &str = "dialog-password-symbolic";
     pub const LIBRARY: &str = "view-grid-symbolic";
     pub const LIST_CHECKS: &str = "checkbox-checked-symbolic";
     pub const LOCK: &str = "system-lock-screen-symbolic";
     pub const MINUS: &str = "list-remove-symbolic";
     pub const MONITOR: &str = "computer-symbolic";
-    pub const MUSIC: &str = "folder-music-symbolic";
     pub const NETWORK: &str = "network-workgroup-symbolic";
     pub const PENCIL: &str = "document-edit-symbolic";
     pub const PICTURES: &str = "image-x-generic-symbolic";
     pub const PIN: &str = "view-pin-symbolic";
     pub const PLAY: &str = "media-playback-start-symbolic";
     pub const PLUS: &str = "list-add-symbolic";
-    pub const PRESENTATION: &str = "x-office-presentation-symbolic";
     pub const PRINTER: &str = "document-print-symbolic";
     pub const REFRESH: &str = "view-refresh-symbolic";
     pub const SCALE: &str = "applications-engineering-symbolic";
@@ -192,18 +172,6 @@ pub fn text_icon(name: &str, pixel_size: i32) -> gtk::Image {
     primary_icon(name, pixel_size)
 }
 
-/// An icon in the secondary text colour.
-pub fn muted_icon(name: &str, pixel_size: i32) -> gtk::Image {
-    let image = primary_icon(name, pixel_size);
-    image.add_css_class("dim");
-    image
-}
-
-pub fn set_muted_icon(image: &gtk::Image, name: &str) {
-    image.set_icon_name(Some(name));
-    image.add_css_class("dim");
-}
-
 /// An icon in the danger colour.
 pub fn danger_icon(name: &str, pixel_size: i32) -> gtk::Image {
     let image = primary_icon(name, pixel_size);
@@ -217,10 +185,6 @@ pub fn set_primary_icon(image: &gtk::Image, name: &str) {
 
 pub fn set_primary_icon_color(color: &str) {
     PRIMARY_ICON_COLOR.with(|current| current.replace(color.to_owned()));
-}
-
-pub fn muted_icon_color() -> String {
-    MUTED_ICON_COLOR.with(|color| color.borrow().clone())
 }
 
 pub fn set_muted_icon_color(color: &str) {

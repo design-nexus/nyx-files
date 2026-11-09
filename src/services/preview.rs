@@ -102,6 +102,7 @@ impl PartialEq for PreviewInputLease {
         std::sync::Arc::ptr_eq(&self.0, &other.0)
     }
 }
+
 impl Eq for PreviewInputLease {}
 
 #[derive(Clone, Debug, PartialEq)]

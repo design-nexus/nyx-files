@@ -354,10 +354,7 @@ pub(in crate::ui) fn scaled_root_font_px(zoom_px: u32) -> u32 {
     (f64::from(zoom_px) * scale).round() as u32
 }
 
-fn default_danger() -> String {
-    "#e5484d".to_owned()
-}
-
+#[cfg(test)]
 fn validate_tokens(tokens: &ThemeTokens) -> Result<(), &'static str> {
     if tokens.name.trim().is_empty() {
         return Err("Enter a theme name");
@@ -369,6 +366,10 @@ fn validate_tokens(tokens: &ThemeTokens) -> Result<(), &'static str> {
         return Err("Every color must be a valid CSS color");
     }
     Ok(())
+}
+
+fn default_danger() -> String {
+    "#e5484d".to_owned()
 }
 
 fn source_style_manager() -> sourceview5::StyleSchemeManager {
@@ -596,15 +597,6 @@ fn resolved_source_palette(tokens: &ThemeTokens, palette: Option<&SourcePalette>
 
 impl ThemeTokens {
     #[cfg(test)]
-    pub(super) fn initialize_syntax_colors(&mut self) {
-        let palette = resolved_source_palette(self, None);
-        self.syntax_keyword = Some(palette.statement);
-        self.syntax_string = Some(palette.string);
-        self.syntax_constant = Some(palette.constant);
-        self.syntax_type = Some(palette.type_color);
-        self.syntax_preprocessor = Some(palette.preprocessor);
-    }
-
     // Exhaustive destructuring makes a new field fail to compile until it is classified.
     fn color_fields(&self) -> impl Iterator<Item = &String> {
         let Self {
@@ -640,6 +632,18 @@ impl ThemeTokens {
             .flatten(),
         )
     }
+
+    #[cfg(test)]
+    pub(super) fn initialize_syntax_colors(&mut self) {
+        let palette = resolved_source_palette(self, None);
+        self.syntax_keyword = Some(palette.statement);
+        self.syntax_string = Some(palette.string);
+        self.syntax_constant = Some(palette.constant);
+        self.syntax_type = Some(palette.type_color);
+        self.syntax_preprocessor = Some(palette.preprocessor);
+    }
+
+    // Exhaustive destructuring makes a new field fail to compile until it is classified.
 
 }
 

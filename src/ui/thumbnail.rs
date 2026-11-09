@@ -311,7 +311,6 @@ pub(in crate::ui) fn remember_thumbnail_for_test(entry: &FileEntry, texture: gdk
     THUMBNAIL_CACHE.with(|cache| cache.borrow_mut().insert(key, texture));
 }
 
-
 #[derive(Default)]
 struct ThumbnailQueue {
     running: usize,
@@ -422,7 +421,6 @@ fn remote_mirror_thumbnail(entry: &FileEntry) -> Option<(PathBuf, ThumbnailKind)
     let path = gio::File::for_uri(uri).path()?;
     Some((path, kind))
 }
-
 
 /// Bundled to stay under the argument-count lint.
 struct ThumbnailRequest<'a> {
@@ -908,7 +906,6 @@ fn heavy(kind: ThumbnailKind) -> bool {
     )
 }
 
-
 fn start_render_jobs() {
     let limit = crate::sandbox::browser::worker_limit();
     while RENDER_RUNNING.with(Cell::get) < limit {
@@ -1213,7 +1210,6 @@ pub(super) fn show_fallback_icon(image: &ThumbnailSlot, icon: &str, size: i32) {
     set_fallback_icon(image, None, icon, size);
 }
 
-
 /// `path`'s icon as it shows in the listing, customization included, in an
 /// image (the Customize dialog's preview); `fallback_icon` is a [`theme_icon`].
 pub(crate) fn show_customized_icon_image(
@@ -1393,7 +1389,6 @@ fn with_color_badge(texture: &gdk::Texture, color: &str) -> gdk::Texture {
     gdk::MemoryTexture::new(width, height, format, &glib::Bytes::from_owned(data), stride).upcast()
 }
 
-
 fn theme_icon_texture(name: &str, size: i32, scale: i32) -> Option<gdk::Texture> {
     crate::assets::theme_texture(name, size, scale, None)
 }
@@ -1493,16 +1488,6 @@ pub(super) fn refresh_customized_icons_within(roots: &[PathBuf]) {
     refresh_tracked_icons(|tracked| roots.iter().any(|root| tracked.path.starts_with(root)));
     refresh_tracked_images(|path| roots.iter().any(|root| path.starts_with(root)));
 }
-
-/// A sidebar icon shows muted when colored sidebar icons are off and its
-/// place isn't the current one.
-pub(super) fn sidebar_icon_muted(image: &gtk::Image) -> bool {
-    image.has_css_class("sidebar-icon")
-        && !image.has_css_class("accented")
-        && !super::preferences::PreferenceManager::shared().colored_sidebar_icons()
-}
-
-
 
 /// Redraws every tracked icon from the icon theme's current files, which a
 /// theme switch can rewrite under the same theme name.
