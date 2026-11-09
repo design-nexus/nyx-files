@@ -513,6 +513,13 @@ impl Hub {
     fn invalidate(&mut self, index: usize) {
         self.providers[index].freshness.invalidate(None, None);
     }
+    /// Whether a provider has yet to answer the menu for `key`.
+    fn menu_pending(&self, key: &MenuKey) -> bool {
+        self.pending
+            .values()
+            .any(|r| matches!(r, Pending::Menu(_, _, k) if k == key))
+            || !self.discovered
+    }
     fn menu(&mut self, key: &MenuKey) -> MenuResult {
         let mut out = Vec::new();
         for i in 0..self.providers.len() {
@@ -589,8 +596,6 @@ fn activation_summary(provider: &str, reply: protocol::Reply) -> String {
     )
 }
 
-const NOTICE_DURATION: Duration = Duration::from_secs(4);
-
 /// Falls back to the dialog when the menu owner has no overlay to host a notice.
 fn notice(owner: &glib::WeakRef<gtk::Widget>, heading: &str, message: &str) {
     let Some(widget) = owner.upgrade() else {
@@ -604,7 +609,7 @@ fn notice(owner: &glib::WeakRef<gtk::Widget>, heading: &str, message: &str) {
     });
     match overlay {
         Some(overlay) => {
-            super::notice::show_notice(&overlay, Some(heading), message, NOTICE_DURATION)
+            super::notice::show_notice(&overlay, Some(heading), message)
         }
         None => notify(owner, &format!("{heading}: {message}")),
     }
@@ -617,57 +622,87 @@ fn notify(owner: &glib::WeakRef<gtk::Widget>, message: &str) {
     super::modal::show_information_dialog(&owner, &crate::i18n::tr("File availability"), message);
 }
 /// The caller owns the epoch: rebuilding/closing a menu cancels its old watcher.
-pub(crate) fn watch_menu(
-    models: (gio::Menu, Option<gio::Menu>),
-    group: gio::SimpleActionGroup,
-    owner: (&gtk::Widget, &gtk::PopoverMenu),
+/// Asks the providers what they offer for `paths` and calls `ready` with it as
+/// menu entries once every provider has answered (or after a few seconds);
+/// the entries are empty when none offers anything.
+pub(crate) fn collect_menu(
+    owner: &gtk::Widget,
     paths: Vec<PathBuf>,
     background: bool,
-    lifetime: (std::rc::Rc<std::cell::Cell<u64>>, u64),
-    changed: impl Fn(bool) + 'static,
+    ready: impl FnOnce(Vec<nyx_ui::menu::Entry>) + 'static,
 ) {
-    let (owner, popover) = owner;
-    if paths.is_empty() || paths.len() > protocol::PATH_LIMIT {
-        return;
-    }
-    let Some(paths) = paths
+    const WAIT: Duration = Duration::from_secs(3);
+    let paths = paths
         .iter()
         .map(|p| p.to_str().map(str::to_owned))
-        .collect::<Option<Vec<_>>>()
-    else {
+        .collect::<Option<Vec<_>>>();
+    let Some(paths) = paths.filter(|paths| {
+        !paths.is_empty() && paths.len() <= protocol::PATH_LIMIT && protocol::selection_fits(paths)
+    }) else {
+        ready(Vec::new());
         return;
     };
     let key = (paths, background);
-    if !protocol::selection_fits(&key.0) {
-        return;
-    }
-    let (alive, epoch) = lifetime;
-    let owner = owner.downgrade();
-    let popover = popover.downgrade();
+    let model = gio::Menu::new();
+    let group = gio::SimpleActionGroup::new();
     let mut renderer = menus::Renderer::new(
-        models,
-        group,
-        owner.clone(),
-        popover.clone(),
+        (model.clone(), None),
+        group.clone(),
+        owner.downgrade(),
+        glib::WeakRef::new(),
         key.clone(),
-        alive.clone(),
-        epoch,
+        std::rc::Rc::new(std::cell::Cell::new(0)),
+        0,
     );
+    let started = Instant::now();
+    let mut ready = Some(ready);
     glib::timeout_add_local(Duration::from_millis(100), move || {
-        let Some(popover) = popover.upgrade() else {
-            return glib::ControlFlow::Break;
-        };
-        if alive.get() != epoch || owner.upgrade().is_none() || !popover.is_visible() {
-            return glib::ControlFlow::Break;
-        }
         let result = with_hub(|h| h.menu(&key));
-        let navigation = menus::open_submenus(&popover);
-        if renderer.update(result) {
-            changed(!navigation.is_empty());
-            menus::restore_submenus(&popover, &navigation);
+        renderer.update(result);
+        if with_hub(|h| h.menu_pending(&key)) && started.elapsed() < WAIT {
+            return glib::ControlFlow::Continue;
         }
-        glib::ControlFlow::Continue
+        if let Some(ready) = ready.take() {
+            ready(menu_entries(model.upcast_ref(), &group));
+        }
+        glib::ControlFlow::Break
     });
+}
+
+/// The rendered provider menu as `nyx_ui::menu` entries: sections become headed
+/// groups, submenus stay submenus, items activate the provider's action.
+fn menu_entries(model: &gio::MenuModel, group: &gio::SimpleActionGroup) -> Vec<nyx_ui::menu::Entry> {
+    use nyx_ui::menu;
+    let string = |index: i32, name: &str| {
+        model
+            .item_attribute_value(index, name, Some(glib::VariantTy::STRING))
+            .and_then(|value| value.get::<String>())
+            .map(|value| value.replace("__", "_"))
+    };
+    let mut entries = Vec::new();
+    for index in 0..model.n_items() {
+        let label = string(index, "label");
+        if let Some(section) = model.item_link(index, "section") {
+            let items = menu_entries(&section, group);
+            if items.is_empty() {
+                continue;
+            }
+            if !entries.is_empty() {
+                entries.push(menu::separator());
+            }
+            if let Some(label) = label {
+                entries.push(menu::heading(&label));
+            }
+            entries.extend(items);
+        } else if let Some(submenu) = model.item_link(index, "submenu") {
+            entries.push(menu::sub(&label.unwrap_or_default(), menu_entries(&submenu, group)));
+        } else if let (Some(label), Some(action)) = (label, string(index, "action")) {
+            let name = action.trim_start_matches("provider.").to_owned();
+            let group = group.clone();
+            entries.push(menu::item(&label, move || group.activate_action(&name, None)));
+        }
+    }
+    entries
 }
 
 #[cfg(test)]

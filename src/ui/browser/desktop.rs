@@ -126,33 +126,32 @@ async fn resolve_default_application(file: &gio::File) -> Result<DefaultApplicat
 async fn show_open_with_fallback(
     parent: &impl IsA<gtk::Widget>,
     file: gio::File,
-    content_type: &str,
+    _content_type: &str,
     browser: Weak<Browser>,
 ) {
-    let history = crate::ui::recent_apps::read().await.unwrap_or_default();
-    let unobstructed = parent
+    let Some(window) = parent
         .as_ref()
         .root()
         .and_downcast::<gtk::Window>()
-        .is_some_and(|window| {
-            window.is_visible() && !crate::ui::window::foreign_modal_visible(&window, None)
-        });
-    if !unobstructed {
+        .filter(|window| {
+            window.is_visible() && !crate::ui::window::foreign_modal_visible(window, None)
+        })
+    else {
+        return;
+    };
+    if crate::ui::open_with::uses_portal() {
+        crate::ui::open_with::launch_with_portal(&window, vec![file], false);
         return;
     }
-    let requires_uris = crate::ui::open_with::requires_uri_handlers(std::slice::from_ref(&file));
-    crate::ui::open_with::show(
-        parent,
-        vec![file],
-        vec![content_type.to_string()],
-        crate::ui::open_with::choices_for_type(&history, content_type, requires_uris),
-        crate::ui::open_with::OpenWithContext::ActivationFallback,
-        Rc::new(move || {
-            if let Some(browser) = browser.upgrade() {
-                browser.focus_active();
-            }
-        }),
-    );
+    let files = vec![file];
+    let Some(Ok(apps)) = crate::ui::open_with::resolve(&files, || true).await else {
+        return;
+    };
+    let overlay = crate::ui::modal::window_overlay(&window);
+    crate::ui::open_with::dialog(&window, overlay, files, apps, true);
+    if let Some(browser) = browser.upgrade() {
+        browser.focus_active();
+    }
 }
 
 fn report_open_result(
@@ -192,52 +191,21 @@ pub(crate) fn entry_is_regular_executable(entry: &FileEntry) -> bool {
 }
 
 pub(crate) fn confirm_run_program(location: &Location, parent: &impl IsA<gtk::Widget>) {
-    let Some(ModalHost {
-        overlay: window_overlay,
-        blurred_root,
-    }) = ModalHost::blurred_for(parent)
-    else {
-        return;
-    };
     let name = location.display_name();
-    let layout = message_dialog_layout(
-        crate::assets::icons::TERMINAL,
-        &crate::i18n::tr("Run this program?"),
-        &name,
-        &crate::i18n::tr("Run"),
-        ModalTone::Danger,
+    let detail = rust_i18n::t!(
+        "“%{name}” is an executable file. Only run programs you trust.",
+        name = name
     );
-    layout
-        .body
-        .append(&message_dialog_description(&rust_i18n::t!(
-            "“%{name}” is an executable file. Only run programs you trust.",
-            name = name
-        )));
-    let content = layout.content;
-    let close = layout.close;
-    let cancel = layout.cancel;
-    let run = layout.confirm;
-
-    let layer = modal_layer(&content, &window_overlay, blurred_root.clone(), None);
-    window_overlay.add_overlay(&layer);
-    focus_button(&run);
-    for button in [close, cancel] {
-        let dismiss_layer = layer.clone();
-        let dismiss_overlay = window_overlay.clone();
-        let dismiss_root = blurred_root.clone();
-        button.connect_clicked(move |_| {
-            dismiss_modal_layer(&dismiss_layer, &dismiss_overlay, dismiss_root.as_ref());
-        });
-    }
-    let run_layer = layer.clone();
-    let run_overlay = window_overlay;
-    let run_root = blurred_root;
-    let run_location = location.clone();
-    let error_parent = parent.as_ref().clone();
-    run.connect_clicked(move |_| {
-        dismiss_modal_layer(&run_layer, &run_overlay, run_root.as_ref());
-        run_program(&run_location, &error_parent);
-    });
+    let (run_location, error_parent) = (location.clone(), parent.as_ref().clone());
+    crate::ui::modal::confirm(
+        parent,
+        &crate::i18n::tr("Run this program?"),
+        &[&detail],
+        &crate::i18n::tr("Run"),
+        true,
+        move || run_program(&run_location, &error_parent),
+        None,
+    );
 }
 
 fn run_program(location: &Location, parent: &impl IsA<gtk::Widget>) {

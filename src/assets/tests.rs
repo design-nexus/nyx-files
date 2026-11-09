@@ -133,117 +133,12 @@ fn custom_emoji_preferences_are_bounded_and_safe_to_render() {
 }
 
 #[test]
-fn cold_interface_icons_render_when_decoder_workers_cannot_start() {
-    crate::test_support::gtk_test(
-        "assets::tests::cold_interface_icons_render_when_decoder_workers_cannot_start",
-        || {
-            use gtk::prelude::*;
-            use rustix::process::{Resource, Rlimit, getrlimit, setrlimit};
-            struct RestoreLimit(Rlimit);
-            impl Drop for RestoreLimit {
-                fn drop(&mut self) {
-                    setrlimit(Resource::Nproc, self.0).expect("restore process limit");
-                }
-            }
-            let saved = getrlimit(Resource::Nproc);
-            let _restore = RestoreLimit(saved);
-            setrlimit(
-                Resource::Nproc,
-                Rlimit {
-                    current: Some(0),
-                    ..saved
-                },
-            )
-            .expect("disable new decoder workers in this isolated process");
-            super::ICON_TEXTURES.with(|cache| cache.borrow_mut().clear());
-            let names = gio::resources_enumerate_children(
-                "/io/github/design_nexus/nyx/Files/icons/scalable/actions/",
-                gio::ResourceLookupFlags::NONE,
-            )
-            .expect("bundled icon resources");
-            assert!(!names.is_empty());
-            let names = names
-                .iter()
-                .map(|resource| resource.strip_suffix(".svg").expect("bundled SVG icon"))
-                .chain([icons::STRATA_LOGO]);
-            for name in names {
-                let image = super::primary_icon(name, 18);
-                let first = image
-                    .paintable()
-                    .expect("cold icon renders without a decoder process");
-                assert!(
-                    first.is::<gtk::gdk::MemoryTexture>(),
-                    "raw pixels, not a loader-backed icon"
-                );
-                assert_eq!(
-                    first
-                        .clone()
-                        .downcast::<gtk::gdk::Texture>()
-                        .expect("interface texture"),
-                    primary_icon_paintable(name).expect("default interface weight"),
-                );
-                super::set_custom_colored_icon(&image, name, "#d46b31");
-                let recolored = image.paintable().expect("live color update renders");
-                assert!(recolored.is::<gtk::gdk::MemoryTexture>());
-                assert_ne!(
-                    first, recolored,
-                    "recoloring must request the new color variant"
-                );
-                let texture = recolored.downcast::<gtk::gdk::Texture>().expect("texture");
-                assert!(
-                    crate::test_support::texture_has_visible_pixels(&texture),
-                    "bundled icon must render visible geometry: {name}"
-                );
-            }
-            assert!(folder_decoration_paintable(icons::PICTURES, "#d46b31").is_some());
-            assert!(super::emoji_icon_paintable("🚀").is_some());
-            assert!(folder_decoration_paintable("emoji:🚀", "#d46b31").is_some());
-        },
-    );
-}
-
-#[test]
-fn nested_spin_button_steps_resolve_to_bundled_icons() {
-    crate::test_support::gtk_test(
-        "assets::tests::nested_spin_button_steps_resolve_to_bundled_icons",
-        || {
-            let spin = gtk::SpinButton::with_range(0.0, 10.0, 1.0);
-            let container = gtk::Box::new(gtk::Orientation::Vertical, 0);
-            container.append(&spin);
-            super::use_bundled_spin_icons(&container);
-
-            let display = gtk::gdk::Display::default().expect("display");
-            let theme = gtk::IconTheme::for_display(&display);
-            let mut steps = Vec::new();
-            let mut child = spin.first_child();
-            while let Some(widget) = child {
-                child = widget.next_sibling();
-                let Some(button) = widget.downcast_ref::<gtk::Button>() else {
-                    continue;
-                };
-                let name = button.icon_name().expect("step icon").to_string();
-                let uri = theme
-                    .lookup_icon(
-                        &name,
-                        &[],
-                        16,
-                        1,
-                        gtk::TextDirection::Ltr,
-                        gtk::IconLookupFlags::empty(),
-                    )
-                    .file()
-                    .expect("resolved icon file")
-                    .uri();
-                assert!(
-                    uri.starts_with("resource:///io/github/design_nexus/nyx/Files/icons/"),
-                    "{name} resolved outside the bundle: {uri}"
-                );
-                steps.push(name);
-            }
-            steps.sort();
-            assert_eq!(steps, [icons::MINUS_SYMBOLIC, icons::PLUS_SYMBOLIC]);
-        },
-    );
+fn choices_saved_under_bundled_names_keep_working() {
+    assert_eq!(icons::current_choice("strata-file-text"), icons::DOCUMENTS);
+    assert_eq!(icons::current_choice("strata-house"), icons::HOME);
+    assert!(icons::is_customization_choice("strata-list-checks"));
+    assert_eq!(icons::current_choice("emoji:🚀"), "emoji:🚀");
+    assert!(!icons::is_customization_choice("strata-unknown"));
 }
 
 #[test]

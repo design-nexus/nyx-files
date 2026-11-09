@@ -1,25 +1,15 @@
 // SPDX-License-Identifier: MIT
 
 use std::{
-    cell::Cell,
+    cell::RefCell,
     collections::{HashMap, HashSet},
     rc::Rc,
     sync::OnceLock,
-    time::Duration,
 };
 
 use gtk::{gio, glib, prelude::*};
 
-use super::{
-    blur::BlurBin,
-    browser::{dismiss_modal_layer, modal_layer, show_error_dialog},
-    controls::modal_layout,
-    keys::{
-        self, SHORTCUT_MODIFIERS,
-        bindings::{BACKSPACE, DOWN, ESCAPE_ANY, FOCUS_NEXT, FOCUS_PREVIOUS, UP},
-    },
-    recent_apps,
-};
+use super::recent_apps;
 
 /// Inside a Flatpak sandbox GIO only sees the runtime's desktop entries, so
 /// files are handed to the host through the OpenURI portal instead.
@@ -58,7 +48,7 @@ pub(crate) fn launch_with_portal(
                 && !error.matches(gio::IOErrorEnum::Cancelled)
                 && let Some(parent) = parent.upgrade()
             {
-                show_error_dialog(
+                super::modal::show_error_dialog(
                     &parent,
                     &crate::i18n::tr("Unable to open file"),
                     error.message(),
@@ -527,660 +517,152 @@ fn register_recent_file(file: &gio::File) -> bool {
     added
 }
 
-fn application_icon(app: &gio::AppInfo, display: &gtk::gdk::Display) -> gtk::Image {
-    let icon = app.icon().and_then(|icon| {
-        if let Some(file_icon) = icon.downcast_ref::<gio::FileIcon>() {
-            return gtk::gdk::Texture::from_file(&file_icon.file())
-                .ok()
-                .map(|texture| gtk::Image::from_paintable(Some(&texture)));
-        }
-        gtk::IconTheme::for_display(display)
-            .has_gicon(&icon)
-            .then(|| gtk::Image::from_gicon(&icon))
-    });
-    icon.unwrap_or_else(|| crate::assets::primary_icon(crate::assets::icons::FILE_CODE, 24))
-}
-
-fn install_list_tab_navigation(
-    content: &gtk::Box,
-    search_entry: &gtk::SearchEntry,
-    list: &gtk::ListBox,
-    always_use: &gtk::CheckButton,
-    close: &gtk::Button,
-    cancel: &gtk::Button,
-) {
-    let keys = gtk::EventControllerKey::new();
-    keys.set_propagation_phase(gtk::PropagationPhase::Capture);
-    let search = search_entry.downgrade();
-    let list = list.downgrade();
-    let always = always_use.downgrade();
-    let close = close.downgrade();
-    let cancel = cancel.downgrade();
-    keys::on_press(&keys, move |_, press| {
-        let backward = press.is(FOCUS_PREVIOUS);
-        if !backward && !press.is(FOCUS_NEXT) {
-            return glib::Propagation::Proceed;
-        }
-        let (Some(search), Some(list), Some(always), Some(close), Some(cancel)) = (
-            search.upgrade(),
-            list.upgrade(),
-            always.upgrade(),
-            close.upgrade(),
-            cancel.upgrade(),
-        ) else {
-            return glib::Propagation::Proceed;
-        };
-        let Some(focus) = list.root().and_then(|root| root.focus()) else {
-            return glib::Propagation::Proceed;
-        };
-        let focus_selected_row = || {
-            if list.is_visible() {
-                list.selected_row().is_some_and(|row| row.grab_focus())
-            } else {
-                false
-            }
-        };
-        // A hidden widget still accepts focus grabs, so gate on visibility like the list.
-        let focus_always = || always.is_visible() && always.grab_focus();
-        let moved = if focus == search || focus.is_ancestor(&search) {
-            if backward {
-                close.grab_focus()
-            } else if focus_selected_row() || focus_always() {
-                true
-            } else {
-                cancel.grab_focus()
-            }
-        } else if focus == list || focus.is_ancestor(&list) {
-            if backward {
-                if search.is_visible() {
-                    search.grab_focus()
-                } else {
-                    close.grab_focus()
-                }
-            } else {
-                focus_always() || cancel.grab_focus()
-            }
-        } else if backward && focus == cancel {
-            if focus_always() || focus_selected_row() {
-                true
-            } else if search.is_visible() {
-                search.grab_focus()
-            } else {
-                close.grab_focus()
-            }
-        } else if !backward && focus == close {
-            if search.is_visible() {
-                search.grab_focus()
-            } else if focus_selected_row() || focus_always() {
-                true
-            } else {
-                cancel.grab_focus()
-            }
-        } else {
-            false
-        };
-        if moved {
-            glib::Propagation::Stop
-        } else {
-            glib::Propagation::Proceed
-        }
-    });
-    content.add_controller(keys);
-}
-
-struct AppEntry {
-    app: gio::AppInfo,
-    row: gtk::ListBoxRow,
-    section: AppSection,
-    haystack: String,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum AppSection {
-    Recent,
-    Recommended,
-    Other,
-}
-
-#[derive(Clone, Copy)]
-pub(super) enum OpenWithContext {
-    Explicit,
-    ActivationFallback,
-}
-
-impl OpenWithContext {
-    fn empty_message(self) -> &'static str {
-        match self {
-            Self::Explicit => "No compatible applications were found.",
-            Self::ActivationFallback => "No application is registered for this file",
-        }
+fn app_row(app: &gio::AppInfo, default: bool) -> gtk::ListBoxRow {
+    let line = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+    line.add_css_class("search-result");
+    let icon = gtk::Image::new();
+    icon.set_pixel_size(24);
+    match app.icon() {
+        Some(gicon) => icon.set_from_gicon(&gicon),
+        None => icon.set_icon_name(Some("application-x-executable")),
     }
-}
-
-fn create_section_header(title: &str) -> gtk::ListBoxRow {
+    line.append(&icon);
+    let name = nyx_ui::widgets::label(&app.display_name(), "search-name");
+    name.set_hexpand(true);
+    name.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    line.append(&name);
+    if default {
+        line.append(&nyx_ui::widgets::tag(&crate::i18n::tr("Default"), "accent"));
+    }
     let row = gtk::ListBoxRow::new();
-    row.add_css_class("open-with-heading-row");
-    row.set_activatable(false);
-    row.set_selectable(false);
-    row.set_focusable(false);
-    row.set_can_focus(false);
-
-    let label = gtk::Label::new(Some(&crate::i18n::tr(title)));
-    label.add_css_class("open-with-heading");
-    label.set_xalign(0.0);
-    row.set_child(Some(&label));
-    row
-}
-
-fn create_app_row(app: &gio::AppInfo, display: &gtk::gdk::Display) -> gtk::ListBoxRow {
-    let row = gtk::ListBoxRow::new();
-    row.add_css_class("open-with-row");
     super::accessibility::set_label(&row, &app.display_name());
     if let Some(description) = app.description() {
         super::accessibility::set_description(&row, Some(&description));
     }
-    let content = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-    let icon = application_icon(app, display);
-    icon.set_pixel_size(22);
-    icon.add_css_class("open-with-icon");
-    let labels = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    labels.set_valign(gtk::Align::Center);
-    let name = gtk::Label::new(Some(&app.display_name()));
-    name.add_css_class("open-with-name");
-    name.set_xalign(0.0);
-    name.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    let description_text = app.description().map(|value| value.to_string());
-    let description = gtk::Label::new(description_text.as_deref());
-    description.add_css_class("open-with-description");
-    description.set_xalign(0.0);
-    description.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    labels.append(&name);
-    if description_text
-        .as_deref()
-        .is_some_and(|value| !value.is_empty() && value != app.display_name())
-    {
-        labels.append(&description);
-    }
-    content.append(&icon);
-    content.append(&labels);
-    row.set_child(Some(&content));
+    row.set_child(Some(&line));
     row
 }
 
-pub(super) fn show(
-    parent: &impl IsA<gtk::Widget>,
+/// Reports `message` over `overlay`, or in a dialog when there is none.
+fn report(parent: &gtk::Window, overlay: Option<&gtk::Overlay>, message: &str) {
+    match overlay {
+        Some(overlay) => nyx_ui::toast::show(overlay, message),
+        None => super::modal::show_error_dialog(parent, message, ""),
+    }
+}
+
+/// The Open With dialog: the apps every file can open with, recent ones first,
+/// filtered as you type. `fallback` is the dialog a file with no default app
+/// opens, which offers to make the choice the default.
+pub(crate) fn dialog(
+    parent: &gtk::Window,
+    overlay: Option<gtk::Overlay>,
     files: Vec<gio::File>,
-    content_types: Vec<String>,
-    choices: Choices,
-    context: OpenWithContext,
-    on_close: Rc<dyn Fn()>,
+    apps: Applications,
+    fallback: bool,
 ) {
-    if uses_portal() {
-        launch_with_portal(parent, files, matches!(context, OpenWithContext::Explicit));
-        on_close();
+    if let Some(reason) = apps.unavailable_reason() {
+        let reason = if fallback && apps.content_types.len() <= 1 {
+            "No application is registered for this file"
+        } else {
+            reason
+        };
+        report(parent, overlay.as_ref(), &crate::i18n::tr(reason));
         return;
     }
-    let Some(window_overlay) = parent
-        .root()
-        .and_downcast::<gtk::Window>()
-        .and_then(|window| window.child())
-        .and_downcast::<gtk::Overlay>()
-    else {
-        return;
-    };
-    let blurred_root = window_overlay.child().and_downcast::<BlurBin>();
-    if let Some(root) = blurred_root.as_ref() {
-        root.set_blurred(true);
-    }
-
-    let subtitle = crate::i18n::tr(if files.len() == 1 {
-        "Choose an application to open this item"
-    } else {
-        "Choose an application to open these items"
-    });
-    let layout = modal_layout(
-        crate::assets::icons::EXTERNAL_LINK,
-        &crate::i18n::tr("Open With"),
-        &subtitle,
-        &crate::i18n::tr("Open"),
-    );
-    layout.content.add_css_class("open-with-dialog");
-    layout.content.set_size_request(480, 460);
-    layout.body.set_vexpand(true);
-
-    let search_entry = gtk::SearchEntry::new();
-    search_entry.add_css_class("open-with-search");
-    search_entry.set_placeholder_text(Some(&crate::i18n::tr("Search applications…")));
-    layout.body.append(&search_entry);
-
+    let (dialog, card) = nyx_ui::widgets::dialog(&crate::i18n::tr("Open With"), 460);
+    dialog.set_transient_for(Some(parent));
+    let filter = gtk::SearchEntry::new();
+    filter.set_placeholder_text(Some(&crate::i18n::tr("Search applications")));
+    card.append(&filter);
     let list = gtk::ListBox::new();
-    list.add_css_class("open-with-list");
-    list.set_selection_mode(gtk::SelectionMode::Single);
-    list.set_activate_on_single_click(false);
+    list.add_css_class("search-results");
     super::accessibility::set_label(&list, &crate::i18n::tr("Applications"));
-
-    let always_use =
-        super::controls::form_check_button(&crate::i18n::tr(if content_types.len() > 1 {
-            "Always use for these file types"
-        } else {
-            "Always use for this file type"
-        }));
-    always_use.set_visible(false);
-    layout.actions.prepend(&always_use);
-
-    install_list_tab_navigation(
-        &layout.content,
-        &search_entry,
-        &list,
-        &always_use,
-        &layout.close,
-        &layout.cancel,
-    );
-
-    let mut entries = Vec::new();
-
-    let Choices {
-        recent,
-        recommended: recommended_apps,
-        other: other_apps,
-    } = choices;
-    let mut recent_heading_row = None;
-    if !recent.is_empty() {
-        let heading = create_section_header("Recently Used");
-        list.append(&heading);
-        recent_heading_row = Some(heading);
-
-        for app in &recent {
-            let row = create_app_row(app, &list.display());
-            let haystack = format!(
-                "{} {} {} {} {}",
-                app.display_name(),
-                app.name(),
-                app.description().unwrap_or_default(),
-                app.executable().to_string_lossy(),
-                app.id().unwrap_or_default(),
-            )
-            .to_lowercase();
-            list.append(&row);
-            entries.push(AppEntry {
-                app: app.clone(),
-                row,
-                section: AppSection::Recent,
-                haystack,
-            });
-        }
+    let scroller = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .min_content_height(320)
+        .child(&list)
+        .build();
+    card.append(&scroller);
+    let always = gtk::CheckButton::with_label(&crate::i18n::tr("Always use for this file type"));
+    always.set_visible(apps.content_types.len() == 1);
+    always.set_active(fallback);
+    card.append(&always);
+    let mut ordered: Vec<(&'static str, gio::AppInfo)> = Vec::new();
+    for (section, group) in [
+        ("Recent", &apps.choices.recent),
+        ("Recommended", &apps.choices.recommended),
+        ("Other applications", &apps.choices.other),
+    ] {
+        ordered.extend(group.iter().map(|app| (section, app.clone())));
     }
-
-    let mut recommended_heading_row = None;
-    if !recommended_apps.is_empty() {
-        let heading = create_section_header("Recommended Applications");
-        list.append(&heading);
-        recommended_heading_row = Some(heading);
-
-        for app in &recommended_apps {
-            let row = create_app_row(app, &list.display());
-            let haystack = format!(
-                "{} {} {} {} {}",
-                app.display_name(),
-                app.name(),
-                app.description().unwrap_or_default(),
-                app.executable().to_string_lossy(),
-                app.id().unwrap_or_default(),
-            )
-            .to_lowercase();
-            list.append(&row);
-            entries.push(AppEntry {
-                app: app.clone(),
-                row,
-                section: AppSection::Recommended,
-                haystack,
-            });
-        }
-    }
-
-    let mut other_heading_row = None;
-    if !other_apps.is_empty() {
-        let heading = create_section_header("Other Applications");
-        list.append(&heading);
-        other_heading_row = Some(heading);
-
-        for app in &other_apps {
-            let row = create_app_row(app, &list.display());
-            let haystack = format!(
-                "{} {} {} {} {}",
-                app.display_name(),
-                app.name(),
-                app.description().unwrap_or_default(),
-                app.executable().to_string_lossy(),
-                app.id().unwrap_or_default(),
-            )
-            .to_lowercase();
-            list.append(&row);
-            entries.push(AppEntry {
-                app: app.clone(),
-                row,
-                section: AppSection::Other,
-                haystack,
-            });
-        }
-    }
-
-    if let Some(first_entry) = entries.first() {
-        list.select_row(Some(&first_entry.row));
-    }
-
-    let list_scroll = gtk::ScrolledWindow::new();
-    list_scroll.add_css_class("open-with-scroll");
-    list_scroll.set_child(Some(&list));
-    list_scroll.set_propagate_natural_height(false);
-    list_scroll.set_vexpand(true);
-    list_scroll.set_hexpand(true);
-    list_scroll.set_hscrollbar_policy(gtk::PolicyType::Never);
-    layout.body.append(&list_scroll);
-
-    let empty_search = gtk::Label::new(Some(&crate::i18n::tr(
-        "No matching applications were found.",
-    )));
-    empty_search.add_css_class("open-with-empty");
-    empty_search.set_wrap(true);
-    empty_search.set_xalign(0.5);
-    empty_search.set_halign(gtk::Align::Center);
-    empty_search.set_valign(gtk::Align::Center);
-    empty_search.set_vexpand(true);
-    empty_search.set_visible(false);
-    layout.body.append(&empty_search);
-
-    let has_apps = !entries.is_empty();
-    always_use.set_visible(has_apps && !content_types.is_empty());
-    if !has_apps {
-        search_entry.set_visible(false);
-        list_scroll.set_visible(false);
-        let empty = gtk::Label::new(Some(&crate::i18n::tr(context.empty_message())));
-        empty.add_css_class("open-with-empty");
-        empty.set_wrap(true);
-        empty.set_xalign(0.5);
-        empty.set_halign(gtk::Align::Center);
-        empty.set_valign(gtk::Align::Center);
-        empty.set_vexpand(true);
-        layout.body.append(&empty);
-        layout.confirm.set_sensitive(false);
-    }
-
-    let search_keys = gtk::EventControllerKey::new();
-    search_keys.set_propagation_phase(gtk::PropagationPhase::Capture);
-    let list_for_search = list.downgrade();
-    let scroll_for_search = list_scroll.downgrade();
-    keys::on_press(&search_keys, move |_, press| {
-        let down = press.is(DOWN);
-        if !down && !press.is(UP) {
-            return glib::Propagation::Proceed;
-        }
-        if let (Some(list), Some(scroll)) = (list_for_search.upgrade(), scroll_for_search.upgrade())
-            && let Some(selected) = list.selected_row()
-        {
-            let mut row = selected.clone();
-            let mut sibling = if down {
-                selected.next_sibling()
-            } else {
-                selected.prev_sibling()
-            };
-            while let Some(candidate) = sibling {
-                if candidate.is_visible()
-                    && let Some(candidate_row) = candidate.downcast_ref::<gtk::ListBoxRow>()
-                    && candidate_row.is_selectable()
-                {
-                    row = candidate_row.clone();
-                    break;
+    let shown: Rc<RefCell<Vec<Option<gio::AppInfo>>>> = Rc::default();
+    let render = {
+        let (list, shown, filter) = (list.clone(), shown.clone(), filter.clone());
+        let default = apps.default.clone();
+        move || {
+            while let Some(child) = list.first_child() {
+                list.remove(&child);
+            }
+            shown.borrow_mut().clear();
+            let query = filter.text().to_lowercase();
+            let mut section = "";
+            for (group, app) in &ordered {
+                if !query.is_empty() && !app.display_name().to_lowercase().contains(&query) {
+                    continue;
                 }
-                sibling = if down {
-                    candidate.next_sibling()
-                } else {
-                    candidate.prev_sibling()
-                };
-            }
-            list.select_row(Some(&row));
-            if let Some(bounds) = row.compute_bounds(&list) {
-                let adjustment = scroll.vadjustment();
-                let top = f64::from(bounds.y());
-                let bottom = top + f64::from(bounds.height());
-                if top < adjustment.value() {
-                    adjustment.set_value(top);
-                } else if bottom > adjustment.value() + adjustment.page_size() {
-                    adjustment.set_value(bottom - adjustment.page_size());
+                if *group != section {
+                    section = group;
+                    let heading = gtk::ListBoxRow::new();
+                    heading.set_selectable(false);
+                    heading.set_activatable(false);
+                    heading.set_focusable(false);
+                    heading.set_child(Some(&nyx_ui::widgets::label(
+                        &crate::i18n::tr(group).to_uppercase(),
+                        "menu-heading",
+                    )));
+                    list.append(&heading);
+                    shown.borrow_mut().push(None);
                 }
+                list.append(&app_row(app, default.as_ref().is_some_and(|d| d.equal(app))));
+                shown.borrow_mut().push(Some(app.clone()));
             }
         }
-        glib::Propagation::Stop
-    });
-    search_entry.add_controller(search_keys);
-
-    let list_keys = gtk::EventControllerKey::new();
-    let search_for_list = search_entry.downgrade();
-    let list_weak = list.downgrade();
-    keys::on_press(&list_keys, move |_, press| {
-        let (Some(list), Some(search)) = (list_weak.upgrade(), search_for_list.upgrade()) else {
-            return glib::Propagation::Proceed;
-        };
-
-        if press.is(UP.ignoring(SHORTCUT_MODIFIERS))
-            && let Some(selected) = list.selected_row()
-        {
-            let mut prev = selected.prev_sibling();
-            let mut has_prev_selectable = false;
-            while let Some(w) = prev {
-                if w.is_visible() && w.can_focus() {
-                    has_prev_selectable = true;
-                    break;
-                }
-                prev = w.prev_sibling();
-            }
-            if !has_prev_selectable && search.is_visible() {
-                search.grab_focus();
-                return glib::Propagation::Stop;
-            }
-        }
-
-        if search.is_visible() {
-            if press.is(BACKSPACE.ignoring(gtk::gdk::ModifierType::SHIFT_MASK)) {
-                search.grab_focus();
-                let mut text = search.text().to_string();
-                text.pop();
-                search.set_text(&text);
-                search.set_position(-1);
-                return glib::Propagation::Stop;
-            }
-            if let Some(ch) = press.text() {
-                search.grab_focus();
-                let mut text = search.text().to_string();
-                text.push(ch);
-                search.set_text(&text);
-                search.set_position(-1);
-                return glib::Propagation::Stop;
-            }
-        }
-
-        glib::Propagation::Proceed
-    });
-    list.add_controller(list_keys);
-
-    let confirm_for_search = layout.confirm.downgrade();
-    search_entry.connect_activate(move |_| {
-        if let Some(confirm) = confirm_for_search.upgrade()
-            && confirm.is_sensitive()
-        {
-            confirm.emit_clicked();
-        }
-    });
-
-    let entries_rc = Rc::new(entries);
-    let entries_for_filter = entries_rc.clone();
-    let list_for_filter = list.downgrade();
-    let list_scroll_for_filter = list_scroll.downgrade();
-    let empty_search_for_filter = empty_search.downgrade();
-    let confirm_for_filter = layout.confirm.downgrade();
-    let rec_heading = recommended_heading_row;
-    let recent_heading = recent_heading_row;
-    let oth_heading = other_heading_row;
-
-    search_entry.connect_changed(move |search| {
-        let (Some(list), Some(list_scroll), Some(empty_label), Some(confirm)) = (
-            list_for_filter.upgrade(),
-            list_scroll_for_filter.upgrade(),
-            empty_search_for_filter.upgrade(),
-            confirm_for_filter.upgrade(),
-        ) else {
-            return;
-        };
-        let query = search.text().trim().to_lowercase();
-        let mut recent_count = 0;
-        let mut rec_count = 0;
-        let mut oth_count = 0;
-        let mut first_visible_row: Option<gtk::ListBoxRow> = None;
-        let current_selected = list.selected_row();
-        let mut selected_is_visible = false;
-
-        for entry in entries_for_filter.iter() {
-            let matches = query.is_empty() || entry.haystack.contains(&query);
-            entry.row.set_visible(matches);
-            if matches {
-                match entry.section {
-                    AppSection::Recent => recent_count += 1,
-                    AppSection::Recommended => rec_count += 1,
-                    AppSection::Other => oth_count += 1,
-                }
-                if first_visible_row.is_none() {
-                    first_visible_row = Some(entry.row.clone());
-                }
-                if let Some(selected) = &current_selected
-                    && &entry.row == selected
-                {
-                    selected_is_visible = true;
-                }
-            }
-        }
-
-        if let Some(heading) = &recent_heading {
-            heading.set_visible(recent_count > 0);
-        }
-        if let Some(heading) = &rec_heading {
-            heading.set_visible(rec_count > 0);
-        }
-        if let Some(heading) = &oth_heading {
-            heading.set_visible(oth_count > 0);
-        }
-
-        let total_matches = recent_count + rec_count + oth_count;
-        if total_matches == 0 {
-            empty_label.set_visible(true);
-            list_scroll.set_visible(false);
-            confirm.set_sensitive(false);
-            list.select_row(None::<&gtk::ListBoxRow>);
-        } else {
-            empty_label.set_visible(false);
-            list_scroll.set_visible(true);
-            confirm.set_sensitive(true);
-            if !selected_is_visible && let Some(row) = &first_visible_row {
-                list.select_row(Some(row));
-            }
-        }
-    });
-
-    let layer = modal_layer(&layout.content, &window_overlay, blurred_root.clone(), None);
-    layer.connect_unrealize(move |_| {
-        let on_close = on_close.clone();
-        glib::idle_add_local_once(move || on_close());
-    });
-    window_overlay.add_overlay(&layer);
-    let dismissed = Rc::new(Cell::new(false));
-    let dismiss_layer = layer.downgrade();
-    let dismiss_overlay = window_overlay.downgrade();
-    let dismiss_root = blurred_root.as_ref().map(|root| root.downgrade());
-    let dismiss = Rc::new(move || {
-        if dismissed.replace(true) {
-            return;
-        }
-        let (Some(layer), Some(overlay)) = (dismiss_layer.upgrade(), dismiss_overlay.upgrade())
+    };
+    render();
+    let r = render.clone();
+    filter.connect_search_changed(move |_| r());
+    let content_types = apps.content_types.clone();
+    let (d, parent_window) = (dialog.clone(), parent.clone());
+    list.connect_row_activated(move |_, row| {
+        let Some(app) = usize::try_from(row.index())
+            .ok()
+            .and_then(|i| shown.borrow().get(i).cloned().flatten())
         else {
             return;
         };
-        let root = dismiss_root.as_ref().and_then(|root| root.upgrade());
-        dismiss_modal_layer(&layer, &overlay, root.as_ref());
-    });
-
-    let cancel_dismiss = dismiss.clone();
-    layout.cancel.connect_clicked(move |_| cancel_dismiss());
-    let close_dismiss = dismiss.clone();
-    layout.close.connect_clicked(move |_| close_dismiss());
-
-    let open_dismiss = dismiss.clone();
-    let open_files = files;
-    let open_content_types = content_types;
-    let entries_for_open = entries_rc;
-    let open_parent = parent.as_ref().downgrade();
-    let selected_list = list.downgrade();
-    layout.confirm.connect_clicked(move |_| {
-        let Some(list) = selected_list.upgrade() else {
-            return;
-        };
-        let Some(row) = list.selected_row() else {
-            return;
-        };
-        let Some(entry) = entries_for_open.iter().find(|e| e.row == row) else {
-            return;
-        };
-        if always_use.is_active() {
-            for content_type in &open_content_types {
-                if let Err(error) = entry.app.set_as_default_for_type(content_type) {
+        d.close();
+        if always.is_active() {
+            for content_type in &content_types {
+                if let Err(error) = app.set_as_default_for_type(content_type) {
                     tracing::warn!(%content_type, %error, "unable to set default application");
                 }
             }
         }
-        let context = list.display().app_launch_context();
-        if let Err(error) = launch(&entry.app, &open_files, &open_content_types, Some(&context)) {
-            let detail = error.to_string();
-            open_dismiss();
-            let open_parent = open_parent.clone();
-            glib::timeout_add_local_once(Duration::from_millis(250), move || {
-                if let Some(parent) = open_parent.upgrade() {
-                    show_error_dialog(&parent, &crate::i18n::tr("Unable to open file"), &detail);
-                }
-            });
-            return;
-        }
-        open_dismiss();
-    });
-    let activate_confirm = layout.confirm.downgrade();
-    list.connect_row_activated(move |_, _| {
-        if let Some(confirm) = activate_confirm.upgrade() {
-            confirm.emit_clicked();
+        let context = gtk::prelude::WidgetExt::display(&parent_window).app_launch_context();
+        if let Err(error) = launch(&app, &files, &content_types, Some(&context)) {
+            report(&parent_window, overlay.as_ref(), error.message());
         }
     });
-
-    let escape_dismiss = dismiss;
-    let escape_search = search_entry.downgrade();
-    let escape = gtk::EventControllerKey::new();
-    escape.set_propagation_phase(gtk::PropagationPhase::Capture);
-    keys::on_press(&escape, move |_, press| {
-        if press.is(ESCAPE_ANY) {
-            if let Some(search) = escape_search.upgrade()
-                && !search.text().is_empty()
-            {
-                search.set_text("");
-                search.grab_focus();
-                return glib::Propagation::Stop;
-            }
-            escape_dismiss();
-            glib::Propagation::Stop
-        } else {
-            glib::Propagation::Proceed
-        }
-    });
-    layer.add_controller(escape);
-    if !has_apps {
-        layout.cancel.grab_focus();
-    } else {
-        search_entry.grab_focus();
-    }
+    let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    buttons.set_halign(gtk::Align::End);
+    let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
+    buttons.append(&cancel);
+    card.append(&buttons);
+    let d = dialog.clone();
+    cancel.connect_clicked(move |_| d.close());
+    dialog.present();
+    filter.grab_focus();
 }
 
 #[cfg(test)]

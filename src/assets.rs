@@ -14,115 +14,73 @@ use gtk::{gdk, gio, glib, prelude::*};
 mod vector;
 
 pub mod icons {
-    pub const ARROW_DOWN: &str = "strata-arrow-down";
-    pub const ARROW_DOWN_WIDE_NARROW: &str = "strata-arrow-down-wide-narrow";
-    pub const ARROW_LEFT: &str = "strata-arrow-left";
-    pub const ARROW_RIGHT: &str = "strata-arrow-right";
-    pub const ARROW_UP: &str = "strata-arrow-up";
-    pub const ARROW_UP_NARROW_WIDE: &str = "strata-arrow-up-narrow-wide";
-    pub const APP_WINDOW: &str = "strata-app-window";
-    pub const BLOCKS: &str = "strata-blocks";
-    pub const CHECK: &str = "strata-check";
-    pub const CIRCLE_CHECK: &str = "strata-circle-check";
-    pub const CIRCLE_X: &str = "strata-circle-x";
-    pub const CHECK_ON_PRIMARY: &str = "strata-check-on-primary";
-    pub const CHEVRON_RIGHT: &str = "strata-chevron-right";
-    pub const CLOCK: &str = "strata-clock";
-    pub const CLIPBOARD_PASTE: &str = "strata-clipboard-paste";
-    pub const CLOUD: &str = "strata-cloud";
-    pub const COPY: &str = "strata-copy";
-    pub const COPY_PLUS: &str = "strata-copy-plus";
-    pub const COG: &str = "strata-cog";
-    pub const CORNER_DOWN_LEFT: &str = "strata-corner-down-left";
-    pub const DISC: &str = "strata-disc";
-    pub const DOCUMENTS: &str = "strata-file-text";
-    pub const DOWNLOADS: &str = "strata-download";
-    pub const EJECT: &str = "strata-eject";
-    pub const EYE: &str = "strata-eye";
-    pub const EYE_OFF: &str = "strata-eye-off";
-    pub const EXTERNAL_LINK: &str = "strata-external-link";
-    pub const FILE_ARCHIVE: &str = "strata-file-archive";
-    pub const FILE_AUDIO: &str = "strata-audio-lines";
-    pub const FILE_CODE: &str = "strata-file-code";
-    pub const FILE_SPREADSHEET: &str = "strata-file-spreadsheet";
-    pub const FILE_TERMINAL: &str = "strata-file-terminal";
-    pub const FILE_PLUS: &str = "strata-file-plus";
-    pub const FILE_TYPE: &str = "strata-file-type";
-    pub const FOLDER: &str = "strata-folder";
-    pub const FOLDER_ARCHIVE: &str = "strata-folder-archive";
-    pub const FOLDER_INPUT: &str = "strata-folder-input";
-    pub const FOLDER_OPEN: &str = "strata-folder-open";
-    pub const FOLDER_OUTPUT: &str = "strata-folder-output";
-    pub const FOLDER_PLUS: &str = "strata-folder-plus";
-    pub const GIT_BRANCH: &str = "strata-git-branch";
-    pub const HARD_DRIVE: &str = "strata-hard-drive";
-    pub const INFO: &str = "strata-info";
-    pub const GLOBE: &str = "strata-globe";
-    pub const CODE_XML: &str = "strata-code-xml";
-    pub const BUG: &str = "strata-bug";
-    pub const STRATA_LOGO: &str = "strata-logo";
-    pub const BOX: &str = "strata-box";
-    pub const BRIEFCASE: &str = "strata-briefcase";
-    pub const DROPBOX: &str = "strata-dropbox";
-    pub const EIGHTEEN_PLUS: &str = "strata-eighteen-plus";
-    pub const GAMEPAD: &str = "strata-gamepad-2";
-    pub const SCALE: &str = "strata-scale";
-    pub const CORNER_DOWN_RIGHT: &str = "strata-corner-down-right";
-    pub const FUNNEL: &str = "strata-funnel";
-    pub const COLUMNS: &str = "strata-columns";
-    pub const ICONS: &str = "strata-icons";
-    pub const HOME: &str = "strata-house";
-    pub const LIBRARY: &str = "strata-library";
-    pub const LIST: &str = "strata-list";
-    pub const LIST_CHECKS: &str = "strata-list-checks";
-    pub const LOCK: &str = "strata-lock";
-    pub const LOCK_OPEN: &str = "strata-lock-open";
-    pub const KEY: &str = "strata-key";
-    pub const KEY_ROUND: &str = "strata-key-round";
-    pub const MONITOR: &str = "strata-monitor";
-    pub const NETWORK: &str = "strata-network";
-    pub const PALETTE: &str = "strata-palette";
-    pub const PANEL_LEFT: &str = "strata-panel-left-symbolic";
-    pub const PANEL_RIGHT_CLOSE: &str = "strata-panel-right-close";
-    pub const PAUSE: &str = "strata-pause";
-    pub const PACKAGE_OPEN: &str = "strata-package-open";
-    pub const PACKAGE_PLUS: &str = "strata-package-plus";
-    pub const PENCIL: &str = "strata-pencil";
-    pub const PIN: &str = "strata-pin";
-    pub const PLAY: &str = "strata-play";
-    pub const MAXIMIZE: &str = "strata-maximize";
-    pub const MINIMIZE: &str = "strata-minimize";
-    pub const SKIP_BACK: &str = "strata-skip-back";
-    pub const SKIP_FORWARD: &str = "strata-skip-forward";
-    pub const MINUS: &str = "strata-minus";
-    pub const MINUS_SYMBOLIC: &str = "strata-minus-symbolic";
-    pub const MUSIC: &str = "strata-music-2";
-    pub const PLUS: &str = "strata-plus";
-    pub const PLUS_SYMBOLIC: &str = "strata-plus-symbolic";
-    pub const PRESENTATION: &str = "strata-presentation";
-    pub const PRINTER: &str = "strata-printer";
-    pub const PICTURES: &str = "strata-image";
-    pub const ROUTE: &str = "strata-route";
-    pub const SCISSORS: &str = "strata-scissors";
-    pub const SEARCH: &str = "strata-search";
-    pub const SEND_HORIZONTAL: &str = "strata-send-horizontal";
-    pub const SETTINGS: &str = "strata-settings";
-    pub const SETTINGS_2: &str = "strata-settings-2";
-    pub const REFRESH: &str = "strata-refresh";
-    pub const SHREDDER: &str = "strata-shredder";
-    pub const SLIDERS: &str = "strata-sliders-horizontal";
-    pub const SMARTPHONE: &str = "strata-smartphone";
-    pub const STETHOSCOPE: &str = "strata-stethoscope";
-    pub const TERMINAL: &str = "strata-terminal";
-    pub const TRASH: &str = "strata-trash";
-    pub const TRIANGLE_ALERT: &str = "strata-triangle-alert";
-    pub const UNDO_2: &str = "strata-undo-2";
-    pub const UNPLUG: &str = "strata-unplug";
-    pub const VIDEOS: &str = "strata-video";
-    pub const VOLUME_2: &str = "strata-volume-2";
-    pub const VOLUME_X: &str = "strata-volume-x";
-    pub const WRAP_TEXT: &str = "strata-wrap-text";
-    pub const X: &str = "strata-x";
+    //! Themed symbolic icon names (Umbra in the suite, any freedesktop theme
+    //! elsewhere) for the interface's glyphs.
+
+    pub const ARROW_DOWN: &str = "go-down-symbolic";
+    pub const ARROW_LEFT: &str = "go-previous-symbolic";
+    pub const ARROW_UP: &str = "go-up-symbolic";
+    pub const BLOCKS: &str = "application-x-addon-symbolic";
+    pub const BOX: &str = "package-x-generic-symbolic";
+    pub const BRIEFCASE: &str = "x-office-document-symbolic";
+    pub const BUG: &str = "applications-science-symbolic";
+    pub const CHECK: &str = "object-select-symbolic";
+    pub const CHEVRON_RIGHT: &str = "go-next-symbolic";
+    pub const CIRCLE_CHECK: &str = "object-select-symbolic";
+    pub const CIRCLE_X: &str = "dialog-error-symbolic";
+    pub const CLOUD: &str = "weather-overcast-symbolic";
+    pub const CODE_XML: &str = "text-html-symbolic";
+    pub const COG: &str = "emblem-system-symbolic";
+    pub const COPY: &str = "edit-copy-symbolic";
+    pub const DISC: &str = "media-optical-symbolic";
+    pub const DOCUMENTS: &str = "text-x-generic-symbolic";
+    pub const DOWNLOADS: &str = "folder-download-symbolic";
+    pub const DROPBOX: &str = "folder-remote-symbolic";
+    pub const EIGHTEEN_PLUS: &str = "emblem-important-symbolic";
+    pub const EJECT: &str = "media-eject-symbolic";
+    pub const EXTERNAL_LINK: &str = "document-open-symbolic";
+    pub const EYE: &str = "view-reveal-symbolic";
+    pub const EYE_OFF: &str = "view-conceal-symbolic";
+    pub const FILE_ARCHIVE: &str = "package-x-generic-symbolic";
+    pub const FILE_AUDIO: &str = "audio-x-generic-symbolic";
+    pub const FILE_CODE: &str = "text-x-script-symbolic";
+    pub const FILE_SPREADSHEET: &str = "x-office-spreadsheet-symbolic";
+    pub const FILE_TERMINAL: &str = "application-x-executable-symbolic";
+    pub const FILE_TYPE: &str = "font-x-generic-symbolic";
+    pub const FOLDER: &str = "folder-symbolic";
+    pub const GAMEPAD: &str = "applications-games-symbolic";
+    pub const GIT_BRANCH: &str = "folder-remote-symbolic";
+    pub const GLOBE: &str = "web-browser-symbolic";
+    pub const HARD_DRIVE: &str = "drive-harddisk-symbolic";
+    pub const HOME: &str = "user-home-symbolic";
+    pub const INFO: &str = "dialog-information-symbolic";
+    pub const KEY: &str = "dialog-password-symbolic";
+    pub const KEY_ROUND: &str = "dialog-password-symbolic";
+    pub const LIBRARY: &str = "view-grid-symbolic";
+    pub const LIST_CHECKS: &str = "checkbox-checked-symbolic";
+    pub const LOCK: &str = "system-lock-screen-symbolic";
+    pub const MINUS: &str = "list-remove-symbolic";
+    pub const MONITOR: &str = "computer-symbolic";
+    pub const MUSIC: &str = "folder-music-symbolic";
+    pub const NETWORK: &str = "network-workgroup-symbolic";
+    pub const PENCIL: &str = "document-edit-symbolic";
+    pub const PICTURES: &str = "image-x-generic-symbolic";
+    pub const PIN: &str = "view-pin-symbolic";
+    pub const PLAY: &str = "media-playback-start-symbolic";
+    pub const PLUS: &str = "list-add-symbolic";
+    pub const PRESENTATION: &str = "x-office-presentation-symbolic";
+    pub const PRINTER: &str = "document-print-symbolic";
+    pub const REFRESH: &str = "view-refresh-symbolic";
+    pub const SCALE: &str = "applications-engineering-symbolic";
+    pub const SCISSORS: &str = "edit-cut-symbolic";
+    pub const SEARCH: &str = "system-search-symbolic";
+    pub const SETTINGS: &str = "emblem-system-symbolic";
+    pub const SMARTPHONE: &str = "phone-symbolic";
+    pub const TERMINAL: &str = "utilities-terminal-symbolic";
+    pub const TRASH: &str = "user-trash-symbolic";
+    pub const TRIANGLE_ALERT: &str = "dialog-warning-symbolic";
+    pub const VIDEOS: &str = "video-x-generic-symbolic";
+    pub const X: &str = "window-close-symbolic";
 
     pub const CUSTOMIZATION_CHOICES: [(&str, &str); 16] = [
         (DOCUMENTS, "Documents"),
@@ -143,6 +101,35 @@ pub mod icons {
         (LIST_CHECKS, "Tasks"),
     ];
 
+    /// The icon a choice saved under its old bundled name now uses.
+    const SAVED_CHOICES: [(&str, &str); 16] = [
+        ("strata-file-text", DOCUMENTS),
+        ("strata-download", DOWNLOADS),
+        ("strata-file-code", FILE_CODE),
+        ("strata-file-archive", FILE_ARCHIVE),
+        ("strata-image", PICTURES),
+        ("strata-video", VIDEOS),
+        ("strata-terminal", TERMINAL),
+        ("strata-house", HOME),
+        ("strata-hard-drive", HARD_DRIVE),
+        ("strata-network", NETWORK),
+        ("strata-monitor", MONITOR),
+        ("strata-key", KEY),
+        ("strata-pin", PIN),
+        ("strata-play", PLAY),
+        ("strata-settings", SETTINGS),
+        ("strata-list-checks", LIST_CHECKS),
+    ];
+
+    /// A saved custom icon in today's names: choices saved before the 2.0
+    /// interface used the bundled icons' names.
+    pub fn current_choice(name: &str) -> &str {
+        SAVED_CHOICES
+            .iter()
+            .find(|(saved, _)| *saved == name)
+            .map_or(name, |(_, current)| current)
+    }
+
     pub fn custom_emoji(name: &str) -> Option<&str> {
         let emoji = name.strip_prefix("emoji:")?;
         (!emoji.is_empty() && emoji.len() <= 64 && !emoji.chars().any(char::is_control))
@@ -150,6 +137,7 @@ pub mod icons {
     }
 
     pub fn is_customization_choice(name: &str) -> bool {
+        let name = current_choice(name);
         CUSTOMIZATION_CHOICES
             .iter()
             .any(|(icon_name, _)| *icon_name == name)
@@ -237,24 +225,9 @@ pub(crate) enum IconContext {
 }
 const JETBRAINS_MONO: &[u8] = include_bytes!("../data/fonts/JetBrainsMono[wght].ttf");
 
-pub const CHROME_ICON_PX: i32 = 17;
-
-struct PrimaryIcon {
-    image: glib::WeakRef<gtk::Image>,
-    name: String,
-}
-
 thread_local! {
-    static INTERFACE_ICON_SCALE: Cell<f64> = const { Cell::new(1.0) };
-    static INTERFACE_ICONS: RefCell<Vec<(glib::WeakRef<gtk::Image>, i32)>> = const { RefCell::new(Vec::new()) };
     static PRIMARY_ICON_COLOR: RefCell<String> = RefCell::new("#8bc9eb".to_owned());
-    static PRIMARY_ICONS: RefCell<Vec<PrimaryIcon>> = const { RefCell::new(Vec::new()) };
-    static TEXT_ICON_COLOR: RefCell<String> = RefCell::new("#e6edf3".to_owned());
-    static TEXT_ICONS: RefCell<Vec<PrimaryIcon>> = const { RefCell::new(Vec::new()) };
     static MUTED_ICON_COLOR: RefCell<String> = RefCell::new("#9097a8".to_owned());
-    static MUTED_ICONS: RefCell<Vec<PrimaryIcon>> = const { RefCell::new(Vec::new()) };
-    static DANGER_ICON_COLOR: RefCell<String> = RefCell::new("#e5484d".to_owned());
-    static DANGER_ICONS: RefCell<Vec<PrimaryIcon>> = const { RefCell::new(Vec::new()) };
     static ICON_TEXTURES: RefCell<IconTextureCache> = RefCell::new(IconTextureCache::default());
     static CATPPUCCIN_FLAVOR: Cell<CatppuccinFlavor> = const { Cell::new(CatppuccinFlavor::Mocha) };
     static CATPPUCCIN_THEME_COLORS: Cell<bool> = const { Cell::new(false) };
@@ -297,213 +270,61 @@ pub fn register_icon_theme() {
     gtk::Window::set_default_icon_name(crate::APPLICATION_ID);
 }
 
+/// Toolbar and row action glyphs.
+pub const CHROME_ICON_PX: i32 = 16;
+
+/// A themed icon at `pixel_size`, in its widget's text colour.
 pub fn primary_icon(name: &str, pixel_size: i32) -> gtk::Image {
-    let image = gtk::Image::new();
-    register_interface_icon(&image, pixel_size);
-    set_primary_icon(&image, name);
+    let image = gtk::Image::from_icon_name(name);
+    image.set_pixel_size(pixel_size);
     image
-}
-
-pub fn set_interface_icon_scale(scale: f64) {
-    INTERFACE_ICON_SCALE.set(scale);
-    INTERFACE_ICONS.with(|icons| {
-        icons.borrow_mut().retain(|(weak, base)| {
-            let Some(image) = weak.upgrade() else {
-                return false;
-            };
-            image.set_pixel_size((f64::from(*base) * scale).round().max(1.0) as i32);
-            true
-        });
-    });
-}
-
-fn register_interface_icon(image: &gtk::Image, base: i32) {
-    image.set_pixel_size(
-        (f64::from(base) * INTERFACE_ICON_SCALE.get())
-            .round()
-            .max(1.0) as i32,
-    );
-    INTERFACE_ICONS.with(|icons| {
-        let mut icons = icons.borrow_mut();
-        icons.retain(|(image, _)| image.upgrade().is_some());
-        icons.push((image.downgrade(), base));
-    });
-    image.connect_scale_factor_notify(|image| {
-        for (registry, color) in [
-            (&PRIMARY_ICONS, primary_icon_color()),
-            (
-                &TEXT_ICONS,
-                TEXT_ICON_COLOR.with(|color| color.borrow().clone()),
-            ),
-            (
-                &MUTED_ICONS,
-                MUTED_ICON_COLOR.with(|color| color.borrow().clone()),
-            ),
-            (
-                &DANGER_ICONS,
-                DANGER_ICON_COLOR.with(|color| color.borrow().clone()),
-            ),
-        ] {
-            let name = registry.with(|icons| {
-                icons
-                    .borrow()
-                    .iter()
-                    .find(|icon| icon.image.upgrade().as_ref() == Some(image))
-                    .map(|icon| icon.name.clone())
-            });
-            if let Some(name) = name {
-                apply_primary_icon(image, &name, &color);
-                break;
-            }
-        }
-    });
 }
 
 pub fn text_icon(name: &str, pixel_size: i32) -> gtk::Image {
-    let image = gtk::Image::new();
-    register_interface_icon(&image, pixel_size);
-    let color = TEXT_ICON_COLOR.with(|color| color.borrow().clone());
-    apply_primary_icon(&image, name, &color);
-    TEXT_ICONS.with(|icons| register_icon(icons, &image, name));
-    image
+    primary_icon(name, pixel_size)
 }
 
-pub fn set_text_icon_color(color: &str) {
-    TEXT_ICON_COLOR.with(|current| current.replace(color.to_owned()));
-    TEXT_ICONS.with(|icons| recolor_registered_icons(icons, color));
-}
-
-/// An icon in the secondary text colour, such as a sidebar place that isn't
-/// the current one.
+/// An icon in the secondary text colour.
 pub fn muted_icon(name: &str, pixel_size: i32) -> gtk::Image {
-    let image = gtk::Image::new();
-    register_interface_icon(&image, pixel_size);
-    let color = MUTED_ICON_COLOR.with(|color| color.borrow().clone());
-    apply_primary_icon(&image, name, &color);
-    MUTED_ICONS.with(|icons| register_icon(icons, &image, name));
+    let image = primary_icon(name, pixel_size);
+    image.add_css_class("dim");
     image
+}
+
+pub fn set_muted_icon(image: &gtk::Image, name: &str) {
+    image.set_icon_name(Some(name));
+    image.add_css_class("dim");
+}
+
+/// An icon in the danger colour.
+pub fn danger_icon(name: &str, pixel_size: i32) -> gtk::Image {
+    let image = primary_icon(name, pixel_size);
+    image.add_css_class("danger-icon");
+    image
+}
+
+pub fn set_primary_icon(image: &gtk::Image, name: &str) {
+    image.set_icon_name(Some(name));
+}
+
+pub fn set_primary_icon_color(color: &str) {
+    PRIMARY_ICON_COLOR.with(|current| current.replace(color.to_owned()));
 }
 
 pub fn muted_icon_color() -> String {
     MUTED_ICON_COLOR.with(|color| color.borrow().clone())
 }
 
-/// [`set_primary_icon`] in the muted colour.
-pub fn set_muted_icon(image: &gtk::Image, name: &str) {
-    PRIMARY_ICONS.with(|icons| icons.borrow_mut().retain(|icon| icon.image.upgrade().as_ref() != Some(image)));
-    apply_primary_icon(image, name, &muted_icon_color());
-    MUTED_ICONS.with(|icons| register_icon(icons, image, name));
-}
-
 pub fn set_muted_icon_color(color: &str) {
     MUTED_ICON_COLOR.with(|current| current.replace(color.to_owned()));
-    MUTED_ICONS.with(|icons| recolor_registered_icons(icons, color));
 }
 
-/// Moves an icon made by [`muted_icon`] or [`primary_icon`] to the accent
-/// colour (`accented`) or back to the muted one.
-pub fn set_icon_accented(image: &gtk::Image, accented: bool) {
-    let (from, to, color) = if accented {
-        (&MUTED_ICONS, &PRIMARY_ICONS, primary_icon_color())
-    } else {
-        (&PRIMARY_ICONS, &MUTED_ICONS, MUTED_ICON_COLOR.with(|color| color.borrow().clone()))
-    };
-    let name = from.with(|icons| {
-        let mut icons = icons.borrow_mut();
-        let found = icons.iter().position(|icon| icon.image.upgrade().as_ref() == Some(image))?;
-        Some(icons.remove(found).name)
-    });
-    if let Some(name) = name {
-        apply_primary_icon(image, &name, &color);
-        to.with(|icons| register_icon(icons, image, &name));
-    }
-}
-
-/// [`chrome_icon`] in the muted colour, for quiet toolbar actions.
-pub fn muted_chrome_icon(name: &str) -> gtk::Image {
-    let image = gtk::Image::new();
-    image.add_css_class("chrome-icon");
-    register_interface_icon(&image, CHROME_ICON_PX);
-    set_muted_icon(&image, name);
-    image.set_halign(gtk::Align::Center);
-    image.set_valign(gtk::Align::Center);
-    image
-}
-
-pub fn chrome_icon(name: &str) -> gtk::Image {
-    let image = gtk::Image::new();
-    image.add_css_class("chrome-icon");
-    register_interface_icon(&image, CHROME_ICON_PX);
-    set_primary_icon(&image, name);
-    // Fill stretches paintables when desktop themes allocate extra button space.
-    image.set_halign(gtk::Align::Center);
-    image.set_valign(gtk::Align::Center);
-    image
-}
-
-/// GTK names spin button steps after the desktop icon theme; the bundled
-/// symbolic icons still follow each button's CSS color and state.
-pub fn use_bundled_spin_icons(root: &impl IsA<gtk::Widget>) {
-    let root = root.as_ref();
-    let spin = root.is::<gtk::SpinButton>();
-    let mut child = root.first_child();
-    while let Some(widget) = child {
-        child = widget.next_sibling();
-        if !spin {
-            use_bundled_spin_icons(&widget);
-        } else if let Some(button) = widget.downcast_ref::<gtk::Button>() {
-            if button.has_css_class("up") {
-                button.set_icon_name(icons::PLUS_SYMBOLIC);
-            } else if button.has_css_class("down") {
-                button.set_icon_name(icons::MINUS_SYMBOLIC);
-            }
-        }
-    }
-}
-
-pub fn set_primary_icon(image: &gtk::Image, name: &str) {
-    MUTED_ICONS.with(|icons| icons.borrow_mut().retain(|icon| icon.image.upgrade().as_ref() != Some(image)));
-    let color = PRIMARY_ICON_COLOR.with(|color| color.borrow().clone());
-    apply_primary_icon(image, name, &color);
-    PRIMARY_ICONS.with(|icons| {
-        let mut icons = icons.borrow_mut();
-        icons.retain(|icon| icon.image.upgrade().is_some());
-        if let Some(icon) = icons
-            .iter_mut()
-            .find(|icon| icon.image.upgrade().as_ref() == Some(image))
-        {
-            icon.name = name.to_owned();
-            return;
-        }
-        let image_ref = glib::WeakRef::new();
-        image_ref.set(Some(image));
-        icons.push(PrimaryIcon {
-            image: image_ref,
-            name: name.to_owned(),
-        });
-    });
-}
-
-pub fn set_primary_icon_color(color: &str) {
-    PRIMARY_ICON_COLOR.with(|current| current.replace(color.to_owned()));
-    PRIMARY_ICONS.with(|icons| recolor_registered_icons(icons, color));
-}
-
-pub fn remove_primary_icon(image: &gtk::Image) {
-    PRIMARY_ICONS.with(|icons| {
-        icons
-            .borrow_mut()
-            .retain(|icon| icon.image.upgrade().as_ref() != Some(image));
-    });
-}
 
 pub fn set_custom_colored_icon(image: &gtk::Image, name: &str, color: &str) {
-    remove_primary_icon(image);
     apply_primary_icon(image, name, color);
 }
 
 pub fn set_folder_decoration_icon(image: &gtk::Image, decoration: &str, color: &str) {
-    remove_primary_icon(image);
     if let Some(texture) = sized_folder_decoration_paintable(
         decoration,
         color,
@@ -518,7 +339,6 @@ pub fn set_folder_decoration_icon(image: &gtk::Image, decoration: &str, color: &
 }
 
 pub fn set_emoji_icon(image: &gtk::Image, emoji: &str) {
-    remove_primary_icon(image);
     if let Some(texture) = emoji_texture(emoji) {
         image.set_paintable(Some(&texture));
     }
@@ -530,48 +350,6 @@ pub fn emoji_icon_paintable(emoji: &str) -> Option<gdk::Texture> {
 
 pub fn primary_icon_color() -> String {
     PRIMARY_ICON_COLOR.with(|color| color.borrow().clone())
-}
-
-pub fn danger_icon(name: &str, pixel_size: i32) -> gtk::Image {
-    let image = gtk::Image::new();
-    register_interface_icon(&image, pixel_size);
-    let color = DANGER_ICON_COLOR.with(|color| color.borrow().clone());
-    apply_primary_icon(&image, name, &color);
-    DANGER_ICONS.with(|icons| register_icon(icons, &image, name));
-    image
-}
-
-pub fn set_danger_icon_color(color: &str) {
-    DANGER_ICON_COLOR.with(|current| current.replace(color.to_owned()));
-    DANGER_ICONS.with(|icons| recolor_registered_icons(icons, color));
-}
-
-fn register_icon(icons: &RefCell<Vec<PrimaryIcon>>, image: &gtk::Image, name: &str) {
-    let mut icons = icons.borrow_mut();
-    icons.retain(|icon| icon.image.upgrade().is_some());
-    if let Some(icon) = icons
-        .iter_mut()
-        .find(|icon| icon.image.upgrade().as_ref() == Some(image))
-    {
-        icon.name = name.to_owned();
-        return;
-    }
-    let image_ref = glib::WeakRef::new();
-    image_ref.set(Some(image));
-    icons.push(PrimaryIcon {
-        image: image_ref,
-        name: name.to_owned(),
-    });
-}
-
-fn recolor_registered_icons(icons: &RefCell<Vec<PrimaryIcon>>, color: &str) {
-    icons.borrow_mut().retain(|icon| {
-        let Some(image) = icon.image.upgrade() else {
-            return false;
-        };
-        apply_primary_icon(&image, &icon.name, color);
-        true
-    });
 }
 
 fn apply_primary_icon(image: &gtk::Image, name: &str, color: &str) {
@@ -633,20 +411,6 @@ fn primary_icon_texture_at(
 ) -> Option<gdk::Texture> {
     if name.starts_with(CATPPUCCIN_ICON_PREFIX) {
         return catppuccin_icon_texture_at(name, color, texture_px, logical_px, context);
-    }
-    if name == icons::STRATA_LOGO {
-        return texture_from_svg(name, color, texture_px, || {
-            let data = gio::resources_lookup_data(
-                "/io/github/design_nexus/nyx/Files/brand/strata-logo-white.svg",
-                gio::ResourceLookupFlags::NONE,
-            )
-            .ok()?;
-            Some(
-                std::str::from_utf8(data.as_ref())
-                    .ok()?
-                    .replace("#ffffff", color),
-            )
-        });
     }
     let cache_name = if name == icons::FOLDER {
         format!("{name}@{:.2}", folder_stroke_width(logical_px))
@@ -905,7 +669,6 @@ pub(crate) fn sized_folder_glyph_paintable(
 }
 
 pub fn set_folder_glyph_icon(image: &gtk::Image, glyph: &str, color: &str) {
-    remove_primary_icon(image);
     if let Some(texture) = sized_folder_glyph_paintable(
         glyph,
         color,

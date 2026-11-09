@@ -124,8 +124,8 @@ impl Node {
             item.set_icon(&icon);
         }
         if self.data.sends_to() {
-            item.set_attribute_value("x-strata-send-to-device", Some(&true.to_variant()));
-            item.set_attribute_value("x-strata-description", Some(&label.to_variant()));
+            item.set_attribute_value("x-files-send-to-device", Some(&true.to_variant()));
+            item.set_attribute_value("x-files-description", Some(&label.to_variant()));
         }
         item
     }
@@ -429,8 +429,8 @@ fn destination_submenu(section: &ProviderSection) -> gio::MenuItem {
     let name = with_hub(|hub| hub.providers[section.provider].name.clone());
     let item = gio::MenuItem::new_submenu(Some(&name.replace('_', "__")), &section.model);
     set_provider_icon(&item, section.provider);
-    item.set_attribute_value("x-strata-send-to-device", Some(&true.to_variant()));
-    item.set_attribute_value("x-strata-description", Some(&name.to_variant()));
+    item.set_attribute_value("x-files-send-to-device", Some(&true.to_variant()));
+    item.set_attribute_value("x-files-description", Some(&name.to_variant()));
     item
 }
 

@@ -522,7 +522,6 @@ impl ThemeManager {
         self.font_provider
             .load_from_string(&font::stylesheet(family.as_deref()));
         apply_interface_font(family.as_deref(), root_font_px);
-        crate::assets::set_interface_icon_scale(root_font_px / 13.0);
         let dark_background =
             parse_rgb_channels(&tokens.background).is_none_or(|[red, green, blue]| {
                 u32::from(red) * 299 + u32::from(green) * 587 + u32::from(blue) * 114 < 128_000
@@ -539,9 +538,7 @@ impl ThemeManager {
         );
         // SVG strokes accept fewer color forms than GTK does.
         crate::assets::set_primary_icon_color(&color_to_hex(&tokens.accent));
-        crate::assets::set_text_icon_color(&color_to_hex(&tokens.text));
         crate::assets::set_muted_icon_color(&color_to_hex(&tokens.dim_text));
-        crate::assets::set_danger_icon_color(&color_to_hex(&tokens.danger));
         super::thumbnail::refresh_all_customized_icons();
         stage_source_style_scheme(tokens, source_palette);
         style_document_buffers(tokens);

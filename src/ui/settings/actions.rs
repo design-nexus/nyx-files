@@ -502,59 +502,37 @@ impl PageState {
     }
 
     fn delete(self: &Rc<Self>, button: &gtk::Button, action: &Rc<ActionHandle>) {
-        let Some(host) = ModalHost::blurred_for(button) else {
-            return;
-        };
-        let layout = message_dialog_layout(
-            crate::assets::icons::TRASH,
-            &crate::i18n::tr("Delete this action?"),
-            action.name(),
-            &crate::i18n::tr("Delete"),
-            ModalTone::Danger,
-        );
-        layout
-            .body
-            .append(&message_dialog_description(&crate::i18n::tr(
-                "The action folder and its script are removed from your actions directory.",
-            )));
-        let content = layout.content;
-        let layer = modal_layer(&content, &host.overlay, host.blurred_root.clone(), None);
-        for button in [&layout.close, &layout.cancel] {
-            let weak_layer = layer.downgrade();
-            let overlay = host.overlay.clone();
-            let root = host.blurred_root.clone();
-            button.connect_clicked(move |_| {
-                if let Some(layer) = weak_layer.upgrade() {
-                    dismiss_modal_layer(&layer, &overlay, root.as_ref());
-                }
-            });
-        }
         let state = self.clone();
-        let weak_layer = layer.downgrade();
-        let overlay = host.overlay.clone();
-        let root = host.blurred_root.clone();
         let id = action.id().to_owned();
         let failure_anchor = button.clone();
-        layout.confirm.connect_clicked(move |_| {
-            let deleted = state.registry.delete(id.clone());
-            if let Some(layer) = weak_layer.upgrade() {
-                dismiss_modal_layer(&layer, &overlay, root.as_ref());
-            }
-            let state = state.clone();
-            let failure_anchor = failure_anchor.clone();
-            glib::MainContext::default().spawn_local(async move {
-                match deleted.await {
-                    Ok(()) => PageState::render(&state),
-                    Err(error) => show_error_dialog(
-                        &failure_anchor,
-                        &crate::i18n::tr("Unable to delete the action"),
-                        &error.user_message(),
-                    ),
-                }
-            });
-        });
-        host.overlay.add_overlay(&layer);
-        layout.confirm.grab_focus();
+        crate::ui::modal::confirm(
+            button,
+            &crate::i18n::tr("Delete this action?"),
+            &[
+                action.name(),
+                &crate::i18n::tr(
+                    "The action folder and its script are removed from your actions directory.",
+                ),
+            ],
+            &crate::i18n::tr("Delete"),
+            true,
+            move || {
+                let deleted = state.registry.delete(id.clone());
+                let state = state.clone();
+                let failure_anchor = failure_anchor.clone();
+                glib::MainContext::default().spawn_local(async move {
+                    match deleted.await {
+                        Ok(()) => PageState::render(&state),
+                        Err(error) => show_error_dialog(
+                            &failure_anchor,
+                            &crate::i18n::tr("Unable to delete the action"),
+                            &error.user_message(),
+                        ),
+                    }
+                });
+            },
+            None,
+        );
     }
 }
 
@@ -575,30 +553,9 @@ fn problem_row(failure: &ActionLoadFailure) -> gtk::Box {
 }
 
 fn show_notice(anchor: &impl IsA<gtk::Widget>, title: &str, detail: &str) {
-    let Some(host) = ModalHost::blurred_for(anchor) else {
-        return;
-    };
-    let layout = message_dialog_layout(
-        crate::assets::icons::CHECK,
-        title,
-        detail,
-        &crate::i18n::tr("Close"),
-        ModalTone::Accent,
-    );
-    let content = layout.content;
-    let layer = modal_layer(&content, &host.overlay, host.blurred_root.clone(), None);
-    for button in [&layout.close, &layout.confirm] {
-        let weak_layer = layer.downgrade();
-        let overlay = host.overlay.clone();
-        let root = host.blurred_root.clone();
-        button.connect_clicked(move |_| {
-            if let Some(layer) = weak_layer.upgrade() {
-                dismiss_modal_layer(&layer, &overlay, root.as_ref());
-            }
-        });
+    if let Some(overlay) = crate::ui::modal::window_overlay(anchor) {
+        crate::ui::notice::show_notice(&overlay, Some(title), detail);
     }
-    host.overlay.add_overlay(&layer);
-    layout.close.grab_focus();
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

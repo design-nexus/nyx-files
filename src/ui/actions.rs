@@ -198,72 +198,34 @@ fn confirm_and_run(
     source: InvocationSource,
     closed: Option<Rc<dyn Fn()>>,
 ) {
-    let Some(ModalHost {
-        overlay,
-        blurred_root,
-    }) = ModalHost::blurred_for(anchor)
-    else {
-        show_error_dialog(
-            anchor,
-            &crate::i18n::tr("Unable to confirm action"),
-            &crate::i18n::tr("Open the action from a browser window."),
-        );
-        return;
-    };
     let jobs = super::jobs::shared();
-    let layout = message_dialog_layout(
-        action_icon(action.definition.icon.as_deref()),
-        &crate::i18n::tr("Run this action?"),
-        action.name(),
-        &crate::i18n::tr("Run"),
-        ModalTone::Danger,
+    let runs = rust_i18n::t!(
+        "This runs “%{value1}” on %{value2}.",
+        value1 = action.name(),
+        value2 = item_count_label(paths.len())
     );
-    let count = paths.len();
-    layout
-        .body
-        .append(&message_dialog_description(&rust_i18n::t!(
-            "This runs “%{value1}” on %{value2}.",
-            value1 = action.name(),
-            value2 = item_count_label(count)
-        )));
-    if let Some(description) = action.definition.description.as_deref() {
-        layout.body.append(&message_dialog_description(description));
-    }
-    let content = layout.content;
-    let close = layout.close;
-    let cancel = layout.cancel;
-    let run = layout.confirm;
-    let layer = modal_layer(&content, &overlay, blurred_root.clone(), None);
-    if let Some(closed) = closed {
-        layer.connect_unrealize(move |_| {
-            let closed = closed.clone();
-            gtk::glib::idle_add_local_once(move || closed());
-        });
-    }
-    overlay.add_overlay(&layer);
-    focus_button(&run);
-    for button in [close, cancel] {
-        let dismiss_layer = layer.clone();
-        let dismiss_overlay = overlay.clone();
-        let dismiss_root = blurred_root.clone();
-        button.connect_clicked(move |_| {
-            dismiss_modal_layer(&dismiss_layer, &dismiss_overlay, dismiss_root.as_ref());
-        });
-    }
-    let run_layer = layer.clone();
-    let run_overlay = overlay;
-    let run_root = blurred_root;
+    let description = action.definition.description.clone().unwrap_or_default();
     let error_anchor = anchor.as_ref().clone();
-    run.connect_clicked(move |_| {
-        let anchor = error_anchor.clone();
-        let jobs = jobs.clone();
-        let action = action.clone();
-        let paths = paths.clone();
-        let parent = parent.clone();
-        dismiss_modal_layer_then(&run_layer, &run_overlay, run_root.as_ref(), move || {
-            enqueue(&anchor, &jobs, action, paths, parent, source);
-        });
-    });
+    let question = crate::i18n::tr("Run this action?");
+    let name = action.name().to_owned();
+    super::modal::confirm(
+        anchor,
+        &question,
+        &[&name, &runs, &description],
+        &crate::i18n::tr("Run"),
+        true,
+        move || {
+            enqueue(
+                &error_anchor,
+                &jobs,
+                action.clone(),
+                paths.clone(),
+                parent.clone(),
+                source,
+            );
+        },
+        closed,
+    );
 }
 
 fn item_count_label(count: usize) -> String {

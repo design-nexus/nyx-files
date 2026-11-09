@@ -466,13 +466,13 @@ fn send_to_placement_fills_provider_submenus_or_falls_back_to_the_group() {
             assert_eq!(labels(&devices), ["Pixel", "Tablet"]);
             assert_eq!(
                 devices
-                    .item_attribute_value(0, "x-strata-send-to-device", None)
+                    .item_attribute_value(0, "x-files-send-to-device", None)
                     .and_then(|value| value.get::<bool>()),
                 Some(true)
             );
             assert_eq!(
                 devices
-                    .item_attribute_value(0, "x-strata-description", None)
+                    .item_attribute_value(0, "x-files-description", None)
                     .and_then(|value| value.get::<String>())
                     .as_deref(),
                 Some("Pixel")
@@ -481,7 +481,7 @@ fn send_to_placement_fills_provider_submenus_or_falls_back_to_the_group() {
             assert_eq!(labels(&downloads), ["Downloads"]);
             assert!(
                 downloads
-                    .item_attribute_value(0, "x-strata-send-to-device", None)
+                    .item_attribute_value(0, "x-files-send-to-device", None)
                     .is_none(),
                 "placement below the root is ignored"
             );
@@ -526,7 +526,7 @@ fn send_to_placement_fills_provider_submenus_or_falls_back_to_the_group() {
             assert_eq!(labels(&section), ["Pixel"]);
             assert!(
                 section
-                    .item_attribute_value(0, "x-strata-send-to-device", None)
+                    .item_attribute_value(0, "x-files-send-to-device", None)
                     .is_none(),
                 "without Send to… the device is an ordinary group action"
             );
@@ -584,7 +584,7 @@ fn send_to_entry_is_a_single_item_only_while_it_is_the_providers_only_destinatio
             assert!(send_to.item_link(0, "submenu").is_none());
             assert_eq!(
                 send_to
-                    .item_attribute_value(0, "x-strata-send-to-device", None)
+                    .item_attribute_value(0, "x-files-send-to-device", None)
                     .and_then(|value| value.get::<bool>()),
                 Some(true)
             );
@@ -906,9 +906,9 @@ fn overlay_layers(overlay: &gtk::Overlay) -> Vec<gtk::Widget> {
 }
 
 #[test]
-fn activation_feedback_routes_success_to_notice_and_problems_to_dialog() {
+fn activation_feedback_shows_a_toast_unless_the_provider_asks_for_none() {
     crate::test_support::gtk_test(
-        "ui::file_providers::tests::activation_feedback_routes_success_to_notice_and_problems_to_dialog",
+        "ui::file_providers::tests::activation_feedback_shows_a_toast_unless_the_provider_asks_for_none",
         || {
             install_hub();
             let script = r#"import json,sys
@@ -943,16 +943,12 @@ for line in sys.stdin:
                     with_hub(Hub::tick);
                     std::thread::sleep(Duration::from_millis(5));
                 }
-                let (docks, dialogs): (Vec<_>, Vec<_>) = overlay_layers(&overlay)
+                // Notices and problems are both toasts; a quiet reply shows nothing.
+                let toasts = overlay_layers(&overlay)
                     .into_iter()
-                    .partition(|layer| layer.has_css_class("file-operation-dock"));
-                let notices = docks
-                    .iter()
-                    .filter_map(|dock| dock.first_child()?.first_child()?.first_child())
-                    .filter(|row| row.has_css_class("overlay-notice"))
+                    .filter(|layer| layer.has_css_class("toast"))
                     .count();
-                assert_eq!(notices, usize::from(notice), "{action} notice");
-                assert_eq!(dialogs.len(), usize::from(dialog), "{action} dialog");
+                assert_eq!(toasts, usize::from(notice || dialog), "{action} feedback");
             }
         },
     );

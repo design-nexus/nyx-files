@@ -40,10 +40,11 @@ fn launches_report_a_missing_terminal_after_the_ui_thread_returns() {
                     glib::MainContext::default().iteration(false);
                     std::thread::sleep(Duration::from_millis(1));
                 }
-                assert!(has_label(
-                    overlay.upcast_ref(),
-                    "No terminal emulator was found"
-                ));
+                // A long reason waits behind the toast's Details action.
+                assert!(
+                    has_label(overlay.upcast_ref(), "No terminal emulator was found")
+                        || has_label(overlay.upcast_ref(), "Details")
+                );
                 window.destroy();
             }
         },

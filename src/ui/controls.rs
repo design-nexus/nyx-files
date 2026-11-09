@@ -386,18 +386,12 @@ pub(super) fn modal_layout_with_tone(
     header.add_css_class("action-dialog-header");
     header.set_valign(gtk::Align::Center);
 
-    let symbol = gtk::CenterBox::new();
-    symbol.add_css_class("action-dialog-symbol");
-    if tone == ModalTone::Danger {
-        symbol.add_css_class("danger");
-    }
-    symbol.set_hexpand(false);
-    symbol.set_valign(gtk::Align::Fill);
+    // 2.0 dialogs lead with their title; the icon stays for callers that swap it.
     let icon = match tone {
-        ModalTone::Accent => crate::assets::primary_icon(icon, 21),
-        ModalTone::Danger => crate::assets::danger_icon(icon, 21),
+        ModalTone::Accent => crate::assets::primary_icon(icon, 18),
+        ModalTone::Danger => crate::assets::danger_icon(icon, 18),
     };
-    symbol.set_center_widget(Some(&icon));
+    icon.set_visible(false);
 
     let heading = gtk::Box::new(gtk::Orientation::Vertical, 1);
     heading.add_css_class("action-dialog-heading");
@@ -405,6 +399,7 @@ pub(super) fn modal_layout_with_tone(
     heading.set_valign(gtk::Align::Center);
     let title = gtk::Label::new(Some(title));
     title.add_css_class("action-dialog-title");
+    title.set_wrap(true);
     title.set_xalign(0.0);
     let subtitle = gtk::Label::new(Some(subtitle));
     subtitle.add_css_class("action-dialog-subtitle");
@@ -414,17 +409,14 @@ pub(super) fn modal_layout_with_tone(
 
     let loading = modal_loading_spinner();
 
-    let close = gtk::Button::new();
-    close.add_css_class("action-dialog-close");
-    close.set_valign(gtk::Align::Center);
-    close.set_tooltip_text(Some(&crate::i18n::tr("Close dialog")));
-    super::accessibility::set_own_label(&close, &crate::i18n::tr("Close dialog"));
-    close.set_child(Some(&crate::assets::primary_icon(
+    let close = nyx_ui::widgets::bar_button(
         crate::assets::icons::X,
-        16,
-    )));
+        &crate::i18n::tr("Close dialog"),
+    );
+    close.add_css_class("action-dialog-close");
+    super::accessibility::set_own_label(&close, &crate::i18n::tr("Close dialog"));
 
-    header.append(&symbol);
+    header.append(&icon);
     header.append(&heading);
     header.append(&loading);
     header.append(&close);
@@ -442,9 +434,10 @@ pub(super) fn modal_layout_with_tone(
     cancel.add_css_class("action-dialog-cancel");
     let confirm = gtk::Button::with_label(confirm_label);
     confirm.add_css_class("action-dialog-confirm");
-    if tone == ModalTone::Danger {
-        confirm.add_css_class("danger");
-    }
+    confirm.add_css_class(match tone {
+        ModalTone::Accent => "suggested-action",
+        ModalTone::Danger => "destructive-action",
+    });
     actions.append(&spacer);
     actions.append(&cancel);
     actions.append(&confirm);

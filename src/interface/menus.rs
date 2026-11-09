@@ -436,27 +436,20 @@ fn providers(window: &Rc<Window>, paths: Vec<PathBuf>, background: bool) -> Opti
     let w = window.clone();
     Some(
         menu::item(&crate::i18n::tr("Sync and storage…"), move || {
-            let model = gio::Menu::new();
-            let group = gio::SimpleActionGroup::new();
-            let popover = gtk::PopoverMenu::from_model(Some(&model));
-            popover.insert_action_group("provider", Some(&group));
-            popover.set_parent(&w.window);
-            popover.set_has_arrow(false);
-            let anchor: gtk::Widget = w.window.clone().upcast();
-            crate::ui::file_providers::watch_menu(
-                (model, None),
-                group,
-                (&anchor, &popover),
-                paths.clone(),
-                background,
-                (Rc::new(std::cell::Cell::new(0)), 0),
-                |_| {},
-            );
-            popover.connect_closed(|p| {
-                let p = p.clone();
-                glib::idle_add_local_once(move || p.unparent());
+            let Some((anchor, x, y)) = w.menu_point() else {
+                return;
+            };
+            let (owner, overlay) = (w.window.clone().upcast::<gtk::Widget>(), w.overlay.clone());
+            crate::ui::file_providers::collect_menu(&owner, paths.clone(), background, move |entries| {
+                if entries.is_empty() {
+                    nyx_ui::toast::show(
+                        &overlay,
+                        &crate::i18n::tr("No sync or storage actions for these items"),
+                    );
+                } else {
+                    menu::popup_at(&anchor, x, y, entries);
+                }
             });
-            popover.popup();
         })
         .icon("emblem-shared-symbolic"),
     )

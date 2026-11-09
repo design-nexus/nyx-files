@@ -47,7 +47,6 @@ menubutton.icons-thumbnail-menu > button image,
   opacity: 0;
 }
 
-.action-dialog-cancel,
 .settings-action-button,
 .settings-action-library-button > button,
 window.dialog.colorchooser button.text-button:not(.suggested-action) {
@@ -61,7 +60,6 @@ window.dialog.colorchooser button.text-button:not(.suggested-action) {
   transition: transform 160ms ease-out, background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out;
 }
 
-.action-dialog-cancel:hover,
 .settings-action-button:hover,
 .settings-action-library-button > button:hover,
 window.dialog.colorchooser button.text-button:not(.suggested-action):hover {
@@ -69,7 +67,6 @@ window.dialog.colorchooser button.text-button:not(.suggested-action):hover {
   border-color: @files_text;
 }
 
-.action-dialog-cancel:active,
 .settings-action-button:active,
 .settings-action-library-button > button:active,
 .settings-action-library-button > button:checked,
@@ -80,7 +77,6 @@ window.dialog.colorchooser button.text-button:not(.suggested-action):active {
   transform: scale(0.97);
 }
 
-.action-dialog-cancel:focus-visible,
 .settings-action-button:focus-visible,
 .settings-action-library-button > button:focus-visible,
 window.dialog.colorchooser button.text-button:not(.suggested-action):focus-visible {
@@ -89,11 +85,8 @@ window.dialog.colorchooser button.text-button:not(.suggested-action):focus-visib
   outline-offset: 1px;
 }
 
-.action-dialog-cancel:disabled,
 .settings-action-button:disabled,
 .settings-action-library-button > button:disabled,
-.action-dialog-confirm:disabled,
-.action-dialog-close:disabled,
 window.dialog.colorchooser button.text-button:not(.suggested-action):disabled,
 window.dialog.colorchooser button.text-button.suggested-action:disabled,
 colorchooser button.circular:disabled {
@@ -1849,6 +1842,10 @@ window.preview-popup {
   background: @theme_bg;
 }
 
+image.danger-icon {
+  color: @theme_danger;
+}
+
 .preview-footer .key-cap {
   min-height: 0;
   padding: 1px 6px;
@@ -1858,4 +1855,46 @@ window.preview-popup {
 .settings-shortcut-keys {
   font-family: monospace;
   color: @files_dim_text;
+}
+
+/* Dialogs over the window: a 2.0 dialog card on a dimmed backdrop. */
+.app-modal-layer.modal-backdrop {
+  background: alpha(@theme_shadow, 0.45);
+  transition: opacity 160ms ease-out;
+}
+
+.app-modal-layer.modal-hidden {
+  opacity: 0;
+}
+
+.action-dialog {
+  background: @theme_popover;
+  border: 1px solid alpha(@theme_text, 0.07);
+  border-radius: var(--nyx-radius-dialog);
+  box-shadow: 0 24px 60px alpha(@theme_shadow, 0.55);
+  padding: 20px 22px 18px;
+  min-width: 380px;
+}
+
+.action-dialog-header {
+  margin-bottom: 10px;
+}
+
+.action-dialog-title {
+  font-size: 1.15em;
+  font-weight: 600;
+  color: @theme_text;
+}
+
+.action-dialog-subtitle {
+  color: @theme_dim_text;
+}
+
+.action-dialog-actions {
+  margin-top: 16px;
+}
+
+.action-dialog-body .dim,
+.message-dialog-description {
+  color: @theme_dim_text;
 }

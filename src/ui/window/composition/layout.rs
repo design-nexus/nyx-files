@@ -20,7 +20,7 @@ fn search_field(tooltip: &str, keys: &str) -> gtk::Button {
     button.set_valign(gtk::Align::Center);
     button.set_cursor_from_name(Some("text"));
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    row.append(&assets::chrome_icon(icons::SEARCH));
+    row.append(&assets::primary_icon(icons::SEARCH, assets::CHROME_ICON_PX));
     let placeholder = gtk::Label::new(Some(&crate::i18n::tr("Search")));
     placeholder.add_css_class("header-search-placeholder");
     placeholder.set_xalign(0.0);

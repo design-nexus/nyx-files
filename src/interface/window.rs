@@ -51,6 +51,7 @@ pub(super) struct Window {
     pub(super) tenxer: super::tenxer::State,
     presence: Cell<(crate::app::Presence, bool)>,
     header_actions: RefCell<Option<Rc<super::header::Actions>>>,
+    menu_point: RefCell<Option<(glib::WeakRef<gtk::Widget>, f64, f64)>>,
 }
 
 /// Drops every window; the app is shutting down.
@@ -193,6 +194,7 @@ impl Window {
             tenxer: Default::default(),
             presence: Cell::new((crate::app::Presence::Focused, false)),
             header_actions: RefCell::new(None),
+            menu_point: RefCell::new(None),
             filter,
         });
         WINDOWS.with(|w| w.borrow_mut().push(this.clone()));
@@ -723,11 +725,19 @@ impl Window {
         x: f64,
         y: f64,
     ) {
+        self.menu_point
+            .replace(Some((widget.downgrade(), x, y)));
         let items = match entry {
             Some(_) => super::menus::item_menu(self, tab, tab.selected()),
             None => super::menus::folder_menu(self, tab),
         };
         nyx_ui::menu::popup_at(widget, x, y, items);
+    }
+
+    /// Where the last context menu opened, for a menu that follows from it.
+    pub(super) fn menu_point(&self) -> Option<(gtk::Widget, f64, f64)> {
+        let (widget, x, y) = self.menu_point.borrow().clone()?;
+        Some((widget.upgrade()?, x, y))
     }
 
     /// Keys that act on the selected items; not while typing in a field.

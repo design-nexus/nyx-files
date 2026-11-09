@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::ui::blur::BlurBin;
-use crate::ui::controls::{
-    ModalTone, message_dialog_description, message_dialog_layout,
-};
+use crate::ui::controls::{dialog_text, message_dialog_description};
 use crate::ui::keys::{self, bindings::ESCAPE_ANY};
 use gtk::glib;
 use gtk::prelude::*;
@@ -614,6 +612,9 @@ pub(super) fn show_error_dialog_with_summary(
     );
 }
 
+/// Reports a message as a toast over the window, the 2.0 way: the heading, with
+/// the detail inline when it is short, or behind a Details action that opens it
+/// in a dialog. Without a window to toast over, the dialog opens directly.
 fn show_message_dialog(
     parent: &impl IsA<gtk::Widget>,
     message: &str,
@@ -622,82 +623,129 @@ fn show_message_dialog(
     kind: MessageKind,
     on_close: Rc<dyn Fn()>,
 ) {
-    let error = kind != MessageKind::Information;
-    let Some(ModalHost {
-        overlay: window_overlay,
-        blurred_root,
-    }) = ModalHost::blurred_for(parent).or_else(|| {
-        tracing::warn!(
-            "No window modal host is available; reporting the error on the requesting overlay"
-        );
+    let parent = parent.as_ref();
+    let overlay = window_overlay(parent).or_else(|| {
         parent
-            .as_ref()
             .clone()
             .downcast::<gtk::Overlay>()
             .ok()
-            .map(|overlay| ModalHost {
-                overlay,
-                blurred_root: None,
-            })
-    })
-    else {
-        on_close();
-        return;
-    };
-
-    let layout = message_dialog_layout(
-        if error {
-            crate::assets::icons::X
-        } else {
-            crate::assets::icons::INFO
-        },
-        message,
-        &summary.map_or_else(
-            || {
-                crate::i18n::tr(match kind {
-                    MessageKind::Information => "Reported by the file provider",
-                    MessageKind::PartialFailure => "Some items could not be processed",
-                    MessageKind::Error => "The operation could not be completed",
-                })
-            },
-            str::to_owned,
-        ),
-        &crate::i18n::tr("Close"),
-        if error {
-            ModalTone::Danger
-        } else {
-            ModalTone::Accent
-        },
-    );
-    layout.cancel.set_visible(false);
-    let explanation = message_dialog_description(detail);
-    explanation.set_selectable(true);
-    layout.body.append(&explanation);
-    let content = layout.content;
-    let close_icon = layout.close;
-    let close = layout.confirm;
-
-    let layer = modal_layer(&content, &window_overlay, blurred_root.clone(), None);
-    remember_modal_focus(&layer, &window_overlay);
-    window_overlay.add_overlay(&layer);
-    let close_layer = layer.clone();
-    let close_overlay = window_overlay.clone();
-    let close_root = blurred_root.clone();
-    let dismissed = Rc::new(Cell::new(false));
-    let dismiss = move || {
-        if dismissed.replace(true) {
-            return;
+            .or_else(|| parent.ancestor(gtk::Overlay::static_type())?.downcast().ok())
+    });
+    let window = parent.root().and_downcast::<gtk::Window>();
+    let detail = detail.trim().to_owned();
+    let summary = summary.map(str::to_owned).or_else(|| {
+        (kind == MessageKind::PartialFailure)
+            .then(|| crate::i18n::tr("Some items could not be processed"))
+    });
+    let inline = summary.is_none() && !detail.contains('\n') && detail.chars().count() <= 90;
+    match overlay {
+        Some(overlay) if inline => {
+            let text = if detail.is_empty() {
+                message.to_owned()
+            } else {
+                format!("{message}: {detail}")
+            };
+            nyx_ui::toast::show(&overlay, &text);
         }
-        dismiss_modal_layer(&close_layer, &close_overlay, close_root.as_ref());
-        let on_close = on_close.clone();
-        glib::timeout_add_local_once(Duration::from_millis(250), move || on_close());
-    };
-    let dismiss = Rc::new(dismiss);
-    let clicked_dismiss = dismiss.clone();
-    close.connect_clicked(move |_| clicked_dismiss());
-    let icon_dismiss = dismiss.clone();
-    close_icon.connect_clicked(move |_| icon_dismiss());
-    close_on_escape(&layer, move || dismiss());
+        Some(overlay) => {
+            let message_for_details = message.to_owned();
+            nyx_ui::toast::show_action(&overlay, message, &crate::i18n::tr("Details"), move || {
+                details_dialog(
+                    window.as_ref(),
+                    &message_for_details,
+                    summary.as_deref(),
+                    &detail,
+                );
+            });
+        }
+        None => details_dialog(window.as_ref(), message, summary.as_deref(), &detail),
+    }
+    on_close();
+}
+
+/// A message with its full, selectable detail in a 2.0 dialog.
+fn details_dialog(parent: Option<&gtk::Window>, message: &str, summary: Option<&str>, detail: &str) {
+    let (dialog, card) = nyx_ui::widgets::dialog(&dialog_text(message), 480);
+    if let Some(parent) = parent {
+        dialog.set_transient_for(Some(parent));
+    }
+    if let Some(summary) = summary {
+        let summary = nyx_ui::widgets::label(&dialog_text(summary), "dim");
+        summary.set_wrap(true);
+        card.append(&summary);
+    }
+    if !detail.is_empty() {
+        let explanation = message_dialog_description(detail);
+        explanation.set_selectable(true);
+        card.append(&explanation);
+    }
+    let close = gtk::Button::with_label(&crate::i18n::tr("Close"));
+    close.add_css_class("suggested-action");
+    close.set_halign(gtk::Align::End);
+    close.set_margin_top(6);
+    let closing = dialog.downgrade();
+    close.connect_clicked(move |_| {
+        if let Some(dialog) = closing.upgrade() {
+            dialog.close();
+        }
+    });
+    card.append(&close);
+    dialog.present();
     close.grab_focus();
 }
 
+/// A 2.0 confirmation over `parent`'s window: the question, what it does, then
+/// Cancel and the action (in the danger colour when `danger`). `on_confirm`
+/// runs after the dialog closes; `on_close` runs however it closes.
+pub(super) fn confirm(
+    parent: &impl IsA<gtk::Widget>,
+    question: &str,
+    details: &[&str],
+    action: &str,
+    danger: bool,
+    on_confirm: impl Fn() + 'static,
+    on_close: Option<Rc<dyn Fn()>>,
+) {
+    let (dialog, card) = nyx_ui::widgets::dialog(&dialog_text(question), 420);
+    if let Some(window) = parent.as_ref().root().and_downcast::<gtk::Window>() {
+        dialog.set_transient_for(Some(&window));
+    }
+    for detail in details.iter().filter(|detail| !detail.is_empty()) {
+        card.append(&message_dialog_description(detail));
+    }
+    let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    buttons.set_halign(gtk::Align::End);
+    buttons.set_margin_top(6);
+    let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
+    let confirm = gtk::Button::with_label(action);
+    confirm.add_css_class(if danger {
+        "destructive-action"
+    } else {
+        "suggested-action"
+    });
+    buttons.append(&cancel);
+    buttons.append(&confirm);
+    card.append(&buttons);
+    let closing = dialog.downgrade();
+    cancel.connect_clicked(move |_| {
+        if let Some(dialog) = closing.upgrade() {
+            dialog.close();
+        }
+    });
+    let closing = dialog.downgrade();
+    confirm.connect_clicked(move |_| {
+        if let Some(dialog) = closing.upgrade() {
+            dialog.close();
+        }
+        on_confirm();
+    });
+    if let Some(on_close) = on_close {
+        dialog.connect_close_request(move |_| {
+            let on_close = on_close.clone();
+            glib::idle_add_local_once(move || on_close());
+            glib::Propagation::Proceed
+        });
+    }
+    dialog.present();
+    confirm.grab_focus();
+}

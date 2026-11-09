@@ -66,6 +66,8 @@ pub(super) struct Tab {
     dropped: RefCell<Option<DropFn>>,
     rejected: RefCell<Option<RejectedFn>>,
     select_next: RefCell<Option<Location>>,
+    /// A new tab's listing takes the keyboard once its first folder shows.
+    focus_on_load: Cell<bool>,
     /// Items whose metadata has been asked for, so a rebind doesn't ask again.
     requested: RefCell<std::collections::HashSet<Location>>,
     /// Replaces launching a file, as the chooser does to pick it.
@@ -210,6 +212,7 @@ impl Tab {
             dropped: RefCell::new(None),
             rejected: RefCell::new(None),
             select_next: RefCell::new(None),
+            focus_on_load: Cell::new(true),
             requested: RefCell::default(),
             open_file: RefCell::new(None),
             visits: RefCell::default(),
@@ -1235,6 +1238,24 @@ impl Tab {
             }
         }
         *self.shown.borrow_mut() = Some(key);
+        if self.focus_on_load.get() && snapshot.error.is_none() {
+            // Mapped views only take focus on a frame after their page shows.
+            let weak = Rc::downgrade(self);
+            self.page.add_tick_callback(move |page, _| {
+                if let Some(tab) = weak.upgrade()
+                    && tab.focus_on_load.replace(false)
+                {
+                    let typing = page
+                        .root()
+                        .and_then(|root| root.focus())
+                        .is_some_and(|focus| focus.is::<gtk::Text>() || focus.is::<gtk::TextView>());
+                    if !typing {
+                        tab.focus_view();
+                    }
+                }
+                glib::ControlFlow::Break
+            });
+        }
         if moved {
             if self.filtering() {
                 self.set_filter("");
