@@ -8,10 +8,9 @@ use std::{
 use gtk::prelude::*;
 
 use crate::{
-    assets::{icons, primary_icon, set_primary_icon},
     services::{ArchiveDirectory, ArchiveNode, ArchivePreviewTree},
     ui::{
-        browser::icon_for_name, collection_interaction::PointerSequence,
+        collection_interaction::PointerSequence,
         pointer::connect_click_release,
     },
 };
@@ -109,7 +108,7 @@ impl ArchiveBrowser {
             };
             let row_content = gtk::Box::new(gtk::Orientation::Horizontal, 10);
             row_content.add_css_class("preview-archive-row");
-            let icon = primary_icon(icons::DOCUMENTS, 18);
+            let icon = crate::ui::symbolic("text-x-generic", 18);
             row_content.append(&icon);
             let name_label = gtk::Label::new(None);
             name_label.add_css_class("preview-archive-name");
@@ -120,7 +119,7 @@ impl ArchiveBrowser {
             let size_label = gtk::Label::new(None);
             size_label.add_css_class("preview-archive-size");
             row_content.append(&size_label);
-            let chevron = primary_icon(icons::CHEVRON_RIGHT, 14);
+            let chevron = crate::ui::symbolic("go-next-symbolic", 14);
             row_content.append(&chevron);
             item.set_child(Some(&row_content));
 
@@ -193,7 +192,7 @@ impl ArchiveBrowser {
             };
             match node {
                 ArchiveNode::Directory(child) => {
-                    set_primary_icon(&icon, icons::FOLDER);
+                    icon.set_icon_name(Some("folder"));
                     // Archives may contain a file and a directory with the same name.
                     name_label.set_text(&format!("{}/", crumb_name(child)));
                     size_label.set_visible(false);
@@ -201,7 +200,7 @@ impl ArchiveBrowser {
                     item.set_activatable(true);
                 }
                 ArchiveNode::File { name, size } => {
-                    set_primary_icon(&icon, icon_for_name(name));
+                    icon.set_icon_name(Some(&crate::ui::file_icons::name_for_file_name(name)));
                     name_label.set_text(name);
                     size_label.set_text(&format_file_size(*size));
                     size_label.set_visible(true);
@@ -385,7 +384,7 @@ impl ArchiveBrowser {
         let depth = self.path.borrow().len();
         if depth > 0 {
             let back = gtk::Button::new();
-            let back_icon = primary_icon(icons::ARROW_LEFT, 14);
+            let back_icon = crate::ui::symbolic("go-up-symbolic", 14);
             back.set_child(Some(&back_icon));
             back.set_tooltip_text(Some(&crate::i18n::tr("Go up one level")));
             back.add_css_class("preview-archive-crumb");

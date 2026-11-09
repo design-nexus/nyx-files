@@ -19,6 +19,7 @@ mod desktop_integration;
 mod document_media;
 mod document_view;
 mod entry_list_model;
+pub(crate) mod file_icons;
 pub(crate) mod file_providers;
 mod focus_navigation;
 mod folder_picker;
@@ -75,7 +76,12 @@ pub(crate) use preview::PREVIEW_LABEL;
 /// The accessible name of the filter and search results list.
 pub(crate) const SEARCH_RESULTS_LABEL: &str = "Search results";
 
-
+/// A themed symbolic icon at `size` px; it takes the colour of its widget's text.
+pub(crate) fn symbolic(name: &str, size: i32) -> gtk::Image {
+    let image = gtk::Image::from_icon_name(name);
+    image.set_pixel_size(size);
+    image
+}
 
 pub(crate) fn read_install_facts() {
     let _startup = crate::util::ui_thread::allow(crate::util::ui_thread::Exception::Startup);

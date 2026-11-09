@@ -126,7 +126,7 @@ impl Peek {
                         continue;
                     }
                     let row = widgets::hbox(8);
-                    let icon = gtk::Image::from_icon_name(&super::icons_theme::name_for(entry));
+                    let icon = gtk::Image::from_icon_name(&crate::ui::file_icons::name_for(entry));
                     icon.set_pixel_size(16);
                     row.append(&icon);
                     let name = widgets::label(&entry.display_name, "");

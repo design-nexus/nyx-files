@@ -191,7 +191,10 @@ fn show_entry(row: &gtk::Box, entry: &Entry) {
             };
             if let Some((source, label)) = source_to_copy {
                 register_diagram(&frame);
-                let button = gtk::Button::with_label(&crate::i18n::tr(label));
+                let button = gtk::Button::from_icon_name("edit-copy-symbolic");
+                let label = crate::i18n::tr(label);
+                button.set_tooltip_text(Some(&label));
+                crate::ui::accessibility::set_label(&button, &label);
                 button.add_css_class("preview-header-action");
                 button.set_halign(gtk::Align::End);
                 let source = source.clone();
@@ -246,7 +249,7 @@ fn show_error(row: &gtk::Box, source: &DocumentMedia, alt: &str, message: &str) 
     row.append(&label);
     if let DocumentMedia::Mermaid(source) | DocumentMedia::Math { source, .. } = source {
         let label = gtk::Label::new(Some(source));
-        label.add_css_class("monospace");
+        label.add_css_class("mono");
         label.set_selectable(true);
         label.set_wrap(true);
         label.set_wrap_mode(gtk::pango::WrapMode::WordChar);

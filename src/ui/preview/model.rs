@@ -167,8 +167,8 @@ fn draw_camera_position(
 ) {
     let accent = area.color();
     let style = area.style_context();
-    let background = style.lookup_color("strata_bg").unwrap_or(accent);
-    let border = style.lookup_color("strata_border").unwrap_or(accent);
+    let background = style.lookup_color("theme_bg").unwrap_or(accent);
+    let border = style.lookup_color("theme_border").unwrap_or(accent);
     let color = |color: &gdk::RGBA, opacity: f64| {
         context.set_source_rgba(
             f64::from(color.red()),
@@ -210,13 +210,13 @@ impl ModelPreview {
             title,
         } = DetailsHeader::new(None);
         let previous = navigation_button(
-            crate::assets::icons::SKIP_BACK,
+            "go-previous-symbolic",
             "Previous model view",
             "Previous model view",
             None,
         );
         let next = navigation_button(
-            crate::assets::icons::SKIP_FORWARD,
+            "go-next-symbolic",
             "Next model view",
             "Next model view",
             None,
@@ -460,21 +460,16 @@ impl PreviewState {
     }
 
     fn model_listing_position(&self) -> Option<ListingPosition> {
-        let view = self
-            .keyboard_view
-            .borrow()
-            .as_ref()
-            .and_then(crate::ui::browser::WeakBrowserView::upgrade)?;
-        let depth = self.current_depth.get()?;
+        let host = self.host()?;
         let current = self.current.borrow().as_ref()?.location.clone();
-        let files = view.displayed_entries_matching(depth, |entry| {
-            entry.is_file() && crate::services::is_model(&entry.native_name)
-        });
+        let files: Vec<crate::model::FileEntry> = (host.entries)()
+            .into_iter()
+            .filter(|entry| entry.is_file() && crate::services::is_model(&entry.native_name))
+            .collect();
         let index = files.iter().position(|entry| entry.location == current)?;
         Some(ListingPosition {
             position: index + 1,
             count: files.len(),
-            results: view.results_replace_listing(),
         })
     }
 

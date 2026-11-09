@@ -8,7 +8,6 @@
 
 use super::*;
 use crate::ui::{
-    browser::WeakBrowserView,
     keys::{
         Binding,
         bindings::{
@@ -246,21 +245,12 @@ impl PreviewState {
         self.pane.add_controller(focus);
     }
 
-    /// The owner bar replaces the Miller column's destination bar while the
-    /// drawer holds the keys.
+    /// The accent bar on the header shows that the drawer holds the keys.
     pub(super) fn set_keyboard_owner(&self, owned: bool) {
         if owned {
             self.pane.add_css_class(OWNER_CLASS);
         } else {
             self.pane.remove_css_class(OWNER_CLASS);
-        }
-        if let Some(view) = self
-            .keyboard_view
-            .borrow()
-            .as_ref()
-            .and_then(WeakBrowserView::upgrade)
-        {
-            view.set_preview_owns_keys(owned);
         }
     }
 

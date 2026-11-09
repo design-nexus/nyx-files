@@ -75,10 +75,9 @@ pub(super) struct PreviewFind {
 
 pub(super) fn icon_button(label: &str, icon: &str) -> gtk::Button {
     let label = crate::i18n::tr(label);
-    let button = gtk::Button::new();
+    let button = gtk::Button::from_icon_name(icon);
     button.add_css_class("preview-header-action");
     button.set_valign(gtk::Align::Center);
-    button.set_child(Some(&crate::assets::muted_icon(icon, 16)));
     button.set_tooltip_text(Some(&label));
     super::super::accessibility::set_label(&button, &label);
     button
@@ -99,9 +98,9 @@ impl PreviewFind {
         status.add_css_class("preview-find-status");
         status.set_ellipsize(gtk::pango::EllipsizeMode::End);
         status.set_accessible_role(gtk::AccessibleRole::Status);
-        let previous = icon_button("Previous match", crate::assets::icons::ARROW_UP);
-        let next = icon_button("Next match", crate::assets::icons::ARROW_DOWN);
-        let close = icon_button("Close find", crate::assets::icons::X);
+        let previous = icon_button("Previous match", "go-up-symbolic");
+        let next = icon_button("Next match", "go-down-symbolic");
+        let close = icon_button("Close find", "window-close-symbolic");
         widget.append(&entry);
         widget.append(&status);
         widget.append(&previous);
@@ -278,7 +277,7 @@ impl PreviewState {
         }
     }
 
-    fn open_find(self: &Rc<Self>) -> bool {
+    pub(super) fn open_find(self: &Rc<Self>) -> bool {
         if self.find_target().is_none() {
             return false;
         }
@@ -287,6 +286,25 @@ impl PreviewState {
         self.find.entry.grab_focus();
         self.find.entry.select_region(0, -1);
         true
+    }
+
+    /// Esc in an open find bar closes the bar, not the preview.
+    pub(super) fn close_find_if_open(self: &Rc<Self>) -> bool {
+        if !self.find.widget.is_visible() {
+            return false;
+        }
+        self.close_find();
+        true
+    }
+
+    /// The find key for the current key map.
+    pub(super) fn is_find_key(press: &KeyPress) -> bool {
+        let tenxer = super::super::preferences::PreferenceManager::shared().tenxer_mode();
+        press.is(if tenxer {
+            TENXER_FIND_IN_PREVIEW
+        } else {
+            FIND_IN_PREVIEW
+        })
     }
 
     fn close_find(self: &Rc<Self>) {
@@ -313,6 +331,18 @@ impl PreviewState {
 }
 
 impl PreviewDrawer {
+    pub(crate) fn open_find(&self) -> bool {
+        self.state.open_find()
+    }
+
+    pub(crate) fn close_find_if_open(&self) -> bool {
+        self.state.close_find_if_open()
+    }
+
+    pub(crate) fn is_find_key(press: &KeyPress) -> bool {
+        PreviewState::is_find_key(press)
+    }
+
     pub(crate) fn bind_find_shortcut(
         &self,
         preferences: &super::super::preferences::PreferenceManager,

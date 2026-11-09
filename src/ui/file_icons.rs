@@ -41,7 +41,7 @@ fn special_folder(path: &std::path::Path) -> Option<&'static str> {
 }
 
 /// The theme icon name for `entry`.
-pub(super) fn name_for(entry: &FileEntry) -> String {
+pub(crate) fn name_for(entry: &FileEntry) -> String {
     let theme = theme();
     let has = |name: &str| theme.as_ref().is_some_and(|t| t.has_icon(name));
     if entry.is_broken_symbolic_link() {
@@ -67,10 +67,22 @@ pub(super) fn name_for(entry: &FileEntry) -> String {
         }
         return "folder".into();
     }
-    let (content_type, _) = gio::content_type_guess(Some(&entry.native_name), None::<&[u8]>);
+    file_name_icon(theme.as_ref(), &entry.native_name)
+}
+
+/// The theme icon name for a file called `name`, by its guessed content type.
+pub(crate) fn name_for_file_name(name: &str) -> String {
+    file_name_icon(theme().as_ref(), name)
+}
+
+fn file_name_icon(theme: Option<&gtk::IconTheme>, name: impl AsRef<std::path::Path>) -> String {
+    let (content_type, _) = gio::content_type_guess(Some(name.as_ref()), None::<&[u8]>);
     if let Some(themed) =
         gio::content_type_get_icon(&content_type).downcast_ref::<gio::ThemedIcon>()
-        && let Some(name) = themed.names().into_iter().find(|n| has(n))
+        && let Some(name) = themed
+            .names()
+            .into_iter()
+            .find(|n| theme.is_some_and(|t| t.has_icon(n)))
     {
         return name.to_string();
     }

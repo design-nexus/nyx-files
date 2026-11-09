@@ -147,18 +147,18 @@ impl VideoView {
         total.add_css_class("preview-video-time");
         total.set_xalign(1.0);
         let previous = navigation_button(
-            crate::assets::icons::SKIP_BACK,
+            "media-skip-backward-symbolic",
             "Previous video",
             "Previous video (%{keys})",
             Some(crate::ui::keys::bindings::MEDIA_PREVIOUS),
         );
         let next = navigation_button(
-            crate::assets::icons::SKIP_FORWARD,
+            "media-skip-forward-symbolic",
             "Next video",
             "Next video (%{keys})",
             Some(crate::ui::keys::bindings::MEDIA_NEXT),
         );
-        let play_icon = crate::assets::primary_icon(crate::assets::icons::PLAY, 22);
+        let play_icon = crate::ui::symbolic("media-playback-start-symbolic", 22);
         let play = gtk::Button::new();
         play.add_css_class("preview-media-center");
         play.add_css_class("preview-video-play");
@@ -842,14 +842,11 @@ impl VideoView {
     }
 
     fn sync_playing(&self, playing: bool) {
-        crate::assets::set_primary_icon(
-            &self.play_icon,
-            if playing {
-                crate::assets::icons::PAUSE
-            } else {
-                crate::assets::icons::PLAY
-            },
-        );
+        self.play_icon.set_icon_name(Some(if playing {
+            "media-playback-pause-symbolic"
+        } else {
+            "media-playback-start-symbolic"
+        }));
     }
 
     fn sync_time(&self) {

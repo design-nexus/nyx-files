@@ -53,7 +53,7 @@ pub(super) fn navigation_button(
 ) -> gtk::Button {
     let button = gtk::Button::new();
     button.add_css_class("preview-media-button");
-    button.set_child(Some(&crate::assets::primary_icon(icon, 18)));
+    button.set_child(Some(&crate::ui::symbolic(icon, 18)));
     let tooltip = binding.map_or_else(
         || crate::i18n::tr(tooltip),
         |binding| {

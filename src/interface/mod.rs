@@ -11,7 +11,6 @@ mod devices;
 mod drives;
 mod header;
 mod icons;
-mod icons_theme;
 mod launch;
 mod list;
 mod menus;

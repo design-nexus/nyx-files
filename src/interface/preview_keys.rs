@@ -60,8 +60,10 @@ pub(super) fn handle(tab: &Tab, press: &KeyPress, tenxer: bool) -> Outcome {
         return Outcome::Listing;
     };
     if press.is(ESCAPE) {
-        tab.preview.close();
-        back_to_listing(tab);
+        if !tab.preview.close_find_if_open() {
+            tab.preview.close();
+            back_to_listing(tab);
+        }
         return Outcome::Stop;
     }
     if press.is(FOCUS_PREVIOUS.ignoring(CONTROL | Modifiers::ALT_MASK | Modifiers::SUPER_MASK)) {
@@ -72,6 +74,12 @@ pub(super) fn handle(tab: &Tab, press: &KeyPress, tenxer: bool) -> Outcome {
         return Outcome::Stop;
     }
     let surface = tab.preview.surface(&focused);
+    if surface != PreviewSurface::Text
+        && crate::ui::preview::PreviewDrawer::is_find_key(press)
+        && tab.preview.open_find()
+    {
+        return Outcome::Stop;
+    }
     if !tenxer {
         if let Some(command) = media_key_command(press)
             && surface == PreviewSurface::Media

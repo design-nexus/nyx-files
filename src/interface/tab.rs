@@ -305,19 +305,37 @@ impl Tab {
                 open(item);
             }
         });
-        let weak = Rc::downgrade(&tab);
-        tab.preview.set_stepper(move |delta| {
-            let tab = weak.upgrade()?;
-            let model = tab.active_model();
-            let current = model
-                .selected_positions()
-                .first()
-                .map(|(i, _)| *i as i64)
-                .unwrap_or(-1);
-            let next = (current + i64::from(delta)).clamp(0, i64::from(model.len()) - 1);
-            let next = u32::try_from(next).ok()?;
-            model.selection.select_item(next, true);
-            model.entry(next)
+        let (entries, cursor, select, focus) = (
+            Rc::downgrade(&tab),
+            Rc::downgrade(&tab),
+            Rc::downgrade(&tab),
+            Rc::downgrade(&tab),
+        );
+        tab.preview.set_host(crate::ui::preview::PreviewHost {
+            entries: Box::new(move || {
+                entries.upgrade().map_or_else(Vec::new, |tab| {
+                    let model = tab.active_model();
+                    (0..model.len()).filter_map(|i| model.entry(i)).collect()
+                })
+            }),
+            cursor: Box::new(move || {
+                let tab = cursor.upgrade()?;
+                tab.cursor().and_then(|i| tab.active_model().entry(i))
+            }),
+            select: Box::new(move |location| {
+                let Some(tab) = select.upgrade() else { return };
+                let model = tab.active_model();
+                if let Some(index) = (0..model.len())
+                    .find(|&i| model.entry(i).is_some_and(|e| &e.location == location))
+                {
+                    tab.move_cursor(i64::from(index), None);
+                }
+            }),
+            focus_listing: Box::new(move || {
+                if let Some(tab) = focus.upgrade() {
+                    tab.focus_view();
+                }
+            }),
         });
         tab.browser.navigate(location);
         tab

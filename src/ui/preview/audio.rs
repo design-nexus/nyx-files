@@ -122,18 +122,18 @@ impl AudioView {
         total.add_css_class("preview-audio-time");
         total.set_xalign(1.0);
         let previous = navigation_button(
-            crate::assets::icons::SKIP_BACK,
+            "media-skip-backward-symbolic",
             "Previous audio file",
             "Previous audio file (%{keys})",
             Some(crate::ui::keys::bindings::MEDIA_PREVIOUS),
         );
         let next = navigation_button(
-            crate::assets::icons::SKIP_FORWARD,
+            "media-skip-forward-symbolic",
             "Next audio file",
             "Next audio file (%{keys})",
             Some(crate::ui::keys::bindings::MEDIA_NEXT),
         );
-        let play_icon = crate::assets::primary_icon(crate::assets::icons::PLAY, 22);
+        let play_icon = crate::ui::symbolic("media-playback-start-symbolic", 22);
         let play = gtk::Button::new();
         play.add_css_class("preview-media-center");
         play.add_css_class("preview-audio-play");
@@ -430,14 +430,11 @@ impl AudioView {
     }
 
     fn set_playing_icon(&self, playing: bool) {
-        crate::assets::set_primary_icon(
-            &self.play_icon,
-            if playing {
-                crate::assets::icons::PAUSE
-            } else {
-                crate::assets::icons::PLAY
-            },
-        );
+        self.play_icon.set_icon_name(Some(if playing {
+            "media-playback-pause-symbolic"
+        } else {
+            "media-playback-start-symbolic"
+        }));
     }
 
     fn sync_playing(&self, playing: bool) {

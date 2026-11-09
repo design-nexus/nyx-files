@@ -26,7 +26,7 @@ fn worker() -> Option<&'static mpsc::Sender<Job>> {
     JOBS.get_or_init(|| {
         let (sender, receiver) = mpsc::channel::<Job>();
         std::thread::Builder::new()
-            .name("strata-audio".to_owned())
+            .name("files-audio".to_owned())
             .spawn(move || receiver.into_iter().for_each(|job| job()))
             .map_err(|error| tracing::warn!(%error, "unable to start the audio worker"))
             .ok()

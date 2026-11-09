@@ -795,7 +795,7 @@ colorchooser button.circular:disabled {
   border: 1px solid transparent;
   border-radius: 5px;
   box-shadow: none;
-  color: @files_accent;
+  color: @files_dim_text;
   min-height: 24px;
   min-width: 24px;
   padding: 2px;
@@ -805,6 +805,7 @@ colorchooser button.circular:disabled {
 .preview-media-button:hover {
   background: alpha(@files_muted, 0.62);
   border-color: alpha(@files_border, 0.42);
+  color: @files_text;
 }
 
 .preview-media-button:active {
@@ -1842,6 +1843,16 @@ headerbar.browser-header,
   padding: 0 14px;
   color: mix(@files_dim_text, @files_bg, 0.2);
   font-size: 11.5px;
+}
+
+window.preview-popup {
+  background: @theme_bg;
+}
+
+.preview-footer .key-cap {
+  min-height: 0;
+  padding: 1px 6px;
+  font-size: 10.5px;
 }
 
 .settings-shortcut-keys {

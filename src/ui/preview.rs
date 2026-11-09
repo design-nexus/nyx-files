@@ -31,10 +31,7 @@ use super::keys::{
         MEDIA_SEEK_FORWARD, MEDIA_VOLUME_DOWN, MEDIA_VOLUME_UP, PEEK, SELECT_ALL, SPACE, UP,
     },
 };
-use super::{
-    blur::BlurBin, browser::format_file_size, controls::form_password_entry,
-    controls::modal_layout, modal::close_on_escape,
-};
+use super::{browser::format_file_size, controls::form_password_entry};
 
 mod archive;
 pub(super) mod audio;
@@ -133,9 +130,7 @@ pub(crate) fn entry_supports_quick_preview(entry: &FileEntry) -> bool {
 }
 
 struct PrintProgress {
-    layer: gtk::Box,
-    overlay: gtk::Overlay,
-    blurred_root: Option<BlurBin>,
+    dialog: gtk::Window,
     status: gtk::Label,
     progress: gtk::ProgressBar,
 }
@@ -173,12 +168,13 @@ struct PreviewState {
     revealer: gtk::Revealer,
     slot: gtk::Box,
     resize_grip: gtk::Box,
-    reserve_columns: Cell<bool>,
-    // Dismissing content stops selection-following without reclaiming its column slot.
     enabled: Cell<bool>,
+    /// Closed by the user, so automatic previews stay away until it is opened again.
     dismissed: Cell<bool>,
-    child_pane: Cell<bool>,
     pane: gtk::Box,
+    header: gtk::Box,
+    /// Holds the header while the preview floats, so it moves its window.
+    header_frame: gtk::WindowHandle,
     header_handle: gtk::Box,
     icon: gtk::Image,
     title: gtk::Label,
@@ -187,7 +183,6 @@ struct PreviewState {
     content_type: gtk::Label,
     content: gtk::Box,
     document_view_button: gtk::Button,
-    document_view_icon: gtk::Image,
     document_view: Cell<DocumentView>,
     document_preview: RefCell<Option<DocumentPreview>>,
     source_preview: SourcePreviewView,
@@ -201,7 +196,7 @@ struct PreviewState {
     open: gtk::Button,
     close: gtk::Button,
     /// Key hints under a popup preview.
-    footer: gtk::Label,
+    footer: gtk::Box,
     print: gtk::Button,
     wrap: gtk::ToggleButton,
     text_view: RefCell<Option<sourceview5::View>>,
@@ -224,9 +219,7 @@ struct PreviewState {
     floating: Cell<bool>,
     panel_split: RefCell<Option<gtk::Paned>>,
     popup: RefCell<Option<gtk::Window>>,
-    /// Moves the owning view's selection by a step and returns what it lands on,
-    /// for hosts without a `BrowserView`.
-    pub(super) stepper: RefCell<Option<Stepper>>,
+    host: RefCell<Option<Rc<PreviewHost>>>,
     current: RefCell<Option<FileEntry>>,
     current_depth: Cell<Option<usize>>,
     pending_show: RefCell<Option<glib::SourceId>>,
@@ -246,7 +239,6 @@ struct PreviewState {
     /// A closed preview's drawer is still sliding out.
     closing: Cell<bool>,
     animation_generation: Rc<Cell<u64>>,
-    keyboard_view: RefCell<Option<super::browser::WeakBrowserView>>,
     claim_on_resume: Cell<bool>,
     released_from: Cell<Option<Option<usize>>>,
     operations: RefCell<Option<file_activity::Subscription>>,
@@ -263,7 +255,17 @@ mod tests;
 pub(crate) const PREVIEW_LABEL: &str = "Preview";
 const NEXT_FILE: &[keys::Binding] = &[UP, DOWN];
 
-type Stepper = Rc<dyn Fn(i32) -> Option<FileEntry>>;
+/// What the preview needs from the listing it previews: stepping through it,
+/// and handing the keyboard back.
+pub(crate) struct PreviewHost {
+    /// The listed entries, in display order.
+    pub(crate) entries: Box<dyn Fn() -> Vec<FileEntry>>,
+    /// The entry under the cursor.
+    pub(crate) cursor: Box<dyn Fn() -> Option<FileEntry>>,
+    /// Puts the cursor and selection on a listed entry.
+    pub(crate) select: Box<dyn Fn(&crate::model::Location)>,
+    pub(crate) focus_listing: Box<dyn Fn()>,
+}
 
 #[derive(Clone)]
 pub struct PreviewDrawer {
@@ -281,21 +283,14 @@ impl PreviewDrawer {
 
         let header = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         header.add_css_class("preview-header");
-        let icon = crate::assets::chrome_icon(crate::assets::icons::DOCUMENTS);
+        let header_frame = gtk::WindowHandle::new();
+        let icon = super::symbolic("text-x-generic-symbolic", 20);
         let title = gtk::Label::new(None);
         title.add_css_class("preview-title");
         title.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
         title.set_hexpand(true);
         title.set_xalign(0.0);
-        let open = gtk::Button::builder()
-            .tooltip_text(crate::i18n::tr("Open in default application"))
-            .valign(gtk::Align::Center)
-            .build();
-        super::accessibility::set_label(&open, &crate::i18n::tr("Open in default application"));
-        open.set_child(Some(&crate::assets::muted_chrome_icon(
-            crate::assets::icons::EXTERNAL_LINK,
-        )));
-        open.add_css_class("preview-header-action");
+        let open = header_action("document-open-symbolic", "Open in default application");
         open.set_visible(allow_external_open);
         let model_spinner = gtk::Spinner::builder()
             .valign(gtk::Align::Center)
@@ -303,41 +298,23 @@ impl PreviewDrawer {
             .build();
         model_spinner.add_css_class("preview-spinner");
         model_spinner.add_css_class("preview-header-spinner");
-        let document_view_icon = crate::assets::muted_icon(crate::assets::icons::FILE_CODE, 16);
-        let document_view_button = gtk::Button::builder()
-            .tooltip_text(crate::i18n::tr("View source"))
-            .valign(gtk::Align::Center)
-            .visible(false)
-            .build();
-        document_view_button.set_child(Some(&document_view_icon));
-        document_view_button.add_css_class("preview-header-action");
-        super::accessibility::set_label(&document_view_button, &crate::i18n::tr("View source"));
-        let print = gtk::Button::builder()
-            .tooltip_text(crate::i18n::tr("Print"))
-            .valign(gtk::Align::Center)
-            .build();
-        super::accessibility::set_label(&print, &crate::i18n::tr("Print"));
-        print.set_child(Some(&crate::assets::muted_chrome_icon(
-            crate::assets::icons::PRINTER,
-        )));
-        print.add_css_class("preview-header-action");
+        let (_, initial_view_icon) = document_view_action(DocumentView::Rendered);
+        let document_view_button = header_action(initial_view_icon, "View source");
+        document_view_button.set_visible(false);
+        let print = header_action("document-print-symbolic", "Print");
         print.set_visible(false);
         let wrap = gtk::ToggleButton::builder()
+            .icon_name("format-justify-fill-symbolic")
             .tooltip_text(crate::i18n::tr("Toggle word wrap"))
             .valign(gtk::Align::Center)
             .build();
         super::accessibility::set_label(&wrap, &crate::i18n::tr("Toggle word wrap"));
-        wrap.set_child(Some(&crate::assets::muted_chrome_icon(
-            crate::assets::icons::WRAP_TEXT,
-        )));
         wrap.add_css_class("preview-header-action");
         wrap.set_visible(false);
-        wrap.connect_toggled(|wrap| {
-            if let Some(image) = wrap.child().and_downcast::<gtk::Image>() {
-                crate::assets::set_icon_accented(&image, wrap.is_active());
-            }
-        });
-        let close = gtk::Button::builder().valign(gtk::Align::Center).build();
+        let close = gtk::Button::builder()
+            .icon_name("sidebar-show-right-symbolic")
+            .valign(gtk::Align::Center)
+            .build();
         super::preferences::PreferenceManager::shared().bind_preference(
             &close,
             super::preferences::PreferenceManager::tenxer_mode,
@@ -350,24 +327,16 @@ impl PreviewDrawer {
                 super::accessibility::set_label(close, &label);
             },
         );
-        close.set_child(Some(&crate::assets::muted_chrome_icon(
-            crate::assets::icons::PANEL_RIGHT_CLOSE,
-        )));
-        close.add_css_class("preview-close");
         close.add_css_class("preview-header-action");
-        let footer = gtk::Label::new(None);
+        let footer = gtk::Box::new(gtk::Orientation::Horizontal, 16);
         footer.add_css_class("preview-footer");
-        footer.set_xalign(0.0);
         footer.set_visible(false);
         super::preferences::PreferenceManager::shared().bind_preference(
             &footer,
             super::preferences::PreferenceManager::tenxer_mode,
             |footer, tenxer| {
-                if let Some(footer) = footer.downcast_ref::<gtk::Label>() {
-                    footer.set_markup(&crate::ui::shortcut_reference::legend_markup(&[
-                        (keys::Keys::One(if tenxer { PEEK } else { SPACE }), "Close"),
-                        (keys::Keys::Any(NEXT_FILE), "Next file"),
-                    ]));
+                if let Some(footer) = footer.downcast_ref::<gtk::Box>() {
+                    fill_footer(footer, tenxer);
                 }
             },
         );
@@ -395,7 +364,7 @@ impl PreviewDrawer {
         heading.append(&metadata);
         header_handle.append(&heading);
         header.append(&header_handle);
-        let find_button = find::icon_button("Find in preview", crate::assets::icons::SEARCH);
+        let find_button = find::icon_button("Find in preview", "system-search-symbolic");
         find_button.set_visible(false);
         header.append(&document_view_button);
         header.append(&find_button);
@@ -456,15 +425,15 @@ impl PreviewDrawer {
             floating: Cell::new(false),
             panel_split: RefCell::new(None),
             popup: RefCell::new(None),
-            stepper: RefCell::new(None),
+            host: RefCell::new(None),
             revealer,
             slot,
             resize_grip,
-            reserve_columns: Cell::new(true),
             enabled: Cell::new(false),
             dismissed: Cell::new(false),
-            child_pane: Cell::new(false),
             pane,
+            header,
+            header_frame,
             header_handle: header_handle.clone(),
             icon,
             title,
@@ -473,7 +442,6 @@ impl PreviewDrawer {
             content_type,
             content,
             document_view_button: document_view_button.clone(),
-            document_view_icon,
             document_view: Cell::new(DocumentView::Rendered),
             document_preview: RefCell::new(None),
             source_preview: SourcePreviewView::new(),
@@ -520,7 +488,6 @@ impl PreviewDrawer {
             animating: Cell::new(false),
             closing: Cell::new(false),
             animation_generation: Rc::new(Cell::new(0)),
-            keyboard_view: RefCell::new(None),
             audio: RefCell::new(None),
             video: RefCell::new(None),
             model: RefCell::new(None),
@@ -766,11 +733,9 @@ impl PreviewDrawer {
                 ..
             } if self.is_enabled() => {
                 let entry = browser.entry_at(*depth, *position);
-                if let Some(entry) = entry.clone().and_then(|entry| preview_target(Some(entry))) {
+                if let Some(entry) = preview_target(entry) {
                     self.show_after_focus_change(entry, Some(*depth));
                 } else {
-                    self.state
-                        .lend_slot_to_child(browser, *depth, entry.as_ref());
                     self.clear_target();
                 }
             }
@@ -782,10 +747,7 @@ impl PreviewDrawer {
             | BrowserEvent::SelectionSynced {
                 depth,
                 focused: None,
-            } if self.is_enabled() => {
-                self.state.lend_slot_to_child(browser, *depth, None);
-                self.clear_target()
-            }
+            } if self.is_enabled() => self.clear_target(),
             BrowserEvent::EntriesSpliced { depth, splices }
                 if self.is_enabled()
                     && self.state.current_depth.get() == Some(*depth)
@@ -838,7 +800,6 @@ impl PreviewDrawer {
     }
 
     pub fn show(&self, entry: FileEntry, depth: Option<usize>) {
-        self.state.reserve_columns.set(true);
         self.state.set_enabled(true);
         if let Some(entry) = preview_target(Some(entry)) {
             self.state.show(entry, depth);
@@ -855,9 +816,9 @@ impl PreviewDrawer {
         self.state.close();
     }
 
-    /// How Up and Down in the popup move through the host's items.
-    pub(crate) fn set_stepper(&self, step: impl Fn(i32) -> Option<FileEntry> + 'static) {
-        self.state.stepper.replace(Some(Rc::new(step)));
+    /// The listing Up and Down in the popup and the media skip buttons step through.
+    pub(crate) fn set_host(&self, host: PreviewHost) {
+        self.state.host.replace(Some(Rc::new(host)));
     }
 
 
@@ -879,6 +840,7 @@ impl PreviewDrawer {
 impl Drop for PreviewState {
     fn drop(&mut self) {
         self.stop();
+        self.destroy_popup();
     }
 }
 
@@ -967,23 +929,10 @@ impl PreviewState {
         self.pending_show.replace(Some(source));
     }
 
-    // Mirroring also emits focus for the child beyond the active depth. A folder that a
-    // click is opening becomes the focused column, so lending to it would only flicker.
-    fn lend_slot_to_child(&self, browser: &Browser, depth: usize, entry: Option<&FileEntry>) {
-        let opening = entry.is_some_and(|entry| {
-            self.sizing
-                .browser()
-                .is_some_and(|view| view.pointer_opens(depth, &entry.location))
-        });
-        let child_pane = self.browsing_columns()
-            && !opening
-            && (entry.is_some_and(FileEntry::is_directory)
-                || browser.active_depth().is_some_and(|active| depth > active));
-        self.child_pane.set(child_pane);
-    }
-
     fn show(self: &Rc<Self>, entry: FileEntry, depth: Option<usize>) {
-        if self.floating.get() { self.present_popup(); }
+        if self.floating.get() {
+            self.present_popup();
+        }
         if self
             .current
             .borrow()
@@ -1000,9 +949,7 @@ impl PreviewState {
             self.handed_off.take();
         }
         self.current_depth.set(depth);
-        self.reserve_columns.set(true);
         self.dismissed.set(false);
-        self.child_pane.set(false);
         self.set_enabled(true);
         let reopening = self.closing.replace(false);
         let was_open = (self.revealer.reveals_child() && !reopening) || self.sizing.is_suspended();
@@ -1038,10 +985,15 @@ impl PreviewState {
         }
     }
 
+    fn host(&self) -> Option<Rc<PreviewHost>> {
+        self.host.borrow().clone()
+    }
+
     fn stop(&self) {
-        if let Some(window) = self.popup.borrow().clone() { window.set_visible(false); }
+        if let Some(window) = self.popup.borrow().clone() {
+            window.set_visible(false);
+        }
         self.set_enabled(false);
-        self.child_pane.set(false);
         self.clear_target();
         self.cancel_print();
         // Destroying a focused prompt does not always report a focus leave.
@@ -1051,8 +1003,16 @@ impl PreviewState {
 
     fn close(self: &Rc<Self>) {
         if self.floating.get() {
-            if let Some(window) = self.popup.borrow().clone() { window.set_visible(false); }
+            if self.is_enabled() {
+                self.dismissed.set(true);
+            }
+            if let Some(window) = self.popup.borrow().clone() {
+                window.set_visible(false);
+            }
             self.finish_close();
+            if let Some(host) = self.host() {
+                (host.focus_listing)();
+            }
             return;
         }
         let tree_focused = self
@@ -1075,11 +1035,10 @@ impl PreviewState {
             self.dismissed.set(true);
         }
         self.set_enabled(false);
-        self.child_pane.set(false);
         self.content.set_focusable(false);
         self.set_keyboard_owner(false);
-        if restore_focus && let Some(browser) = self.sizing.browser() {
-            browser.focus_file_view();
+        if restore_focus && let Some(host) = self.host() {
+            (host.focus_listing)();
         }
         if self.revealer.reveals_child()
             && let Some(split) = self.split.borrow().clone()
@@ -1128,51 +1087,27 @@ impl PreviewState {
         if self.print_progress.borrow().is_some() {
             return;
         }
-        let Some(window_overlay) = self
-            .pane
-            .root()
-            .and_downcast::<gtk::Window>()
-            .and_then(|window| window.child())
-            .and_downcast::<gtk::Overlay>()
-        else {
-            return;
-        };
-        let blurred_root = window_overlay.child().and_downcast::<BlurBin>();
-        if let Some(root) = blurred_root.as_ref() {
-            root.set_blurred(true);
+        let (dialog, card) = nyx_ui::widgets::dialog(&crate::i18n::tr("Preparing PDF"), 380);
+        if let Some(parent) = self.pane.root().and_downcast::<gtk::Window>() {
+            dialog.set_transient_for(Some(&parent));
         }
-
-        let layout = modal_layout(
-            crate::assets::icons::PRINTER,
-            &crate::i18n::tr("Preparing PDF"),
+        let detail = nyx_ui::widgets::label(
             &crate::i18n::tr("Rendering pages for the print dialog"),
-            &crate::i18n::tr("Cancel"),
+            "dim",
         );
-        layout.content.add_css_class("compact");
-        layout.close.set_visible(false);
-        layout.cancel.set_visible(false);
-        let status = gtk::Label::new(Some(&crate::i18n::tr("Rendering pages…")));
-        status.add_css_class("modal-progress-status");
-        status.set_xalign(0.0);
+        detail.set_wrap(true);
+        let status = nyx_ui::widgets::label(&crate::i18n::tr("Rendering pages…"), "");
         let progress = gtk::ProgressBar::new();
-        progress.add_css_class("modal-progress");
         progress.set_fraction(0.0);
-        layout.body.append(&status);
-        layout.body.append(&progress);
-        let content = layout.content;
-        let cancel = layout.confirm;
-
-        let layer = super::browser::modal_layer(
-            &content,
-            &window_overlay,
-            blurred_root.clone(),
-            Some(Rc::new(|| true)),
-        );
-        window_overlay.add_overlay(&layer);
+        let cancel = gtk::Button::with_label(&crate::i18n::tr("Cancel"));
+        cancel.set_halign(gtk::Align::End);
+        cancel.set_margin_top(6);
+        card.append(&detail);
+        card.append(&status);
+        card.append(&progress);
+        card.append(&cancel);
         self.print_progress.replace(Some(PrintProgress {
-            layer: layer.clone(),
-            overlay: window_overlay,
-            blurred_root,
+            dialog: dialog.clone(),
             status,
             progress,
         }));
@@ -1182,12 +1117,17 @@ impl PreviewState {
                 state.cancel_print();
             }
         });
+        // Esc and the window's close both cancel the rendering.
         let weak = Rc::downgrade(self);
-        close_on_escape(&layer, move || {
+        dialog.connect_close_request(move |_| {
             if let Some(state) = weak.upgrade() {
+                // The window is closing itself; only the rendering is left to stop.
+                state.print_progress.take();
                 state.cancel_print();
             }
+            glib::Propagation::Proceed
         });
+        dialog.present();
         cancel.grab_focus();
     }
 
@@ -1203,12 +1143,8 @@ impl PreviewState {
     }
 
     fn dismiss_print_progress(&self) {
-        if let Some(dialog) = self.print_progress.take() {
-            super::browser::dismiss_modal_layer(
-                &dialog.layer,
-                &dialog.overlay,
-                dialog.blurred_root.as_ref(),
-            );
+        if let Some(progress) = self.print_progress.take() {
+            progress.dialog.destroy();
         }
     }
 
@@ -1446,8 +1382,10 @@ impl PreviewState {
         self.open.set_sensitive(true);
         self.header_handle.set_cursor_from_name(Some("grab"));
         self.current.replace(Some(entry.clone()));
-        crate::assets::set_primary_icon(&self.icon, super::browser::entry_icon(&entry));
+        self.icon
+            .set_icon_name(Some(&super::file_icons::name_for(&entry)));
         self.title.set_text(&entry.display_name);
+        self.title_popup(&entry.display_name);
         crate::ui::accessibility::set_description(
             &self.title,
             Some(&entry.location.display_path()),
@@ -1585,7 +1523,7 @@ impl PreviewState {
         box_.set_valign(gtk::Align::Center);
         box_.set_vexpand(true);
 
-        let icon = crate::assets::primary_icon(crate::assets::icons::LOCK, 34);
+        let icon = super::symbolic("dialog-password-symbolic", 34);
         icon.add_css_class("preview-feedback-icon");
         box_.append(&icon);
         let heading = gtk::Label::new(Some(&crate::i18n::tr("Password-protected archive")));
@@ -2090,7 +2028,7 @@ impl PreviewState {
         let label = crate::i18n::tr(label);
         self.document_view_button.set_tooltip_text(Some(&label));
         super::accessibility::set_label(&self.document_view_button, &label);
-        crate::assets::set_muted_icon(&self.document_view_icon, icon);
+        self.document_view_button.set_icon_name(icon);
     }
 
     fn build_media_view(self: &Rc<Self>, media: &gtk::MediaStream) -> (gtk::Overlay, gtk::Button) {
@@ -2129,7 +2067,7 @@ impl PreviewState {
         center_play.set_halign(gtk::Align::Center);
         center_play.set_valign(gtk::Align::Center);
         center_play.set_visible(false);
-        let center_icon = crate::assets::primary_icon(crate::assets::icons::PLAY, 48);
+        let center_icon = super::symbolic("media-playback-start-symbolic", 48);
         center_play.set_child(Some(&center_icon));
         overlay.add_overlay(&center_play);
 
@@ -2706,8 +2644,8 @@ impl PreviewState {
         let bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         bar.add_css_class("preview-media-bar");
 
-        let play_icon = crate::assets::primary_icon(crate::assets::icons::PLAY, 18);
-        let pause_icon = crate::assets::primary_icon(crate::assets::icons::PAUSE, 18);
+        let play_icon = super::symbolic("media-playback-start-symbolic", 18);
+        let pause_icon = super::symbolic("media-playback-pause-symbolic", 18);
         let play_button = gtk::Button::new();
         play_button.add_css_class("preview-media-button");
         play_button.set_tooltip_text(Some(&crate::ui::shortcut_reference::with_keys(
@@ -2955,37 +2893,28 @@ impl PreviewState {
         let Some((files, index)) = self.family_listing(family, None) else {
             return (None, false, false);
         };
-        let results = self
-            .keyboard_view
-            .borrow()
-            .as_ref()
-            .and_then(super::browser::WeakBrowserView::upgrade)
-            .is_some_and(|view| view.results_replace_listing());
         (
             Some(ListingPosition {
                 position: index + 1,
                 count: files.len(),
-                results,
             }),
             index > 0,
             index + 1 < files.len(),
         )
     }
 
+    /// The host's entries of `family`, and where `around` (or the shown file) is among them.
     fn family_listing(
         &self,
         family: MediaFamily,
         around: Option<crate::model::Location>,
     ) -> Option<(Vec<FileEntry>, usize)> {
-        let view = self
-            .keyboard_view
-            .borrow()
-            .as_ref()
-            .and_then(super::browser::WeakBrowserView::upgrade)?;
-        let depth = self.current_depth.get()?;
+        let host = self.host()?;
         let current = self.current.borrow().as_ref()?.location.clone();
-        let files =
-            view.displayed_entries_matching(depth, |entry| entry_family(entry) == Some(family));
+        let files: Vec<FileEntry> = (host.entries)()
+            .into_iter()
+            .filter(|entry| entry_family(entry) == Some(family))
+            .collect();
         let position = |location: &crate::model::Location| {
             files.iter().position(|entry| entry.location == *location)
         };
@@ -2996,35 +2925,23 @@ impl PreviewState {
         Some((files, index))
     }
 
-    fn step_media(self: &Rc<Self>, step: i32, keyboard: bool) -> bool {
+    fn step_media(self: &Rc<Self>, step: i32, _keyboard: bool) -> bool {
         let Some(family) = self.stepping_family() else {
             return false;
         };
+        let Some(host) = self.host() else {
+            return false;
+        };
         // Repeated presses outrun the preview's debounce, so step from the cursor.
-        let cursor = self.current_depth.get().and_then(|depth| {
-            self.keyboard_view
-                .borrow()
-                .as_ref()
-                .and_then(super::browser::WeakBrowserView::upgrade)?
-                .displayed_cursor_entry(depth)
-        });
-        let Some((files, index)) = self.family_listing(family, cursor.map(|entry| entry.location))
-        else {
+        let cursor = (host.cursor)().map(|entry| entry.location);
+        let Some((files, index)) = self.family_listing(family, cursor) else {
             return false;
         };
         let Some(target) = index
             .checked_add_signed(step as isize)
             .and_then(|index| files.get(index))
+            .cloned()
         else {
-            return false;
-        };
-        let (Some(view), Some(depth)) = (
-            self.keyboard_view
-                .borrow()
-                .as_ref()
-                .and_then(super::browser::WeakBrowserView::upgrade),
-            self.current_depth.get(),
-        ) else {
             return false;
         };
         let owned = self.content_owns_keys();
@@ -3037,14 +2954,32 @@ impl PreviewState {
                 location: target.location.clone(),
                 request: None,
             }));
-        let moved = view.step_to(depth, &target.location, keyboard.then_some(step));
-        if moved && view.results_replace_listing() {
-            self.show_after_focus_change(target.clone(), Some(depth));
-        } else if !moved {
-            self.continue_playback.take();
-        }
+        (host.select)(&target.location);
+        self.show_after_focus_change(target, self.current_depth.get());
         self.keep_keys_in_content(owned);
-        moved
+        true
+    }
+
+    /// Up and Down in the popup: the next listed entry, previewed if it can be.
+    pub(super) fn step_listing(self: &Rc<Self>, delta: i32) {
+        let Some(host) = self.host() else {
+            return;
+        };
+        let entries = (host.entries)();
+        let Some(last) = entries.len().checked_sub(1) else {
+            return;
+        };
+        let cursor = (host.cursor)()
+            .and_then(|cursor| entries.iter().position(|e| e.location == cursor.location));
+        let next = cursor.map_or(0, |index| {
+            index.saturating_add_signed(delta as isize).min(last)
+        });
+        let target = entries[next].clone();
+        (host.select)(&target.location);
+        match preview_target(Some(target)) {
+            Some(entry) => self.show_after_focus_change(entry, self.current_depth.get()),
+            None => self.clear_target(),
+        }
     }
 
     fn stop_media(&self) {
@@ -3187,7 +3122,7 @@ impl PreviewState {
             self.show_message_with_icon(
                 &title,
                 &detail,
-                Some(crate::assets::icons::TRIANGLE_ALERT),
+                Some("dialog-warning-symbolic"),
                 command,
             );
         }
@@ -3255,7 +3190,7 @@ impl PreviewState {
         box_.set_valign(gtk::Align::Center);
         box_.set_vexpand(true);
         if let Some(icon) = icon {
-            let icon = crate::assets::primary_icon(icon, 34);
+            let icon = super::symbolic(icon, 34);
             icon.add_css_class("preview-feedback-icon");
             icon.set_halign(gtk::Align::Center);
             box_.append(&icon);
@@ -3272,6 +3207,14 @@ impl PreviewState {
             box_.append(&super::controls::copyable_command(command));
         }
         self.content.append(&box_);
+    }
+}
+
+fn volume_icon(muted: bool) -> &'static str {
+    if muted {
+        "audio-volume-muted-symbolic"
+    } else {
+        "audio-volume-high-symbolic"
     }
 }
 
@@ -3294,14 +3237,7 @@ impl VolumeControls {
             keys::Keys::One(MEDIA_MUTE),
         )));
         let muted = preferences.preview_muted();
-        let icon = crate::assets::primary_icon(
-            if muted {
-                crate::assets::icons::VOLUME_X
-            } else {
-                crate::assets::icons::VOLUME_2
-            },
-            16,
-        );
+        let icon = super::symbolic(volume_icon(muted), 16);
         toggle.set_child(Some(&icon));
 
         let slider = gtk::Scale::builder()
@@ -3335,14 +3271,7 @@ impl VolumeControls {
                     media.set_muted(muted);
                 }
                 if let Some(icon) = weak_icon.upgrade() {
-                    crate::assets::set_primary_icon(
-                        &icon,
-                        if muted {
-                            crate::assets::icons::VOLUME_X
-                        } else {
-                            crate::assets::icons::VOLUME_2
-                        },
-                    );
+                    icon.set_icon_name(Some(volume_icon(muted)));
                 }
                 updating.set(previous);
             },
@@ -3404,24 +3333,15 @@ pub(super) struct ListingPosition {
     /// One-based, unlike the listing cursor.
     pub(super) position: usize,
     pub(super) count: usize,
-    pub(super) results: bool,
 }
 
 impl ListingPosition {
     pub(super) fn caption(self) -> String {
-        if self.results {
-            rust_i18n::t!(
-                "%{position} of %{count} in results",
-                position = crate::i18n::integer(self.position as u64),
-                count = crate::i18n::integer(self.count as u64)
-            )
-        } else {
-            rust_i18n::t!(
-                "%{position} of %{count} in folder",
-                position = crate::i18n::integer(self.position as u64),
-                count = crate::i18n::integer(self.count as u64)
-            )
-        }
+        rust_i18n::t!(
+            "%{position} of %{count} in folder",
+            position = crate::i18n::integer(self.position as u64),
+            count = crate::i18n::integer(self.count as u64)
+        )
         .into_owned()
     }
 }
@@ -3684,8 +3604,47 @@ fn document_view_name(view: DocumentView) -> &'static str {
 
 fn document_view_action(view: DocumentView) -> (&'static str, &'static str) {
     match view {
-        DocumentView::Rendered => ("View source", crate::assets::icons::FILE_CODE),
-        DocumentView::Source => ("View rendered", crate::assets::icons::DOCUMENTS),
+        DocumentView::Rendered => ("View source", "text-x-generic-symbolic"),
+        DocumentView::Source => ("View rendered", "x-office-document-symbolic"),
+    }
+}
+
+/// A header icon button; `tooltip` is translated and also names it.
+fn header_action(icon: &str, tooltip: &str) -> gtk::Button {
+    let label = crate::i18n::tr(tooltip);
+    let button = gtk::Button::builder()
+        .icon_name(icon)
+        .tooltip_text(&label)
+        .valign(gtk::Align::Center)
+        .build();
+    super::accessibility::set_label(&button, &label);
+    button.add_css_class("preview-header-action");
+    button
+}
+
+/// The popup's key hints as key caps: Esc or the toggle key closes, the arrows step.
+fn fill_footer(footer: &gtk::Box, tenxer: bool) {
+    while let Some(child) = footer.first_child() {
+        footer.remove(&child);
+    }
+    let toggle = keys::label(&keys::Keys::One(if tenxer { PEEK } else { SPACE }));
+    let escape = crate::i18n::tr("Esc");
+    let step = keys::label(&keys::Keys::Any(NEXT_FILE));
+    for (caps, action) in [
+        (vec![escape, toggle], "Close"),
+        (vec![step], "Next file"),
+    ] {
+        let hint = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        hint.set_valign(gtk::Align::Center);
+        for cap in &caps {
+            let label = gtk::Label::new(Some(cap));
+            label.add_css_class("key-cap");
+            hint.append(&label);
+        }
+        let text = gtk::Label::new(Some(&crate::i18n::tr(action)));
+        text.add_css_class("dim");
+        hint.append(&text);
+        footer.append(&hint);
     }
 }
 
@@ -4269,8 +4228,16 @@ fn install_preview_drag(widget: &impl IsA<gtk::Widget>, state: &Rc<PreviewState>
         .build();
     drag.set_propagation_phase(gtk::PropagationPhase::Capture);
     let weak = Rc::downgrade(state);
-    drag.connect_prepare(move |source, _, _| {
+    drag.connect_prepare(move |source, x, y| {
         let state = weak.upgrade()?;
+        // A floating header moves its window; only the file icon drags the file.
+        if state.floating.get()
+            && source.widget().as_ref() == Some(state.header_handle.upcast_ref())
+            && state.header_handle.pick(x, y, gtk::PickFlags::DEFAULT).as_ref()
+                != Some(state.icon.upcast_ref())
+        {
+            return None;
+        }
         let entries = preview_drag_entries(state.current.borrow().as_ref())?;
         if let Some((texture, hot_x, hot_y)) =
             super::browser::drag_preview_icon(&state.header_handle, &entries)

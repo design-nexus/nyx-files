@@ -1029,7 +1029,7 @@ fn code_copy_button(units: Rc<Vec<PreviewUnit>>, index: usize) -> gtk::Button {
     button.update_property(&[gtk::accessible::Property::Label(&crate::i18n::tr(
         "Copy code",
     ))]);
-    let icon = crate::assets::primary_icon(crate::assets::icons::COPY, 15);
+    let icon = crate::ui::symbolic("edit-copy-symbolic", 15);
     button.set_child(Some(&icon));
 
     let feedback_generation = Rc::new(Cell::new(0_u64));
@@ -1040,7 +1040,7 @@ fn code_copy_button(units: Rc<Vec<PreviewUnit>>, index: usize) -> gtk::Button {
         button.clipboard().set_text(&text);
         let generation = feedback_generation.get().wrapping_add(1);
         feedback_generation.set(generation);
-        crate::assets::set_primary_icon(&icon, crate::assets::icons::CHECK);
+        icon.set_icon_name(Some("object-select-symbolic"));
         button.set_tooltip_text(Some(&crate::i18n::tr("Code copied")));
         button.update_property(&[gtk::accessible::Property::Label(&crate::i18n::tr(
             "Code copied",
@@ -1054,7 +1054,7 @@ fn code_copy_button(units: Rc<Vec<PreviewUnit>>, index: usize) -> gtk::Button {
                 return;
             }
             if let Some(icon) = weak_icon.upgrade() {
-                crate::assets::set_primary_icon(&icon, crate::assets::icons::COPY);
+                icon.set_icon_name(Some("edit-copy-symbolic"));
             }
             if let Some(button) = weak_button.upgrade() {
                 button.set_tooltip_text(Some(&crate::i18n::tr("Copy code")));

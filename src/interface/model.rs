@@ -387,7 +387,7 @@ pub(super) fn icon_slot(size: i32) -> crate::ui::thumbnail::ThumbnailSlot {
 
 pub(super) fn show_icon(slot: &crate::ui::thumbnail::ThumbnailSlot, entry: &FileEntry, size: i32) {
     let icon = crate::ui::thumbnail::theme_icon(
-        &super::icons_theme::name_for(entry),
+        &crate::ui::file_icons::name_for(entry),
         crate::ui::browser::entry::entry_icon(entry),
     );
     crate::ui::thumbnail::set_thumbnail_or_icon(slot, entry, &icon, size, size);

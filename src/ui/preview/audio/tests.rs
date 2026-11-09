@@ -7,7 +7,6 @@ fn track_caption_prefers_tags_and_falls_back_to_the_folder() {
     let folder = ListingPosition {
         position: 7,
         count: 9,
-        results: false,
     };
     let tagged = AudioTags {
         track: Some(3),
@@ -31,17 +30,6 @@ fn track_caption_prefers_tags_and_falls_back_to_the_folder() {
         Some("7 of 9 in folder")
     );
     assert_eq!(track_caption(&AudioTags::default(), None), None);
-    assert_eq!(
-        track_caption(
-            &AudioTags::default(),
-            Some(ListingPosition {
-                results: true,
-                ..folder
-            })
-        )
-        .as_deref(),
-        Some("7 of 9 in results")
-    );
 }
 
 #[test]
