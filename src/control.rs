@@ -26,14 +26,19 @@ const MAX_HITS: usize = 50;
 const SEARCH_BUDGET: Duration = Duration::from_secs(2);
 
 /// Where a call may look: these, or a path in the home folder.
-const PLACES: &[(&str, glib::UserDirectory)] = &[
-    ("desktop", glib::UserDirectory::Desktop),
-    ("documents", glib::UserDirectory::Documents),
-    ("downloads", glib::UserDirectory::Downloads),
-    ("music", glib::UserDirectory::Music),
-    ("pictures", glib::UserDirectory::Pictures),
-    ("videos", glib::UserDirectory::Videos),
+const PLACES: &[(&str, glib::UserDirectory, &str)] = &[
+    ("desktop", glib::UserDirectory::Desktop, "Desktop"),
+    ("documents", glib::UserDirectory::Documents, "Documents"),
+    ("downloads", glib::UserDirectory::Downloads, "Downloads"),
+    ("music", glib::UserDirectory::Music, "Music"),
+    ("pictures", glib::UserDirectory::Pictures, "Pictures"),
+    ("videos", glib::UserDirectory::Videos, "Videos"),
 ];
+
+/// A place's folder: the user's setting (user-dirs.dirs), else its usual name in home.
+fn place(dir: glib::UserDirectory, usual: &str) -> Option<PathBuf> {
+    glib::user_special_dir(dir).filter(|p| p.is_dir()).or_else(|| Some(home().join(usual)).filter(|p| p.is_dir()))
+}
 
 pub fn description(app_id: &str) -> Value {
     let path = json!({"type": "string", "format": "path", "description": "a folder or file in the home folder (~/…), or home, desktop, documents, downloads, music, pictures or videos"});
@@ -98,8 +103,8 @@ fn resolve(input: &str) -> Result<PathBuf, Error> {
     if word.is_empty() || word == "~" || word.eq_ignore_ascii_case("home") {
         return Ok(home());
     }
-    if let Some((_, dir)) = PLACES.iter().find(|(name, _)| name.eq_ignore_ascii_case(word)) {
-        return glib::user_special_dir(*dir).ok_or_else(|| invalid(format!("there's no {word} folder")));
+    if let Some((_, dir, usual)) = PLACES.iter().find(|(name, _, _)| name.eq_ignore_ascii_case(word)) {
+        return place(*dir, usual).ok_or_else(|| invalid(format!("there's no {word} folder")));
     }
     nyx_core::control::home_path(word).map_err(invalid)
 }
@@ -156,8 +161,8 @@ fn list(args: &Value) -> Result<Value, Error> {
 fn locations() -> Value {
     let mut items = vec![item(&home(), std::fs::metadata(home()).ok().as_ref())];
     items[0]["title"] = json!("Home");
-    for (name, dir) in PLACES {
-        if let Some(path) = glib::user_special_dir(*dir).filter(|p| p.is_dir() && *p != home()) {
+    for (name, dir, usual) in PLACES {
+        if let Some(path) = place(*dir, usual).filter(|p| *p != home()) {
             let mut v = item(&path, std::fs::metadata(&path).ok().as_ref());
             v["place"] = json!(name);
             items.push(v);
@@ -236,7 +241,15 @@ fn transfer(args: &Value, move_sources: bool, answer: Answer) {
         (Err(e), _) | (_, Err(e)) => return answer(Err(e)),
     };
     let n = sources.len();
-    let items = sources.into_iter().map(|s| PasteItem { source: Location::local(s), conflict: TransferConflict::KeepBoth, target_name: None }).collect();
+    // Keep both only where the name is taken; otherwise the item keeps its own name.
+    let items = sources
+        .into_iter()
+        .map(|s| {
+            let taken = s.file_name().is_some_and(|n| destination.join(n).exists());
+            let conflict = if taken { TransferConflict::KeepBoth } else { TransferConflict::FailIfExists };
+            PasteItem { source: Location::local(s), conflict, target_name: None }
+        })
+        .collect();
     let request = PasteRequest { id: request_id(), destination: Location::local(&destination), items, move_sources };
     let verb = if move_sources { "Moved" } else { "Copied" };
     let target = shown(&destination);
