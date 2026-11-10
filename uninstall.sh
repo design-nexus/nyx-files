@@ -30,7 +30,8 @@ if [[ -x $bin/nyx-files ]]; then
 fi
 
 rm -f "$bin/nyx-files" "$bin/nyx-files-rar" "$desk/$APP_ID.desktop" \
-  "$share/icons/hicolor/scalable/apps/$APP_ID.svg" "$services/$APP_ID.FileManager1.service"
+  "$share/icons/hicolor/scalable/apps/$APP_ID.svg" "$services/$APP_ID.FileManager1.service" \
+  "$services/$APP_ID.service" "${XDG_DATA_HOME:-$HOME/.local/share}/nyx/actions/$APP_ID.json"
 rm -rf "$share/licenses/nyx-files"
 # Give "Open file location" back to the provider the installer set aside.
 for backup in "$services"/*.service.nyx-files-backup; do

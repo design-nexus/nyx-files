@@ -11,6 +11,7 @@ mod adapters;
 mod app;
 mod assets;
 mod build_info;
+mod control;
 mod i18n;
 mod interface;
 mod launch_environment;
@@ -210,6 +211,7 @@ fn run_udiskie_hook(arguments: &[OsString]) -> gtk::glib::ExitCode {
 
 fn main() -> gtk::glib::ExitCode {
     nyx_core::app::init(nyx_core::app::App { slug: "nyx-files", name: "Files" });
+    nyx_core::control::describe_if_asked(&control::description(application_id()));
     let arguments: Vec<OsString> = std::env::args_os().collect();
     let mode = launch_mode(&arguments);
     match mode {
@@ -337,6 +339,7 @@ fn main() -> gtk::glib::ExitCode {
     });
     application.connect_startup(|_| install_x11_program_class());
     application.connect_startup(export_file_manager_interface);
+    application.connect_startup(control::serve);
     application.connect_shutdown(|_| {
         interface::shutdown();
         ui::preferences::flush_pending_folder_views();

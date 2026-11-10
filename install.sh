@@ -103,6 +103,16 @@ for service in "$services"/*.service; do
 done
 sed "s|^Exec=/usr/bin/nyx-files|Exec=$bin/nyx-files|" "$src/data/$APP_ID.FileManager1.service" >"$services/$APP_ID.FileManager1.service"
 
+# What Files does for nyx files …, Glimpse and the Assistant (its action manifest), and
+# the D-Bus service that starts it without a window for a call.
+mkdir -p "$share/nyx/actions"
+if timeout 10 "$bin/nyx-files" --describe-actions >"$share/nyx/actions/$APP_ID.json.new" 2>/dev/null; then
+  mv -f "$share/nyx/actions/$APP_ID.json.new" "$share/nyx/actions/$APP_ID.json"
+  printf '[D-BUS Service]\nName=%s\nExec=%s --gapplication-service\n' "$APP_ID" "$bin/nyx-files" >"$services/$APP_ID.service"
+else
+  rm -f "$share/nyx/actions/$APP_ID.json.new"
+fi
+
 # Files is GPL-3.0-or-later; the RAR helper keeps its own MIT/UnRAR notices.
 install -d "$share/licenses/nyx-files"
 for notice in LICENSE LICENSE-MIT COPYING THIRD_PARTY_LICENSES.md; do
