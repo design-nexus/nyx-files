@@ -6,10 +6,41 @@ use gtk::gio;
 
 use super::{
     CommandLineAction, LaunchMode, classify_command_line, classify_udiskie_hook,
-    encode_daemon_pids, gvfs_daemon_pids, gvfs_probe_marker_is_fresh_at, gvfs_probe_marker_path_in,
-    launch_mode, run_preview_helper, should_select_cairo, version_line,
+    encode_daemon_pids, gdk_debug_without_portals, gvfs_daemon_pids, gvfs_probe_marker_is_fresh_at,
+    gvfs_probe_marker_path_in, launch_mode, run_preview_helper, should_select_cairo, version_line,
 };
 use crate::ui::preferences::InterfaceRenderer;
+
+#[test]
+fn dbus_activated_instance_starts_gtk_without_portals() {
+    let service = [
+        OsString::from("nyx-files"),
+        OsString::from("--gapplication-service"),
+    ];
+    assert_eq!(
+        gdk_debug_without_portals(&service, None),
+        Some(OsString::from("no-portals"))
+    );
+    assert_eq!(
+        gdk_debug_without_portals(&service, Some("gl-wgl".as_ref())),
+        Some(OsString::from("gl-wgl,no-portals"))
+    );
+    assert_eq!(
+        gdk_debug_without_portals(&service, Some("events,no-portals".as_ref())),
+        None
+    );
+    assert_eq!(
+        gdk_debug_without_portals(&[OsString::from("nyx-files")], None),
+        None
+    );
+    assert_eq!(
+        gdk_debug_without_portals(
+            &[OsString::from("--gapplication-service")],
+            None
+        ),
+        None
+    );
+}
 
 #[test]
 fn application_renderer_respects_saved_choice_and_explicit_environment() {
@@ -133,7 +164,7 @@ fn classify_command_line_unlock_volume() {
 fn version_line_is_the_package_name_and_installed_version() {
     let line = version_line();
     assert!(
-        line.starts_with("strata "),
+        line.starts_with("nyx-files "),
         "the --version line should start with the package name"
     );
     assert!(

@@ -358,6 +358,7 @@ fn build_command(
             command
         }
     };
+    crate::launch_environment::restore(&mut command);
     command
         .env(ENV_VERSION, "1")
         .env(ENV_ACTION_ID, action.id())

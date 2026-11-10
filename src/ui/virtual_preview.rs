@@ -1379,7 +1379,9 @@ pub(super) fn set_table_cell(label: &gtk::Label, cell: &DocumentTableCellLayout)
 }
 
 pub(super) fn open_web_link(uri: &str, parent: &impl IsA<gtk::Widget>) {
-    if let Err(error) = gio::AppInfo::launch_default_for_uri(uri, None::<&gio::AppLaunchContext>) {
+    let context = parent.display().app_launch_context();
+    crate::launch_environment::restore_in(&context);
+    if let Err(error) = gio::AppInfo::launch_default_for_uri(uri, Some(&context)) {
         super::modal::show_error_dialog(
             parent,
             &crate::i18n::tr("Unable to open link"),

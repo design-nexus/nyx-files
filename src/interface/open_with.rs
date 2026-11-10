@@ -27,6 +27,7 @@ fn files_of(entries: &[FileEntry]) -> Vec<gio::File> {
 
 fn launch(window: &Rc<Window>, app: &gio::AppInfo, files: &[gio::File], content_types: &[String]) {
     let context = gtk::prelude::WidgetExt::display(&window.window).app_launch_context();
+    crate::launch_environment::restore_in(&context);
     if let Err(error) = backend::launch(app, files, content_types, Some(&context)) {
         toast::show(&window.overlay, error.message());
     }

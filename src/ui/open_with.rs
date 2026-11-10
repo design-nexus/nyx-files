@@ -641,6 +641,7 @@ pub(crate) fn dialog(
             }
         }
         let context = gtk::prelude::WidgetExt::display(&parent_window).app_launch_context();
+        crate::launch_environment::restore_in(&context);
         if let Err(error) = launch(&app, &files, &content_types, Some(&context)) {
             report(&parent_window, overlay.as_ref(), error.message());
         }

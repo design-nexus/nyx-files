@@ -1017,7 +1017,7 @@ fn spawn_detached_with(
     lookup: impl Fn(&str) -> Option<PathBuf>,
 ) -> Result<(), String> {
     let launch = detached_command(argv, lookup, |name| env::var_os(name).is_some())?;
-    let status = Command::new(&launch.program)
+    let status = crate::launch_environment::restore(&mut Command::new(&launch.program))
         .args(&launch.args)
         .stdin(Stdio::null())
         .stdout(Stdio::null())

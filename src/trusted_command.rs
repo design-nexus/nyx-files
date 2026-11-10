@@ -67,7 +67,9 @@ fn search_roots(fixed: &[&str], configured: &str, trust_roots: &[&Path]) -> Vec<
 }
 
 pub(crate) fn command(name: &str) -> Result<Command, String> {
-    Ok(Command::new(resolve(name)?))
+    let mut command = Command::new(resolve(name)?);
+    crate::launch_environment::restore(&mut command);
+    Ok(command)
 }
 
 pub(crate) fn resolve_in(

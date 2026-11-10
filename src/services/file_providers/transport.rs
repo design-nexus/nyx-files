@@ -345,7 +345,7 @@ fn run(
         let (stream, peer) = UnixStream::pair()?;
         stream.set_read_timeout(Some(Duration::from_millis(25)))?;
         stream.set_write_timeout(Some(Duration::from_millis(250)))?;
-        let child = Command::new(&manifest.command[0])
+        let child = crate::launch_environment::restore(&mut Command::new(&manifest.command[0]))
             .args(&manifest.command[1..])
             .current_dir("/")
             .process_group(0)

@@ -434,14 +434,6 @@ fn restart_waiter(current_exe: &std::path::Path, parent_pid: u32) -> Option<Comm
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .process_group(0);
-    if std::env::var_os(crate::CAIRO_SELECTED_BY_STRATA).as_deref()
-        == Some(std::ffi::OsStr::new("1"))
-        && std::env::var_os("GSK_RENDERER").as_deref() == Some(std::ffi::OsStr::new("cairo"))
-    {
-        // The next process must read the saved renderer, not inherit our default.
-        command.env_remove("GSK_RENDERER");
-        command.env_remove(crate::CAIRO_SELECTED_BY_STRATA);
-    }
     Some(command)
 }
 

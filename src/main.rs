@@ -13,6 +13,7 @@ mod assets;
 mod build_info;
 mod i18n;
 mod interface;
+mod launch_environment;
 mod logging;
 mod media;
 mod metrics;
@@ -91,10 +92,45 @@ fn has_desktop_theme_override() -> bool {
     std::env::var_os(DESKTOP_THEME_OVERRIDE).is_some()
 }
 
+/// D-Bus starts Files with this argument when xdg-desktop-portal calls
+/// `FileManager1.ShowItems`, and the portal waits for that reply. GTK's startup
+/// portal queries would wait on the same portal, so both stall until D-Bus
+/// times out; this instance starts GTK with portals off.
+const GAPPLICATION_SERVICE: &str = "--gapplication-service";
+const GDK_DEBUG: &str = "GDK_DEBUG";
+const GDK_NO_PORTALS: &str = "no-portals";
+
+fn gdk_debug_without_portals(
+    arguments: &[OsString],
+    current: Option<&std::ffi::OsStr>,
+) -> Option<OsString> {
+    if !arguments.iter().skip(1).any(|argument| argument == GAPPLICATION_SERVICE) {
+        return None;
+    }
+    let current = current.unwrap_or_default();
+    if current
+        .to_string_lossy()
+        .split([',', ':', ' '])
+        .any(|flag| flag == GDK_NO_PORTALS)
+    {
+        return None;
+    }
+    let mut value = current.to_os_string();
+    if !value.is_empty() {
+        value.push(",");
+    }
+    value.push(GDK_NO_PORTALS);
+    Some(value)
+}
+
 /// GTK reads its renderer and theme override during startup. Re-exec before
 /// initializing GTK rather than mutating the environment after libraries may
 /// have started threads. Returns only when the restart fails.
-fn restart_for_gtk_environment(arguments: &[OsString], select_cairo: bool) -> gtk::glib::ExitCode {
+fn restart_for_gtk_environment(
+    arguments: &[OsString],
+    select_cairo: bool,
+    gdk_debug: Option<OsString>,
+) -> gtk::glib::ExitCode {
     let Ok(executable) = std::env::current_exe() else {
         eprintln!("Unable to locate Files to restart it");
         return gtk::glib::ExitCode::FAILURE;
@@ -103,6 +139,12 @@ fn restart_for_gtk_environment(arguments: &[OsString], select_cairo: bool) -> gt
     command
         .args(&arguments[1..])
         .env_remove(DESKTOP_THEME_OVERRIDE);
+    if let Some(gdk_debug) = gdk_debug {
+        command.env(GDK_DEBUG, gdk_debug).env(
+            launch_environment::GDK_DEBUG_BEFORE,
+            std::env::var_os(GDK_DEBUG).unwrap_or_default(),
+        );
+    }
     if select_cairo {
         command
             .env("GSK_RENDERER", "cairo")
@@ -194,7 +236,7 @@ fn main() -> gtk::glib::ExitCode {
         }
         LaunchMode::Portal => {
             if has_desktop_theme_override() {
-                return restart_for_gtk_environment(&arguments, false);
+                return restart_for_gtk_environment(&arguments, false, None);
             }
             restart_with_local_vfs_if_gvfs_is_unresponsive();
             let _volumes = gio::VolumeMonitor::get();
@@ -230,8 +272,10 @@ fn main() -> gtk::glib::ExitCode {
         std::env::var_os("GSK_RENDERER").as_deref(),
         ui::preferences::PreferenceManager::shared().interface_renderer(),
     );
-    if select_cairo || has_desktop_theme_override() {
-        return restart_for_gtk_environment(&arguments, select_cairo);
+    let gdk_debug =
+        gdk_debug_without_portals(&arguments, std::env::var_os(GDK_DEBUG).as_deref());
+    if select_cairo || has_desktop_theme_override() || gdk_debug.is_some() {
+        return restart_for_gtk_environment(&arguments, select_cairo, gdk_debug);
     }
 
     if let Err(error) = portal_setup::refresh_stale_portal() {

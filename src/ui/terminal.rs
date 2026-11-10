@@ -154,6 +154,7 @@ impl Terminal {
 
     fn base(&self, action: Option<&str>) -> Command {
         let mut command = Command::new(&self.program);
+        crate::launch_environment::restore(&mut command);
         command.args(action);
         command.args(&self.leading);
         command
