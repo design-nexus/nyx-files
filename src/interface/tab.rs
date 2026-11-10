@@ -1326,7 +1326,8 @@ impl Tab {
             }
             self.syncing.set(false);
         }
-        if let Some(location) = self.select_next.borrow().clone() {
+        let select_next = self.select_next.borrow().clone();
+        if let Some(location) = select_next {
             let model = self.active_model();
             self.syncing.set(!columns);
             let found = model.select_location(&location).is_some();
