@@ -36,6 +36,7 @@ use crate::adapters::gio_close;
 use crate::model::{FileEntry, Location};
 
 const BACKEND_NAME: &str = "org.freedesktop.impl.portal.desktop.nyx_files";
+const LEGACY_BACKEND_NAME: &str = "org.freedesktop.impl.portal.desktop.strata";
 pub(crate) const CHOOSER_APPLICATION_ID: &str = "io.github.design_nexus.nyx.Files.FileChooser";
 const CHOOSER_APPLICATION_ID_OVERRIDE: &str = "NYX_FILES_CHOOSER_APP_ID";
 pub(crate) const FILE_CHOOSER_VERSION: u32 = 4;
@@ -253,14 +254,16 @@ pub(crate) fn run(ui: &'static ChooserUi) -> glib::ExitCode {
         let result: Result<(), zbus::Error> = async_io::block_on(async {
             use futures_lite::StreamExt as _;
 
-            let connection = zbus::connection::Builder::session()?
+            let mut builder = zbus::connection::Builder::session()?
                 .serve_at(
                     "/org/freedesktop/portal/desktop",
                     dbus::FileChooserInterface::new(backend),
                 )?
-                .name(BACKEND_NAME)?
-                .build()
-                .await?;
+                .name(BACKEND_NAME)?;
+            if crate::portal_setup::legacy_backend_installed() {
+                builder = builder.name(LEGACY_BACKEND_NAME)?;
+            }
+            let connection = builder.build().await?;
             let proxy = zbus::fdo::DBusProxy::new(&connection).await?;
             let mut lost = proxy.receive_name_lost().await?;
             let _signal = lost.next().await;

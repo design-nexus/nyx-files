@@ -450,6 +450,18 @@ pub(crate) fn status() -> Result<PortalStatus, String> {
     status_at(&SetupContext::from_environment()?)
 }
 
+/// An install made before the rename is still activated under its old name
+/// until Files' next start moves it.
+pub(crate) fn legacy_backend_installed() -> bool {
+    SetupContext::from_environment().is_ok_and(|context| {
+        context
+            .data_home
+            .join("dbus-1/services")
+            .join(LEGACY_SERVICE_FILE)
+            .exists()
+    })
+}
+
 pub(crate) fn refresh_stale_portal() -> Result<(), String> {
     let context = SetupContext::from_environment()?;
     let executable = crate::services::installed_executable().map_err(|error| {
