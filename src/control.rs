@@ -73,7 +73,8 @@ pub fn description(app_id: &str) -> Value {
         "nyx": {
             "api": 2, "app": app_id, "name": "Files", "icon": crate::APPLICATION_ID, "namespaces": ["files"], "aliases": ["folders"],
             "bus_name": app_id, "activation": "dbus", "default": "files.list", "open": {"action": "files.reveal"},
-            "panel": {"id": "files", "size": {"min": [480, 360], "preferred": [560, 420]}}
+            "topics": [{"name": "changes", "sensitive": true}],
+            "panel": {"id": "files", "topics": ["changes"], "size": {"min": [480, 360], "preferred": [560, 420]}}
         }
     })
 }
@@ -86,7 +87,61 @@ pub fn serve(application: &gtk::Application) {
         application.set_inactivity_timeout(30_000);
     }
     let app = application.clone();
-    nyx_core::control::serve_with(application, description(&id), move |request, answer| handle(&app, &request.action, &request.arguments, answer));
+    let Some(service) = nyx_core::control::serve_with(application, description(&id), move |request, answer| handle(&app, &request.action, &request.arguments, answer)) else {
+        return;
+    };
+    service.on_watch(|_, on| {
+        if on {
+            publish_changes();
+        }
+    });
+    SERVICE.with(|s| *s.borrow_mut() = Some(service));
+}
+
+thread_local! {
+    static SERVICE: RefCell<Option<nyx_core::control::Service>> = const { RefCell::new(None) };
+    /// The folders listed last (at most eight), watched, and how often each changed:
+    /// the `changes` topic, `{changed: {path: count}}`, which a panel reloads by.
+    static WATCHED: RefCell<Vec<(PathBuf, gio::FileMonitor)>> = const { RefCell::new(Vec::new()) };
+    static CHANGED: RefCell<std::collections::BTreeMap<String, u64>> = const { RefCell::new(std::collections::BTreeMap::new()) };
+    static PENDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn follow(dir: &Path) {
+    WATCHED.with(|w| {
+        let mut w = w.borrow_mut();
+        if let Some(i) = w.iter().position(|(p, _)| p == dir) {
+            let again = w.remove(i);
+            w.push(again);
+            return;
+        }
+        let Ok(monitor) = gio::File::for_path(dir).monitor_directory(gio::FileMonitorFlags::WATCH_MOVES, gio::Cancellable::NONE) else { return };
+        let key = dir.display().to_string();
+        monitor.connect_changed(move |_, _, _, _| changed(&key));
+        w.push((dir.to_path_buf(), monitor));
+        if w.len() > 8 {
+            let (_, old) = w.remove(0);
+            old.cancel();
+        }
+    });
+}
+
+/// A burst of changes (a copy of many files) is one update, 300 ms later.
+fn changed(key: &str) {
+    CHANGED.with(|c| *c.borrow_mut().entry(key.to_string()).or_default() += 1);
+    if !PENDING.with(|p| p.replace(true)) {
+        glib::timeout_add_local_once(Duration::from_millis(300), || {
+            PENDING.with(|p| p.set(false));
+            publish_changes();
+        });
+    }
+}
+
+fn publish_changes() {
+    let Some(service) = SERVICE.with(|s| s.borrow().clone()) else { return };
+    if service.watched("changes") {
+        service.publish("changes", json!({ "changed": CHANGED.with(|c| c.borrow().clone()) }));
+    }
 }
 
 fn invalid(message: impl Into<String>) -> Error {
@@ -302,7 +357,15 @@ fn run(
 
 fn handle(app: &gtk::Application, action: &str, args: &Value, answer: Answer) {
     match action {
-        "files.list" => answer(list(args)),
+        "files.list" => {
+            let listed = list(args);
+            if let Ok(v) = &listed
+                && let Some(dir) = v["path"].as_str()
+            {
+                follow(Path::new(dir));
+            }
+            answer(listed)
+        }
         "files.locations" => answer(Ok(locations())),
         "files.search" => answer(search(args)),
         "files.open" => answer((|| {
