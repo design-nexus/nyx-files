@@ -21,6 +21,7 @@ use std::{
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(dead_code, reason = "the 2.0 interface does not read all of it")]
 pub(crate) enum SearchScope {
     Folder,
     Subfolders,
@@ -48,6 +49,7 @@ pub(crate) struct SearchInput {
     pub(crate) within: Option<PathBuf>,
 }
 
+#[expect(dead_code, reason = "the 2.0 interface does not read all of it")]
 pub(crate) struct SearchBatch {
     pub(crate) query: String,
     pub(crate) items: Vec<SearchItem>,

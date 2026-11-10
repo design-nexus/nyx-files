@@ -415,7 +415,6 @@ pub(super) fn handle(window: &Rc<Window>, tab: &Rc<Tab>, event: &BrowserEvent) {
             crate::ui::browser::desktop::open_location_at(location, None, &window.window, browser);
         }
         BrowserEvent::ExtractRequested { entry } => extract(window, tab, entry.clone(), None),
-        BrowserEvent::EmptyTrashRequested => super::actions::empty_trash(window),
         BrowserEvent::FolderSortChosen {
             location,
             sort_key,

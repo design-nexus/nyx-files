@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 
-use gtk::prelude::*;
 
 use crate::model::{Location, hidden_names::Leftover};
 

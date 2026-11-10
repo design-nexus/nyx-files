@@ -194,10 +194,6 @@ impl MarkdownProfile {
         document_features: true,
         hide_html_comments: false,
     };
-    const RELEASE_NOTES: Self = Self {
-        document_features: false,
-        hide_html_comments: true,
-    };
 }
 
 #[derive(Clone, Copy)]

@@ -178,42 +178,6 @@ pub(crate) fn capture_logs(action: impl FnOnce()) -> String {
     writer.output()
 }
 
-pub(crate) fn captured_event<'a>(output: &'a str, message: &str) -> &'a str {
-    output
-        .lines()
-        .find(|line| line.contains(message))
-        .unwrap_or_else(|| panic!("missing {message:?} event in:\n{output}"))
-}
-
-pub(crate) fn texture_has_visible_pixels(texture: &gtk::gdk::Texture) -> bool {
-    use gtk::prelude::*;
-    let stride = texture.width() as usize * 4;
-    let mut pixels = vec![0; stride * texture.height() as usize];
-    texture.download(&mut pixels, stride);
-    pixels
-        .as_chunks::<4>()
-        .0
-        .iter()
-        .any(|pixel| u32::from_ne_bytes(*pixel) >> 24 != 0)
-}
-
-pub(crate) fn save_pins(pins: &[(crate::model::Location, String)]) {
-    let path = crate::adapters::bookmarks::pinned_places_path();
-    std::fs::create_dir_all(path.parent().expect("bookmarks directory"))
-        .expect("bookmarks directory");
-    std::fs::write(
-        path,
-        crate::adapters::bookmarks::serialize_pinned_places(pins),
-    )
-    .expect("pins");
-}
-
-pub(crate) fn saved_pins() -> Vec<(crate::model::Location, String)> {
-    let contents =
-        std::fs::read(crate::adapters::bookmarks::pinned_places_path()).unwrap_or_default();
-    crate::adapters::bookmarks::parse_pinned_places(&contents)
-}
-
 /// Opens the new file read-only: vfat mounted with `flush` sleeps 100 ms at
 /// every close of a file opened for writing.
 pub(crate) fn create_empty_file(path: &std::path::Path) -> std::io::Result<()> {

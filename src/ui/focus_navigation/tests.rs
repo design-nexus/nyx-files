@@ -2,10 +2,6 @@
 
 use super::*;
 
-fn press(key: gdk::Key, modifiers: gdk::ModifierType) -> KeyPress {
-    KeyPress::from_signal(key, 0, modifiers)
-}
-
 
 
 #[test]

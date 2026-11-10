@@ -8,6 +8,4 @@ pub use browser::{
     Browser, BrowserEvent, FreshnessInput, Presence,
     VisibleDepths, VisualKind,
 };
-#[cfg(test)]
-pub use browser::CursorToggle;
 pub(crate) use navigation::FolderSortResolver;

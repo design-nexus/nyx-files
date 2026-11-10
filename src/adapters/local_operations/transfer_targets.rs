@@ -3,14 +3,17 @@
 //! Where a paste would put each of its items, which the conflict prompt
 //! shows before the paste starts.
 
+#[cfg(test)]
 use std::{
     collections::HashSet,
     ffi::{OsStr, OsString},
     path::Path,
 };
 
+#[cfg(test)]
 use gtk::{gio, glib, prelude::*};
 
+#[cfg(test)]
 use super::{
     MAX_LOCAL_IO_WORKERS, await_cancellable,
     copy_engine::stage::collision_key,
@@ -20,6 +23,7 @@ use super::{
     open_local_parent_directory, paste_targets, placement_reason, run_blocking,
     transfer_source_name, was_cancelled,
 };
+#[cfg(test)]
 use crate::{
     adapters::gio_file_for_location,
     model::Location,

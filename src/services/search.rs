@@ -438,7 +438,7 @@ pub(crate) mod exclusions;
 mod pattern;
 
 pub(crate) use exclusions::SearchExclusions;
-pub(crate) use pattern::{filter_name_matches, filter_query_allows_typos};
+pub(crate) use pattern::filter_name_matches;
 
 type NameScorer = fn(&SearchItem, &str) -> Option<i64>;
 

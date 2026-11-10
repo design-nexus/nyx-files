@@ -2,10 +2,6 @@
 
 use super::*;
 
-fn press(key: gdk::Key, modifiers: gdk::ModifierType) -> KeyPress {
-    KeyPress::from_signal(key, 0, modifiers)
-}
-
 
 impl ShortcutFooter {
     pub(crate) fn assert_hints_visible(&self, visible: bool) {
@@ -108,22 +104,6 @@ fn localized_reference_names_keys_in_the_interface_language() {
     );
 }
 
-
-fn press_reference(footer: &ShortcutFooter, key: gdk::Key) {
-    let controllers = footer.panel.observe_controllers();
-    let controller = (0..controllers.n_items())
-        .filter_map(|index| {
-            controllers
-                .item(index)
-                .and_downcast::<gtk::EventControllerKey>()
-        })
-        .next()
-        .expect("reference key controller");
-    assert!(
-        controller.emit_by_name::<bool>("key-pressed", &[&key, &0u32, &gdk::ModifierType::empty()]),
-        "{key:?} should be handled by the open reference"
-    );
-}
 
 fn reference_pairs(labels: &[String], key: &str, action: &str) -> bool {
     labels

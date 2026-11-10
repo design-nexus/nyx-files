@@ -83,11 +83,10 @@ enum OperationDestination<'a> {
     Folder(&'a Location),
     Trash,
     PermanentDeletion,
-    /// A network or cloud provider may still keep a copy.
-    DeletionWithoutTrash,
 }
 
 #[derive(Clone)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 enum LoadSelection {
     Nothing,
     FirstEntry,
@@ -114,6 +113,7 @@ fn select_on_load(state: &mut NavigationState, depth: usize, selection: LoadSele
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 pub struct BrowserColumnSnapshot {
     pub location: Location,
     pub count: usize,
@@ -126,12 +126,14 @@ pub struct BrowserColumnSnapshot {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 pub enum SelectionUpdate {
     All,
     Positions(Vec<usize>),
 }
 
 #[derive(Clone, Debug)]
+#[expect(dead_code, reason = "the 2.0 interface does not read all of it")]
 pub enum BrowserEvent {
     /// The outgoing directory is still available for presentation-state capture.
     /// `history` marks a return to a recorded path: Back, Forward, Up, or a path an
@@ -368,7 +370,6 @@ pub enum BrowserEvent {
     LocationRevealFailed {
         location: Location,
     },
-    EmptyTrashRequested,
     LeftoverReviewRequested {
         depth: usize,
     },
@@ -3503,10 +3504,6 @@ impl Browser {
             OperationDestination::Trash => trash_destination_texts(),
             OperationDestination::PermanentDeletion => {
                 let text = crate::i18n::tr("Permanent deletion");
-                (text.clone(), text)
-            }
-            OperationDestination::DeletionWithoutTrash => {
-                let text = crate::i18n::tr("Deletion without Trash");
                 (text.clone(), text)
             }
         };

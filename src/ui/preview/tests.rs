@@ -166,32 +166,3 @@ fn model_progress_and_theme_reloads_follow_the_current_request_in_each_drawer() 
         },
     );
 }
-
-struct EmptySource;
-
-impl crate::services::FileSource for EmptySource {
-    fn validate_location(
-        &self,
-        _location: &Location,
-    ) -> Result<(), crate::services::LocationValidationError> {
-        Ok(())
-    }
-
-    fn enumerate(
-        &self,
-        request: crate::services::DirectoryRequest,
-        emit: Rc<dyn Fn(crate::services::DirectoryEvent)>,
-    ) -> LoadHandle {
-        emit(crate::services::DirectoryEvent::Finished {
-            request_id: request.id,
-            truncated: false,
-            can_trash: None,
-            can_delete: None,
-        });
-        LoadHandle::new(|| {})
-    }
-}
-
-
-
-

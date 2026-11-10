@@ -35,6 +35,7 @@ pub struct EntryInsertion {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 pub struct EntrySplice {
     pub position: usize,
     pub removed: usize,
@@ -51,6 +52,7 @@ pub struct ColumnEntryCounts {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 enum LocationSet {
     Explicit(HashSet<Location>),
     All {
@@ -285,6 +287,7 @@ pub struct NavigationState {
 
 /// A walked range over one pane in displayed order. The fill is recomputed from
 /// `base` on every cursor move, so contracting the range restores what it covered.
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 pub struct VisualRange {
     depth: usize,
     directory: Location,
@@ -296,6 +299,7 @@ pub struct VisualRange {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 pub enum VisualKind {
     Select,
     Unset,

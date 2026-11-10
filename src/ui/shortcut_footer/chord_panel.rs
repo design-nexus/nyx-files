@@ -83,28 +83,6 @@ impl ChordPanel {
         }
     }
 
-    #[cfg(test)]
-    pub(super) fn shown_options(&self) -> Option<Vec<(String, String)>> {
-        let popover = self.popover.upgrade()?;
-        let options = self.options.upgrade()?;
-        if !popover.is_visible() {
-            return None;
-        }
-        let mut rows = Vec::new();
-        let mut child = options.first_child();
-        while let Some(key) = child {
-            let action = key.next_sibling()?;
-            let text = |widget: &gtk::Widget| {
-                widget
-                    .downcast_ref::<gtk::Label>()
-                    .map(|label| label.text().to_string())
-                    .unwrap_or_default()
-            };
-            rows.push((text(&key), text(&action)));
-            child = action.next_sibling();
-        }
-        Some(rows)
-    }
 }
 
 fn fill(grid: &gtk::Grid, options: &[(String, String)]) {

@@ -9,10 +9,15 @@ mod names;
 #[cfg(test)]
 mod tests;
 
-use std::{cell::RefCell, collections::HashSet, path::Path, rc::Rc, time::Duration};
+use std::time::Duration;
+#[cfg(test)]
+use std::{cell::RefCell, collections::HashSet, path::Path, rc::Rc};
 
-use gtk::{gio, glib, prelude::*};
+use gtk::{gio, prelude::*};
+#[cfg(test)]
+use gtk::glib;
 
+#[cfg(test)]
 use super::gio_file_for_location;
 use crate::{
     model::Location,
@@ -25,7 +30,7 @@ pub(crate) use mount_capabilities::{
     MountCapabilities, MountKey, XattrNamespace, learn_mount_capability, mount_capabilities,
     teach_mount_capability,
 };
-pub(crate) use mount_snapshot::{RemovableRoot, invalidate_mount_snapshot, with_mount_snapshot};
+pub(crate) use mount_snapshot::{RemovableRoot, with_mount_snapshot};
 #[cfg(test)]
 pub(crate) use mounts::FAT32_MAX_FILE_SIZE;
 #[cfg(test)]
@@ -128,7 +133,7 @@ impl DropVolumeLookup {
 
 #[cfg(test)]
 pub(crate) enum DropVolumes {
-    Ready(DropVolumeLookup),
+    #[expect(dead_code, reason = "held so the lookup keeps running")]
     Pending(PendingVolumeLookup),
 }
 
@@ -137,7 +142,6 @@ impl DropVolumes {
     #[cfg(test)]
     pub(crate) fn relation(&self) -> VolumeRelation {
         match self {
-            Self::Ready(lookup) => lookup.relation,
             Self::Pending(_) => VolumeRelation::Unknown,
         }
     }

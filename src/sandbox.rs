@@ -848,10 +848,12 @@ pub(crate) fn sandbox_tool(name: &str) -> Option<PathBuf> {
 fn runtime_command(bwrap: &Path, needs_media_libraries: bool) -> Command {
     let runtime = runtime::current();
     let mut command = Command::new(bwrap);
-    if let Ok(executable) = std::env::current_exe() {
-        if let Some(directory) = executable.parent() {
-            let helper = directory.join("nyx-files-rar");
-            if helper.is_file() { command.arg("--ro-bind").arg(helper).arg("/app/nyx-files-rar"); }
+    if let Ok(executable) = std::env::current_exe()
+        && let Some(directory) = executable.parent()
+    {
+        let helper = directory.join("nyx-files-rar");
+        if helper.is_file() {
+            command.arg("--ro-bind").arg(helper).arg("/app/nyx-files-rar");
         }
     }
     command.args([

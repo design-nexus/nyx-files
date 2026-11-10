@@ -2,7 +2,6 @@
 
 use crate::model::FileEntry;
 use crate::services::PathMatcher;
-use gtk::prelude::*;
 use std::cell::RefCell;
 
 thread_local! {

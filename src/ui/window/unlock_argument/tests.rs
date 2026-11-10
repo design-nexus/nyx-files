@@ -1,38 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-use std::time::{Duration, Instant};
 
 use super::*;
-use crate::adapters::{LocalFileSource, LocalOperationProvider};
-use crate::model::Location;
-use crate::ui::preferences::PreferenceManager;
-use crate::ui::window::home_directory;
 
 const HYPHENATED_UUID: &str = "6e5d75a7-e4e2-4c7d-9c1c-8e5a5e5d75a7";
 const COMPACT_UUID: &str = "6e5d75a7e4e24c7d9c1c8e5a5e5d75a7";
 
 
 
-
-fn button_with_label(widget: &gtk::Widget, label: &str) -> Option<gtk::Button> {
-    if let Ok(button) = widget.clone().downcast::<gtk::Button>()
-        && button.label().as_deref() == Some(label)
-    {
-        return Some(button);
-    }
-    let mut child = widget.first_child();
-    while let Some(widget) = child {
-        child = widget.next_sibling();
-        if let Some(button) = button_with_label(&widget, label) {
-            return Some(button);
-        }
-    }
-    None
-}
-
-fn missing_target() -> UnlockTarget {
-    UnlockTarget::parse("/dev/strata-missing-unlock-volume").expect("unix device operand")
-}
 
 fn encrypted_volume(
     unix_device: &str,

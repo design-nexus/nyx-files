@@ -622,11 +622,6 @@ impl PreviewDrawer {
         inside.then(|| Duration::from_micros(position))
     }
 
-    #[cfg(test)]
-    pub(crate) fn media_for_test(&self) -> Option<gtk::MediaStream> {
-        self.state.media.borrow().clone()
-    }
-
     pub(crate) fn follow_operations(&self, browser: &Rc<Browser>) {
         let weak_state = Rc::downgrade(&self.state);
         let weak_browser = Rc::downgrade(browser);

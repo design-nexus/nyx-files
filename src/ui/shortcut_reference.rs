@@ -35,6 +35,7 @@ pub(crate) struct ChooserScope {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 pub(crate) enum ChooserRequest {
     Files,
     Folders,

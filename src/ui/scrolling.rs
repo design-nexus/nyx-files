@@ -5,7 +5,6 @@
 
 use gtk::prelude::*;
 
-pub(super) mod popover;
 
 pub(super) fn advance(adjustment: &gtk::Adjustment, step: f64) {
     if step == 0.0 {

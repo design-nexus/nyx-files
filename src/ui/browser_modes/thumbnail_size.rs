@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-use gtk::prelude::*;
 
 use crate::ui::keys::{
             KeyPress,

@@ -98,7 +98,6 @@ pub(super) fn form_check_button(label: &str) -> gtk::CheckButton {
 pub(super) enum ModalTone {
     #[default]
     Accent,
-    Danger,
 }
 
 pub(super) const MESSAGE_DIALOG_WIDTH_CHARS: usize = 64;
@@ -262,6 +261,7 @@ pub(super) fn keep_words_whole(label: &gtk::Label) {
     label.connect_label_notify(apply_word_break_attributes);
 }
 
+#[expect(dead_code, reason = "the 2.0 interface does not read all of it")]
 pub(super) struct ModalLayout {
     pub content: gtk::Box,
     pub body: gtk::Box,
@@ -331,7 +331,6 @@ pub(super) fn modal_layout_with_tone(
     // 2.0 dialogs lead with their title; the icon stays for callers that swap it.
     let icon = match tone {
         ModalTone::Accent => crate::assets::primary_icon(icon, 18),
-        ModalTone::Danger => crate::assets::danger_icon(icon, 18),
     };
     icon.set_visible(false);
 
@@ -378,7 +377,6 @@ pub(super) fn modal_layout_with_tone(
     confirm.add_css_class("action-dialog-confirm");
     confirm.add_css_class(match tone {
         ModalTone::Accent => "suggested-action",
-        ModalTone::Danger => "destructive-action",
     });
     actions.append(&spacer);
     actions.append(&cancel);

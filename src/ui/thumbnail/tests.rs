@@ -1,18 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::*;
-use crate::{test_support::gtk_test, ui::preferences::PreferenceManager};
-
-fn texture() -> gdk::Texture {
-    gdk::MemoryTexture::new(
-        1,
-        1,
-        gdk::MemoryFormat::R8g8b8a8,
-        &glib::Bytes::from_owned(vec![120, 80, 40, 255]),
-        4,
-    )
-    .upcast()
-}
+use crate::test_support::gtk_test;
 
 
 

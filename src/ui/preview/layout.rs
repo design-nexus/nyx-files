@@ -24,10 +24,6 @@ pub(super) struct SplitSizing {
 }
 
 impl SplitSizing {
-    #[cfg(test)]
-    pub(super) fn manual_width_for_test(&self) -> Option<i32> {
-        self.manual_width.get()
-    }
 
     pub(super) fn close(&self) {
         self.resizing.set(false);
@@ -219,10 +215,10 @@ impl PreviewState {
     }
 
     fn finish_hide(&self, restore_listing_focus: bool) {
-        if self.floating.get() {
-            if let Some(window) = self.popup.borrow().clone() {
-                window.set_visible(false);
-            }
+        if self.floating.get()
+            && let Some(window) = self.popup.borrow().clone()
+        {
+            window.set_visible(false);
         }
         self.revealer.set_transition_duration(0);
         self.revealer.set_reveal_child(false);

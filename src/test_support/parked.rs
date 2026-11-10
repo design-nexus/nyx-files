@@ -39,10 +39,6 @@ impl Parked {
         state(&self.0).reached
     }
 
-    pub(crate) fn reached_on_ui_thread(&self) -> Option<bool> {
-        state(&self.0).on_ui_thread
-    }
-
     pub(crate) fn release(&self) {
         state(&self.0).released = true;
         self.0.1.notify_all();

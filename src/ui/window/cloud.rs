@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 //! Cloud accounts use the existing local navigation/operation stack through FUSE.
-use super::*;
 
 
 /// Cloud mounts each account as an rclone FUSE folder directly in the home directory.

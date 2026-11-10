@@ -3,14 +3,18 @@
 //! Names the user types for an item, refused before anything changes where
 //! the location would store another name.
 
+#[cfg(test)]
 use std::path::Path;
 
 use gtk::gio;
 
 use super::{
-    fs_ops::{Entry, fs},
     mount_profile::folder_name_rules,
     names::fix::{Refusal, refusal},
+};
+#[cfg(test)]
+use super::{
+    fs_ops::{Entry, fs},
     native_fs::open_local_parent_directory,
     placement,
 };

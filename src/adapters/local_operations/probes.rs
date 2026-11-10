@@ -4,29 +4,37 @@
 mod tests;
 
 use std::{
-    collections::{BTreeMap, HashSet},
-    ffi::OsString,
     io,
-    ops::ControlFlow,
-    os::fd::OwnedFd,
     path::{Path, PathBuf},
     sync::Arc,
 };
+#[cfg(test)]
+use std::{
+    collections::{BTreeMap, HashSet},
+    ffi::OsString,
+    ops::ControlFlow,
+    os::fd::OwnedFd,
+};
 
+#[cfg(test)]
 use gtk::{gio, glib, prelude::*};
 use rustix::{
     fs::{Access, FileType, Mode, OFlags},
     io::Errno,
 };
 
-use super::fs_ops::{Entry, folder_stamp, fs, list_folder};
+use super::fs_ops::{folder_stamp, fs};
+#[cfg(test)]
+use super::fs_ops::{Entry, list_folder};
 use crate::{
-    adapters::volume::{
-        mount_lanes::{self, Class, Progress, Unanswered},
-        mount_watch,
-    },
+    adapters::volume::mount_lanes::{self, Progress, Unanswered},
+    services::{LocationValidationError, io_error_detail},
+};
+#[cfg(test)]
+use crate::{
+    adapters::volume::{mount_lanes::Class, mount_watch},
     model::Location,
-    services::{LocationValidationError, file_activity, io_error_detail},
+    services::file_activity,
 };
 
 #[cfg(test)]

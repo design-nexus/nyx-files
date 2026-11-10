@@ -3,6 +3,7 @@
 use gtk::{glib, prelude::*};
 
 
+#[expect(dead_code, reason = "the 2.0 interface does not read all of it")]
 struct Target {
     id: &'static str,
     page: &'static str,

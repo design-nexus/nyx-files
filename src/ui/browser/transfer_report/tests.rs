@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-use std::{collections::HashMap, rc::Rc};
 
-use gtk::prelude::*;
 
 use super::*;
-use crate::app::BrowserEvent;
-use crate::services::{OperationEvent, OperationRequestId, PasteItem, TransferConflict};
-use crate::test_support::operations::HeldOperations;
 
 fn renamed(count: usize) -> TransferReport {
     TransferReport {

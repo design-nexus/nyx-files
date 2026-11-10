@@ -87,6 +87,7 @@ pub struct ActionLoadFailure {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 pub struct MatchedAction {
     pub action: Rc<ActionHandle>,
     pub placement: MenuPlacement,

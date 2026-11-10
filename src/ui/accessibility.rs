@@ -6,13 +6,7 @@ use std::cell::RefCell;
 
 use gtk::{glib, prelude::*};
 
-use crate::model::{EntryKind, FileEntry};
 
-use super::{
-    browser_modes::BrowserMode,
-    keys::{Keys, bindings},
-    shortcut_reference::with_keys,
-};
 
 pub(super) fn set_label(widget: &impl IsA<gtk::Accessible>, label: &str) {
     widget.update_property(&[gtk::accessible::Property::Label(label)]);

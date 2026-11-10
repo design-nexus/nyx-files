@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 use crate::adapters::directory_summary::DirectorySummary;
-use gtk::prelude::*;
 
 pub(crate) mod media;
 

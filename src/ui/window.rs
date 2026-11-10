@@ -32,14 +32,13 @@ pub use unlock_argument::{UnlockTarget};
 /// optical discs); plain unmount covers mounts without ejectable media.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum MediaRelease {
-    EjectVolume,
     EjectMount,
     UnmountMount,
 }
 
 fn media_release_error_title(action: MediaRelease) -> &'static str {
     match action {
-        MediaRelease::EjectVolume | MediaRelease::EjectMount => "Unable to eject device",
+        MediaRelease::EjectMount => "Unable to eject device",
         MediaRelease::UnmountMount => "Unable to unmount device",
     }
 }

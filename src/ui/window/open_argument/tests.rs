@@ -1,62 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    time::{Duration, Instant},
-};
 
 use super::*;
-use crate::adapters::{LocalFileSource, LocalOperationProvider};
-use crate::ui::preferences::PreferenceManager;
 
 
 
 
-
-fn has_spinner(widget: &gtk::Widget) -> bool {
-    if widget.is::<gtk::Spinner>() {
-        return true;
-    }
-    let mut child = widget.first_child();
-    while let Some(widget) = child {
-        child = widget.next_sibling();
-        if has_spinner(&widget) {
-            return true;
-        }
-    }
-    false
-}
-
-fn button_with_label(widget: &gtk::Widget, label: &str) -> Option<gtk::Button> {
-    if let Ok(button) = widget.clone().downcast::<gtk::Button>()
-        && button.label().as_deref() == Some(label)
-    {
-        return Some(button);
-    }
-    let mut child = widget.first_child();
-    while let Some(widget) = child {
-        child = widget.next_sibling();
-        if let Some(button) = button_with_label(&widget, label) {
-            return Some(button);
-        }
-    }
-    None
-}
-
-fn first_label(widget: &gtk::Widget) -> Option<gtk::Label> {
-    if let Ok(label) = widget.clone().downcast::<gtk::Label>() {
-        return Some(label);
-    }
-    let mut child = widget.first_child();
-    while let Some(widget) = child {
-        child = widget.next_sibling();
-        if let Some(label) = first_label(&widget) {
-            return Some(label);
-        }
-    }
-    None
-}
 
 #[test]
 fn query_kind_classifies_a_directory() {

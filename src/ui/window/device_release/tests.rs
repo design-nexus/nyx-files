@@ -21,8 +21,8 @@ use crate::{
 };
 
 use super::{
-    DeviceIds, ReleaseKey, ReleaseKind, ReleasePhase, begin_pending,
-    clear_release_dismissed, complete_release_success, enter_releasing, is_pending,
+    ReleaseKey, ReleaseKind, ReleasePhase, begin_pending,
+    clear_release_dismissed, complete_release_success, enter_releasing,
     location_at_flush_for_test, note_unmount_progress, present_release_overlay, release_body_text, release_error_count, release_is_dismissed,
     release_is_pending, release_overlay_presented, release_phase, release_shows_spinner,
     reset_releases, settle_pending_attempt, start_release, syncs_before_flush_for_test,
@@ -411,7 +411,7 @@ fn start_release_flushes_on_a_worker_and_a_flush_error_skips_gio() {
             assert_eq!(calls.get(), 0);
             let texts = label_texts(overlay.upcast_ref());
             assert!(
-                texts.iter().any(|text| text == "No such file or folder"),
+                texts.iter().any(|text| text.ends_with(": No such file or folder")),
                 "open failure must be the localized io error, got {texts:?}"
             );
             assert!(texts.iter().all(|text| !text.contains("os error")));
@@ -453,7 +453,7 @@ fn start_release_flushes_on_a_worker_and_a_flush_error_skips_gio() {
             assert_eq!(calls.get(), 0);
             let texts = label_texts(overlay.upcast_ref());
             assert!(
-                texts.iter().any(|text| text == "Not a folder"),
+                texts.iter().any(|text| text.ends_with(": Not a folder")),
                 "a file mount root must fail in open, got {texts:?}"
             );
             assert!(texts.iter().all(|text| !text.contains("Could not flush")));

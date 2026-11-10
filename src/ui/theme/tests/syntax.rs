@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 use super::*;
-use sourceview5::prelude::*;
 
 #[test]
 fn suite_syntax_palettes_load_in_gtksourceview() {

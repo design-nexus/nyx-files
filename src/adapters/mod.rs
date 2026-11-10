@@ -30,12 +30,7 @@ pub(crate) use local_operations::{
     list_archive_entries_direct,
 };
 #[cfg(test)]
-pub(crate) use local_operations::{
-    MAYBE_BAD_PASSWORD, PASSWORD_REQUIRED, transfer_targets, typed_name_refusal,
-    typed_rename_is_taken,
-};
-#[cfg(test)]
-pub(crate) use volume::invalidate_mount_snapshot;
+pub(crate) use local_operations::PASSWORD_REQUIRED;
 #[cfg(test)]
 pub(crate) use local_operations::{
     ArchiveListing, ArchiveListingStatus, decode_archive_listing, write_compression_fixture,
@@ -49,10 +44,6 @@ pub(crate) use local_operations::{
     sync_probe_len, sync_probe_observations,
 };
 pub use local_preview::LocalPreviewProvider;
-#[cfg(test)]
-pub(crate) use volume::set_mountinfo_for_isolated_test;
-#[cfg(test)]
-pub(crate) use volume::{DropVolumeQuery, lookup_drop_volumes};
 pub(crate) use volume::{
     MountTable, RemovableRoot, mount_can_unplug,
     mount_is_removable, volume_can_unplug, with_mount_snapshot,

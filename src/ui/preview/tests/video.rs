@@ -27,16 +27,6 @@ pub(super) fn ready(provider: &Provider, index: usize, content_type: &str) {
     }));
 }
 
-pub(super) fn failed(provider: &Provider, index: usize, message: &str) {
-    let pending = provider.0.borrow();
-    let pending = &pending[index];
-    (pending.emit)(PreviewEvent::Failed {
-        request_id: pending.request.id,
-        entry: pending.request.entry.clone(),
-        message: message.into(),
-    });
-}
-
 
 #[test]
 fn media_families_split_audio_and_video_and_skip_gifs() {

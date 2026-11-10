@@ -3,10 +3,13 @@
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
 use gio::prelude::*;
 
+#[cfg(test)]
 use std::{collections::HashSet, path::Path};
 
+#[cfg(test)]
 use crate::model::Location;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

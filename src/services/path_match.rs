@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+#[cfg(test)]
+use std::ops::Range;
 use std::{
     collections::HashMap,
-    ops::Range,
     path::{Path, PathBuf},
 };
 

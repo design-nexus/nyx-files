@@ -319,9 +319,8 @@ impl Window {
         });
         let keys = gtk::EventControllerKey::new();
         let weak = Rc::downgrade(self);
-        keys.connect_key_pressed(move |_, key, _, modifiers| {
-            if key == gdk::Key::Down
-                && modifiers.is_empty()
+        crate::ui::keys::on_press(&keys, move |_, press| {
+            if press.is(bindings::DOWN)
                 && let Some(tab) = weak.upgrade().and_then(|w| w.current())
             {
                 tab.focus_results();

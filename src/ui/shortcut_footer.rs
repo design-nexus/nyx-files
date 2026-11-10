@@ -2,14 +2,12 @@
 
 use std::{
     cell::{Cell, RefCell},
-    path::PathBuf,
     rc::Rc,
     time::Duration,
 };
 
 use gtk::{gdk, glib, prelude::*};
 
-pub(in crate::ui) use candidates::CandidateKeys;
 use candidates::Candidates;
 use chord_panel::ChordPanel;
 
@@ -24,7 +22,7 @@ use super::keys::{
 use super::{
     browser_modes::BrowserMode,
     keys::{self, Keys, bindings},
-    shortcut_reference::{ChooserScope, ReferenceScope, Shortcut, with_keys},
+    shortcut_reference::{ReferenceScope, Shortcut, with_keys},
     tenxer_mode::{Chord, Prompt},
 };
 
@@ -58,7 +56,6 @@ pub(crate) struct ShortcutFooter {
     visual: gtk::Label,
     filter: gtk::Label,
     current: CurrentHit,
-    filter_retry: Rc<Cell<bool>>,
     observed: Rc<RefCell<std::rc::Weak<crate::app::Browser>>>,
     reference_scope: Rc<Cell<ReferenceScope>>,
 }
@@ -814,7 +811,6 @@ impl ShortcutFooter {
             visual,
             filter,
             current,
-            filter_retry: Rc::new(Cell::new(false)),
             observed: Rc::new(RefCell::new(std::rc::Weak::new())),
             reference_scope,
         };
@@ -984,11 +980,6 @@ impl ShortcutFooter {
         }
     }
 
-    #[cfg(test)]
-    pub(in crate::ui) fn tag_visible(&self) -> bool {
-        self.tag.is_visible()
-    }
-
     pub fn set_mode(&self, mode: BrowserMode) {
         let scope = self.reference_scope.get();
         self.set_reference_scope(ReferenceScope { mode, ..scope });
@@ -1035,16 +1026,6 @@ impl ShortcutFooter {
         self.feedback.set_visible(false);
     }
 
-    #[cfg(test)]
-    pub(in crate::ui) fn feedback_text(&self) -> String {
-        self.feedback.text().to_string()
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn dismiss_feedback(&self) {
-        self.clear_feedback();
-    }
-
     pub(crate) fn open_prompt(&self, kind: Prompt) -> bool {
         self.open_prompt_with(kind, "")
     }
@@ -1077,50 +1058,6 @@ impl ShortcutFooter {
         });
     }
 
-    #[cfg(test)]
-    pub(in crate::ui) fn prompt_hint(&self) -> Option<String> {
-        self.prompt
-            .hint
-            .is_visible()
-            .then(|| self.prompt.hint.text().to_string())
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn filter_mark(&self) -> Option<String> {
-        self.filter
-            .is_visible()
-            .then(|| self.filter.text().to_string())
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn current_hit(&self) -> Option<(String, String)> {
-        let current = &self.current;
-        current.root.is_visible().then(|| {
-            let folder = if current.folder.is_visible() {
-                current.folder.text().to_string()
-            } else {
-                String::new()
-            };
-            (
-                format!("{folder}{}", current.name.text()),
-                format!("{folder}{}", current.name.text()),
-            )
-        })
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn count_text(&self) -> (String, String) {
-        (
-            self.count.text().to_string(),
-            self.count.tooltip_text().unwrap_or_default().to_string(),
-        )
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn prompt(&self) -> &gtk::Entry {
-        &self.prompt.entry
-    }
-
     pub(crate) fn open_prompt_kind(&self) -> Option<Prompt> {
         self.prompt.kind.get()
     }
@@ -1129,38 +1066,12 @@ impl ShortcutFooter {
         self.prompt.entry.text().to_string()
     }
 
-    #[cfg(test)]
-    pub(in crate::ui) fn prompt_label(&self) -> Option<String> {
-        (self.root.visible_child().as_ref() == Some(self.prompt.bar.upcast_ref()))
-            .then(|| self.prompt.label.text().to_string())
-    }
-
     pub(crate) fn dismiss_prompt(&self) {
         self.prompt.close();
     }
 
     pub(crate) fn connect_prompt_activated(&self, listener: impl Fn() + 'static) {
         self.prompt.entry.connect_activate(move |_| listener());
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn candidates(&self) -> Vec<PathBuf> {
-        self.prompt.candidates.paths()
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn candidate_keys(&self) -> String {
-        self.prompt.candidates.keys_text()
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn candidates_shown(&self) -> bool {
-        self.prompt.candidates.is_shown()
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn click_candidate(&self, index: usize) {
-        self.prompt.candidates.activate(index);
     }
 
     pub(crate) fn arm_chord(&self, chord: Chord) {
@@ -1183,16 +1094,6 @@ impl ShortcutFooter {
 
     pub(crate) fn cancel_chord(&self) {
         self.chords.clear();
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn chord(&self) -> gtk::Label {
-        self.chords.mark.upgrade().expect("chord mark")
-    }
-
-    #[cfg(test)]
-    pub(in crate::ui) fn chord_options(&self) -> Option<Vec<(String, String)>> {
-        self.chords.panel.shown_options()
     }
 
     pub(crate) fn prompt_has_focus(&self) -> bool {
@@ -1704,15 +1605,6 @@ fn update_visual_mode(label: &gtk::Label, visual: Option<crate::app::VisualKind>
         super::accessibility::set_label(label, &name);
     }
     label.set_visible(!text.is_empty());
-}
-
-#[cfg(test)]
-impl ShortcutFooter {
-    pub(in crate::ui) fn visual_text(&self) -> Option<String> {
-        self.visual
-            .is_visible()
-            .then(|| self.visual.text().to_string())
-    }
 }
 
 fn update_item_count(label: &gtk::Label, browser: &Rc<crate::app::Browser>) {

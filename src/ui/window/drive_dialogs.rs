@@ -2,24 +2,10 @@
 
 //! Storage properties, Files-only display labels, and removable-only formatting.
 
-use std::{cell::Cell, future::Future, path::PathBuf, rc::Rc};
 
-use gtk::{gio, glib, prelude::*};
+use gtk::{gio, prelude::*};
 
-use crate::{
-    assets,
-    services::package_manager::PackageManager,
-    ui::{
-        controls::{
-            ModalLayout, ModalTone, form_check_button, keep_words_whole, modal_layout, },
-        
-        modal::{
-            ModalHost, close_on_escape, dismiss_modal_layer, modal_layer, remember_modal_focus,
-        },
-    },
-};
 
-use super::drive_ops::{self, FilesystemType};
 
 mod format_progress;
 

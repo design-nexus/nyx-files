@@ -150,10 +150,11 @@ mod work_queue;
 pub(crate) use archive::ArchiveListing;
 pub(crate) use archive::{
     ARCHIVE_PREVIEW_FAILED_MESSAGE, ARCHIVE_TOO_LARGE_MESSAGE, ARCHIVE_UNSUPPORTED_MESSAGE,
-    ArchiveListingStatus, INVALID_ARCHIVE, MAX_ARCHIVE_PASSWORD_BYTES, MAYBE_BAD_PASSWORD,
-    PASSWORD_REQUIRED, archive_payload_valid, decode_archive_listing, encode_archive_result,
-    list_archive_entries_direct,
+    ArchiveListingStatus, INVALID_ARCHIVE, MAX_ARCHIVE_PASSWORD_BYTES, archive_payload_valid,
+    decode_archive_listing, encode_archive_result, list_archive_entries_direct,
 };
+#[cfg(test)]
+pub(crate) use archive::PASSWORD_REQUIRED;
 
 #[cfg(test)]
 pub(crate) use archive::write_compression_fixture;
@@ -163,11 +164,6 @@ pub(in crate::adapters) use fs_ops::{
 };
 #[cfg(test)]
 pub(crate) use tests::fs_quirks::{Births, FsQuirks, Op as FsOp, Quirks, evict};
-#[cfg(test)]
-pub(crate) use transfer_targets::transfer_targets;
-pub(crate) use typed_names::refused_in as typed_name_refusal;
-#[cfg(test)]
-pub(crate) use typed_names::rename_taken as typed_rename_is_taken;
 
 use std::{
     cell::{Cell, RefCell},

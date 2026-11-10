@@ -71,11 +71,15 @@ pub use operations::{
     NameMode, OperationEvent, OperationProvider, OperationRequestId, PasswordFailure, PasteItem,
     PasteRequest, PlacedSnapshot, RecoverRequest, RenameCause, RenameRecord, RenameRequest,
     RenamedItem, ReplacedOriginal, RestoreRequest, RestoreSource, RestoreTrashItem,
-    ReviewedLeftover, ShownName, SkippedItem, SpecialKind, TransferConflict, TransferReport,
+    ReviewedLeftover, SkippedItem, SpecialKind, TransferConflict, TransferReport,
     UndoCopyRequest, UndoMergeRequest, UndoMoveItem, UndoMoveRequest, UndoRenameRequest,
     validate_basename,
 };
-pub(crate) use path_match::{PathMatcher, PathQuery};
+pub(crate) use path_match::PathMatcher;
+#[cfg(test)]
+pub(crate) use search::fold_for_search;
+#[cfg(test)]
+pub use operations::ShownName;
 pub use preview::{
     ArchiveDirectory, ArchiveFileEntry, ArchiveNode, ArchivePreviewTree, MediaPreviewSize,
     ModelPreviewStage, PdfTextLayer, Preview, PreviewContent, PreviewEvent, PreviewProvider,
@@ -93,8 +97,7 @@ pub(crate) use transfer_action::{
 };
 #[cfg(test)]
 pub(crate) use transfer_action::{
-    DropActionInput, DropCommit, DropOverride, TransferKind, drop_commit,
-    transferable_drop_sources,
+    DropActionInput, DropCommit, DropOverride, drop_commit,
 };
 pub(crate) use release_channel::{BuildKind, Version};
 pub(crate) use remote_download::{
@@ -106,6 +109,6 @@ pub(crate) use search::{
 };
 pub(crate) use search::{
     RefusedFolders, SearchCoverage, SearchEvent, SearchExclusions, SearchHandle, SearchItem,
-    SearchLimits, filter_name_matches, fold_for_search, index_filter,
+    SearchLimits, index_filter,
     index_folder_paths, index_paths, index_trees_with_exclusions,
 };

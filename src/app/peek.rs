@@ -7,6 +7,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
+#[cfg_attr(not(test), expect(dead_code, reason = "some of it is used only by tests"))]
 pub struct PeekState {
     pub origin_depth: usize,
     pub location: Location,

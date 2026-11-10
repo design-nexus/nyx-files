@@ -163,28 +163,6 @@ impl Candidates {
     }
 
 
-    #[cfg(test)]
-    pub(super) fn paths(&self) -> Vec<PathBuf> {
-        self.paths.borrow().clone()
-    }
-
-    #[cfg(test)]
-    pub(super) fn keys_text(&self) -> String {
-        self.keys.text().to_string()
-    }
-
-    #[cfg(test)]
-    pub(super) fn is_shown(&self) -> bool {
-        self.popover.is_visible()
-    }
-
-    #[cfg(test)]
-    pub(super) fn activate(&self, index: usize) {
-        if let Some(row) = self.list.row_at_index(index as i32) {
-            row.activate();
-        }
-    }
-
     fn choose(&self, index: usize) {
         self.chosen.set(index);
         let Some(row) = self.list.row_at_index(index as i32) else {

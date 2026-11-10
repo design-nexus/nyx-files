@@ -187,12 +187,14 @@ fn relative_luminance(color: &gtk::gdk::RGBA) -> f64 {
 }
 
 #[derive(Clone)]
+#[expect(dead_code, reason = "the 2.0 interface does not read all of it")]
 pub(crate) struct DragSnapshot {
     pub locations: Rc<[Location]>,
     /// Locations with display names, present only when every entry is a directory.
     pub folders: Option<Rc<[(Location, String)]>>,
 }
 
+#[expect(dead_code, reason = "the 2.0 interface does not read all of it")]
 struct ActiveDrag {
     content: glib::WeakRef<gtk::gdk::ContentProvider>,
     snapshot: DragSnapshot,
@@ -247,6 +249,7 @@ pub(in crate::ui) fn file_drag_content(entries: &[FileEntry]) -> Option<gtk::gdk
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[expect(dead_code, reason = "the 2.0 interface does not read all of it")]
 pub(crate) enum ClipboardMark {
     #[default]
     None,

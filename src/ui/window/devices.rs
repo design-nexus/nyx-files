@@ -4,8 +4,10 @@ use std::{
     cell::{Cell, OnceCell, RefCell},
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
-    rc::{Rc, Weak},
+    rc::Weak,
 };
+#[cfg(test)]
+use std::rc::Rc;
 
 use gtk::{gio, prelude::*};
 
@@ -182,7 +184,6 @@ struct RemovableCache {
     generation: Cell<u64>,
     refresh_queued: Cell<bool>,
     watchers: RefCell<Vec<Watcher>>,
-    next_watcher: Cell<u64>,
     monitor: OnceCell<gio::VolumeMonitor>,
     #[cfg(test)]
     offered_for_test: RefCell<Option<Vec<RemovableDestination>>>,

@@ -459,12 +459,6 @@ impl PreferenceManager {
         });
     }
 
-    #[cfg(test)]
-    pub(crate) fn notice_saves_elsewhere(&self) {
-        self.merge_folder_views_saved_elsewhere();
-        self.adopt_defaults_saved_elsewhere();
-    }
-
     fn adopt_folder_views(&self, saved: FolderViews) {
         let Some(store) = self.folder_views.get() else {
             return;

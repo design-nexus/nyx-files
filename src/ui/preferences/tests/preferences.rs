@@ -3,27 +3,24 @@
 use std::{
     cell::RefCell,
     collections::{BTreeSet, HashMap},
-    path::{Path, PathBuf},
+    path::Path,
     rc::Rc,
     time::Duration,
 };
 
-use sourceview5::prelude::BufferExt as _;
 
 use super::super::*;
 use crate::{
     model::{
-        EntryKind, FileEntry, FolderSort, Location, MetadataValue, SortDirection, SortKey,
-        ViewPreferences,
+        EntryKind, FileEntry, Location, MetadataValue, SortDirection, SortKey,
     },
     services::SearchLimits,
     test_support::gtk_test,
     ui::{
-        browser_modes::{BrowserDensity, BrowserMode, ClickCount, DensityScale, FrameDensity},
+        browser_modes::{BrowserDensity, BrowserMode, DensityScale, FrameDensity},
         preferences::fixtures::{
             non_default_preferences, seed_saved_preferences_for_test,
         },
-        theme::ThemeManager,
     },
 };
 
@@ -296,68 +293,12 @@ fn symlinked_settings_save_through_to_the_target() {
     );
 }
 
-#[derive(Debug)]
-struct SaveNoticeText {
-    title: String,
-    summary: String,
-    detail: String,
-}
-
 fn wait_for(condition: impl Fn() -> bool, what: &str) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while !condition() {
         assert!(std::time::Instant::now() < deadline, "waiting for {what}");
         glib::MainContext::default().iteration(false);
     }
-}
-
-fn save_notices(window: &gtk::Window) -> Vec<SaveNoticeText> {
-    while glib::MainContext::default().iteration(false) {}
-    fn descendants(widget: &gtk::Widget, found: &mut Vec<gtk::Widget>) {
-        found.push(widget.clone());
-        let mut child = widget.first_child();
-        while let Some(current) = child {
-            descendants(&current, found);
-            child = current.next_sibling();
-        }
-    }
-    let mut widgets = Vec::new();
-    descendants(window.upcast_ref(), &mut widgets);
-    widgets
-        .iter()
-        .filter(|widget| widget.has_css_class("app-modal-layer"))
-        .map(|layer| {
-            let mut inner = Vec::new();
-            descendants(layer, &mut inner);
-            let text = |class: &str| {
-                inner
-                    .iter()
-                    .find(|widget| widget.has_css_class(class))
-                    .and_then(|widget| {
-                        widget
-                            .downcast_ref::<gtk::Label>()
-                            .map(|label| label.text())
-                    })
-                    .map(|text| text.split_whitespace().collect::<Vec<_>>().join(" "))
-                    .unwrap_or_default()
-            };
-            SaveNoticeText {
-                title: text("action-dialog-title"),
-                summary: text("action-dialog-subtitle"),
-                detail: text("action-dialog-description"),
-            }
-        })
-        .collect()
-}
-
-fn assert_notice(notice: &SaveNoticeText, title: &str, detail_start: &str) {
-    let compact = |text: &str| text.split_whitespace().collect::<String>();
-    assert_eq!(notice.title, title);
-    assert_eq!(notice.summary, "Changes last only until Files closes");
-    assert!(
-        compact(&notice.detail).starts_with(&compact(detail_start)),
-        "{notice:?}"
-    );
 }
 
 #[test]
@@ -595,31 +536,6 @@ fn saved_date_format_renders_before_settings_and_updates_bound_labels() {
             }
         },
     );
-}
-
-#[derive(Clone, Copy)]
-enum ItemStep {
-    Relocate {
-        from: &'static str,
-        to: Option<&'static str>,
-        merged: bool,
-    },
-    Forget {
-        root: &'static str,
-        trashed: Option<TrashMount>,
-    },
-    Restore(&'static str),
-    RestoreRenumbered(&'static str),
-    /// Puts a different folder at `path`, keeping the original alive elsewhere.
-    ReplaceOnDisk(&'static str),
-}
-
-#[derive(Clone, Copy)]
-enum TrashMount {
-    KeepsNumbers,
-    RenewsNumbers,
-    RenewsNumbersWithoutBirths,
-    RenewsNumbersInOneBirthTick,
 }
 
 #[test]
