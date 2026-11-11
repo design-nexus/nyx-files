@@ -47,10 +47,10 @@ pub fn description(app_id: &str) -> Value {
         "tools": [
             {"name": "files.list", "description": "What a folder in the home folder holds: folders first, then files, with sizes and dates.",
              "inputSchema": {"type": "object", "properties": {"path": path, "hidden": {"type": "boolean"}}, "additionalProperties": false},
-             "annotations": {"title": "List a folder"}, "x-nyx": {"risk": "read_only", "positional": ["path"], "aliases": ["ls", "browse"], "result": "list"}},
+             "annotations": {"title": "List a folder"}, "x-nyx": {"icon": "folder-symbolic", "risk": "read_only", "positional": ["path"], "aliases": ["ls", "browse"], "result": "list"}},
             {"name": "files.locations", "description": "The usual places: home, desktop, documents, downloads, music, pictures and videos.",
              "inputSchema": {"type": "object", "properties": {}, "additionalProperties": false},
-             "annotations": {"title": "Places"}, "x-nyx": {"risk": "read_only", "aliases": ["places"], "result": "list"}},
+             "annotations": {"title": "Places"}, "x-nyx": {"icon": "user-home-symbolic", "risk": "read_only", "aliases": ["places"], "result": "list"}},
             {"name": "files.search", "description": "Find files and folders by name under a folder in the home folder (the home folder by default).",
              "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "minLength": 1}, "path": path}, "required": ["query"], "additionalProperties": false},
              "annotations": {"title": "Search files"}, "x-nyx": {"risk": "read_only", "positional": ["query"], "aliases": ["find"], "result": "list"}},
