@@ -24,23 +24,36 @@ use super::window::Window;
 
 const UNLOCK_WAIT: Duration = Duration::from_secs(8);
 
-/// A new window: the last session's tabs when the setting keeps them.
+/// A new window: the last session's tabs when "Restore open tabs" is on and
+/// there were several, else its active folder when the suite's "Open on"
+/// reopens the last page, else the start folder.
 pub(super) fn present(application: &gtk::Application) -> Rc<Window> {
     let first = super::window::focused().is_none();
-    let session = (first && PreferenceManager::shared().restore_tabs())
+    let session = (first && keeps_session())
         .then(crate::ui::tabs_session::load_restorable)
         .flatten()
         .filter(|s| !s.tabs.is_empty());
     let Some(session) = session else {
         return Window::open(application, None);
     };
-    let mut tabs = session.tabs.into_iter();
-    let window = Window::open(application, tabs.next());
-    for location in tabs {
-        window.open_tab(location);
+    if session.tabs.len() > 1 && PreferenceManager::shared().restore_tabs() {
+        let mut tabs = session.tabs.into_iter();
+        let window = Window::open(application, tabs.next());
+        for location in tabs {
+            window.open_tab(location);
+        }
+        window.select_tab(session.active);
+        return window;
     }
-    window.select_tab(session.active);
-    window
+    let last = nyx_theme::reopens_last_page()
+        .then(|| session.tabs.into_iter().nth(session.active))
+        .flatten();
+    Window::open(application, last)
+}
+
+/// Whether a later launch can use the saved tabs.
+fn keeps_session() -> bool {
+    PreferenceManager::shared().restore_tabs() || nyx_theme::reopens_last_page()
 }
 
 /// A file or folder from the command line or a launcher: folders open, and a
@@ -160,9 +173,9 @@ fn toast(window: &Window, text: &str) {
     nyx_ui::toast::show(&window.overlay, &crate::i18n::tr(text));
 }
 
-/// Keeps the tabs for next time, when the setting asks for it.
+/// Keeps the tabs for next time, when a setting asks for them.
 pub(super) fn persist_session(tabs: &[Location], active: usize) {
-    if !PreferenceManager::shared().restore_tabs() {
+    if !keeps_session() {
         crate::ui::tabs_session::remove();
         return;
     }

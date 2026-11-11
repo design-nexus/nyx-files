@@ -799,7 +799,7 @@
   "Render documents by default": "預設轉譯文件",
   "Rendered view is unavailable because the document exceeds the 1 MB preview limit.": "因文件超過 1 MB 預覽限制，無法使用轉譯檢視。",
   "Rendering pages…": "正在轉譯頁面…",
-  "Reopen your tabs from the last session when launching Files without a target.": "在未指定目標時啟動 Files，重新開啟上次工作階段的分頁。",
+  "Reopen your tabs from the last session when more than one was open.": "若上次工作階段開啟了多個分頁，則重新開啟這些分頁。",
   "Replace file": "取代檔案",
   "Replace script": "取代指令稿",
   "Report an issue": "回報問題",

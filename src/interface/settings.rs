@@ -322,7 +322,7 @@ fn general(group: &Group) {
     switch(
         &list,
         "Restore open tabs",
-        "Reopen your tabs from the last session when launching Files without a target.",
+        "Reopen your tabs from the last session when more than one was open.",
         PreferenceManager::restore_tabs,
         PreferenceManager::set_restore_tabs,
     );

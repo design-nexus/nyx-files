@@ -818,7 +818,7 @@
   "Render documents by default": "Renderizar documentos por padrão",
   "Rendered view is unavailable because the document exceeds the 1 MB preview limit.": "A visualização renderizada não está disponível porque o documento excede o limite de prévia de 1 MB.",
   "Rendering pages…": "Renderizando páginas…",
-  "Reopen your tabs from the last session when launching Files without a target.": "Reabrir as abas da última sessão ao iniciar o Files sem um destino.",
+  "Reopen your tabs from the last session when more than one was open.": "Reabrir as abas da última sessão quando havia mais de uma aberta.",
   "Replace file": "Substituir o arquivo",
   "Replace script": "Substituir script",
   "Report an issue": "Relatar um problema",

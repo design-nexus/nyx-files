@@ -818,7 +818,7 @@
   "Render documents by default": "默认渲染文档",
   "Rendered view is unavailable because the document exceeds the 1 MB preview limit.": "文档超出 1 MB 预览上限，无法使用渲染视图。",
   "Rendering pages…": "正在渲染页面…",
-  "Reopen your tabs from the last session when launching Files without a target.": "未指定打开位置时，启动 Files 会重新打开上次会话的标签页。",
+  "Reopen your tabs from the last session when more than one was open.": "如果上次会话打开了多个标签页，则重新打开它们。",
   "Replace file": "替换文件",
   "Replace script": "替换脚本",
   "Report an issue": "报告问题",

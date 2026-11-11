@@ -818,7 +818,7 @@
   "Render documents by default": "Dokumente standardmäßig darstellen",
   "Rendered view is unavailable because the document exceeds the 1 MB preview limit.": "Die gerenderte Ansicht ist nicht verfügbar, weil das Dokument das Vorschaulimit von 1 MB überschreitet.",
   "Rendering pages…": "Seiten werden dargestellt…",
-  "Reopen your tabs from the last session when launching Files without a target.": "Tabs der letzten Sitzung wieder öffnen, wenn Files ohne Ziel gestartet wird.",
+  "Reopen your tabs from the last session when more than one was open.": "Tabs der letzten Sitzung wieder öffnen, wenn mehr als einer geöffnet war.",
   "Replace file": "Datei ersetzen",
   "Replace script": "Skript ersetzen",
   "Report an issue": "Problem melden",

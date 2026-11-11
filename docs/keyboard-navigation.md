@@ -37,7 +37,9 @@ Each tab retains its location, selection, navigation history, preview and search
 state. Tab locations persist across restarts: a plain launch (no folder
 argument, reveal request, or unlock target) reopens the previous tabs in order
 with the previously active tab selected, when **Settings → General → Startup →
-Restore open tabs** is on (the default). Credential-bearing URIs and transient
+Restore open tabs** is on (the default) and more than one tab was open. A single
+tab reopens only when **Appearance → Open on** is the last page used; otherwise
+Files opens the default directory. Credential-bearing URIs and transient
 locations such as trashed-item children, non-root Recent entries, and camera
 roots are skipped; with nothing restorable the window opens at the default
 directory as before. Every saved folder gets its tab at once and is checked off

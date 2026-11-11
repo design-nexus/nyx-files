@@ -818,7 +818,7 @@
   "Render documents by default": "Kết xuất tài liệu theo mặc định",
   "Rendered view is unavailable because the document exceeds the 1 MB preview limit.": "Không có chế độ xem đã kết xuất vì tài liệu vượt quá giới hạn xem trước 1 MB.",
   "Rendering pages…": "Đang kết xuất trang…",
-  "Reopen your tabs from the last session when launching Files without a target.": "Mở lại các thẻ từ phiên trước khi khởi chạy Files mà không có đích.",
+  "Reopen your tabs from the last session when more than one was open.": "Mở lại các thẻ từ phiên trước khi có nhiều hơn một thẻ đang mở.",
   "Replace file": "Thay thế tệp",
   "Replace script": "Thay thế tập lệnh",
   "Report an issue": "Báo cáo sự cố",

@@ -818,7 +818,7 @@
   "Render documents by default": "Render documents by default",
   "Rendered view is unavailable because the document exceeds the 1 MB preview limit.": "Rendered view is unavailable because the document exceeds the 1 MB preview limit.",
   "Rendering pages…": "Rendering pages…",
-  "Reopen your tabs from the last session when launching Files without a target.": "Reopen your tabs from the last session when launching Files without a target.",
+  "Reopen your tabs from the last session when more than one was open.": "Reopen your tabs from the last session when more than one was open.",
   "Replace file": "Replace file",
   "Replace script": "Replace script",
   "Report an issue": "Report an issue",
