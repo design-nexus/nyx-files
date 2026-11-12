@@ -162,19 +162,15 @@ impl Window {
         let pages = gtk::Stack::new();
         pages.set_hexpand(true);
         pages.add_css_class("files-pages");
-        let body = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        body.append(&sidebar.root);
-        body.append(&pages);
-        body.set_vexpand(true);
-        let frame = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        frame.add_css_class("window-frame");
-        frame.append(&header.root);
-        frame.append(&tab_row.root);
-        frame.append(&body);
-        let overlay = gtk::Overlay::new();
+        // The tabs sit at the top of the page, inside the sheet.
+        let page = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        page.append(&tab_row.root);
+        page.append(&pages);
+        let frame = nyx_ui::frame::AppFrame::new(&header.root);
+        frame.set_sidebar(&sidebar.root);
+        frame.set_page(&page);
+        let overlay = frame.install(&window);
         let progress = super::operations::Progress::new(&overlay);
-        overlay.set_child(Some(&frame));
-        window.set_child(Some(&overlay));
 
         let this = Rc::new(Window {
             window,
