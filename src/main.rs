@@ -12,6 +12,7 @@ mod app;
 mod assets;
 mod build_info;
 mod control;
+mod desktop_settings;
 mod i18n;
 mod interface;
 mod launch_environment;
@@ -96,7 +97,8 @@ fn has_desktop_theme_override() -> bool {
 /// D-Bus starts Files with this argument when xdg-desktop-portal calls
 /// `FileManager1.ShowItems`, and the portal waits for that reply. GTK's startup
 /// portal queries would wait on the same portal, so both stall until D-Bus
-/// times out; this instance starts GTK with portals off.
+/// times out; this instance starts GTK with portals off, and `desktop_settings`
+/// gives GTK the desktop settings the portal would have.
 const GAPPLICATION_SERVICE: &str = "--gapplication-service";
 const GDK_DEBUG: &str = "GDK_DEBUG";
 const GDK_NO_PORTALS: &str = "no-portals";
@@ -109,11 +111,7 @@ fn gdk_debug_without_portals(
         return None;
     }
     let current = current.unwrap_or_default();
-    if current
-        .to_string_lossy()
-        .split([',', ':', ' '])
-        .any(|flag| flag == GDK_NO_PORTALS)
-    {
+    if desktop_settings::turns_portals_off(current) {
         return None;
     }
     let mut value = current.to_os_string();
@@ -320,6 +318,7 @@ fn main() -> gtk::glib::ExitCode {
         Some("DEVICE"),
     );
     application.connect_handle_local_options(|_, _| ControlFlow::Continue(()));
+    application.connect_startup(|_| desktop_settings::follow_when_portals_are_off());
     application.connect_startup(move |_| {
         VOLUME_MONITOR.with(|monitor| {
             monitor.get_or_init(gio::VolumeMonitor::get);
