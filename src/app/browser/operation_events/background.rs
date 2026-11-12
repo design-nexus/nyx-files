@@ -77,7 +77,32 @@ impl Browser {
         !self.background_operations.borrow().is_empty()
     }
 
-    #[cfg(test)]
+    /// The operation a `BrowserEvent` being observed belongs to: the one
+    /// reporting, or else the one in front, which a started event has just begun.
+    pub(crate) fn observed_operation(&self) -> Option<OperationRequestId> {
+        self.reporting_operation
+            .get()
+            .or(self.current_operation.get())
+    }
+
+    /// Whether `request_id` still runs, in front or in the background.
+    pub(crate) fn runs_operation(&self, request_id: OperationRequestId) -> bool {
+        self.is_current_operation(request_id)
+            || self
+                .background_operations
+                .borrow()
+                .contains_key(&request_id)
+    }
+
+    /// The first item and the destination of the operation in front, as
+    /// "photo.jpg" and "→ ~/Pictures"; empty when it has none.
+    pub(crate) fn operation_texts(&self) -> (String, String) {
+        (
+            self.operation_description.borrow().clone(),
+            self.operation_destination_label.borrow().clone(),
+        )
+    }
+
     pub(crate) fn cancel_operation(&self, request_id: OperationRequestId) {
         let job = self
             .background_operations

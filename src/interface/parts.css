@@ -1027,7 +1027,7 @@ entry.form-control.shortcut-footer-prompt:focus-within {
   color: @files_accent;
   background-color: alpha(@files_accent, 0.14);
   border: 1px solid alpha(@files_accent, 0.4);
-  border-radius: 999px;
+  border-radius: var(--nyx-radius-small);
   margin: 0;
   padding: 0 8px;
   font-weight: bold;

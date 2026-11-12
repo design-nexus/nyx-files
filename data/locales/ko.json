@@ -1601,6 +1601,7 @@
   "Remember": "기억",
   "Run in background": "백그라운드에서 실행",
   "Running in the background": "백그라운드에서 실행 중",
+  "Stopped before it finished": "완료 전에 중지됨",
   "Saved as action.toml under ~/.config/nyx-files/actions/<id>": "~/.config/nyx-files/actions/<id> 아래에 action.toml로 저장됩니다",
   "Saved password forgotten": "저장된 비밀번호를 삭제했습니다",
   "Smaller": "작게",

@@ -1601,6 +1601,7 @@
   "Remember": "記憶する",
   "Run in background": "バックグラウンドで実行",
   "Running in the background": "バックグラウンドで実行中",
+  "Stopped before it finished": "完了前に停止しました",
   "Saved as action.toml under ~/.config/nyx-files/actions/<id>": "~/.config/nyx-files/actions/<id> に action.toml として保存されます",
   "Saved password forgotten": "保存したパスワードを削除しました",
   "Smaller": "小さく",

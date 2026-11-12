@@ -1601,6 +1601,7 @@
   "Remember": "Lembrar",
   "Run in background": "Executar em segundo plano",
   "Running in the background": "Executando em segundo plano",
+  "Stopped before it finished": "Interrompido antes de terminar",
   "Saved as action.toml under ~/.config/nyx-files/actions/<id>": "Salvo como action.toml em ~/.config/nyx-files/actions/<id>",
   "Saved password forgotten": "Senha salva esquecida",
   "Smaller": "Menor",

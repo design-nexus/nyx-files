@@ -1601,6 +1601,7 @@
   "Remember": "Запомнить",
   "Run in background": "Выполнять в фоне",
   "Running in the background": "Выполняется в фоне",
+  "Stopped before it finished": "Остановлено до завершения",
   "Saved as action.toml under ~/.config/nyx-files/actions/<id>": "Сохраняется как action.toml в ~/.config/nyx-files/actions/<id>",
   "Saved password forgotten": "Сохранённый пароль забыт",
   "Smaller": "Мельче",

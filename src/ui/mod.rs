@@ -16,6 +16,7 @@ mod desktop_integration;
 mod document_media;
 mod document_view;
 pub(crate) mod file_icons;
+pub(crate) mod file_operations;
 pub(crate) mod file_providers;
 mod focus_navigation;
 pub(crate) mod frame;

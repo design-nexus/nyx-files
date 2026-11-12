@@ -923,6 +923,7 @@ impl Window {
                 w.show_menu(&t, entry, widget, x, y);
             }
         });
+        crate::ui::file_operations::follow(&tab.browser);
         let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
         tab.connect_events(move |event| {
             let (weak, weak_tab, event) = (weak.clone(), weak_tab.clone(), event.clone());

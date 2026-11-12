@@ -203,23 +203,30 @@ impl Browser {
             if event_id != context.request_id {
                 return;
             }
-            browser.track_location_changes(&context.location_changes, &event);
-            let background = browser
-                .background_operations
-                .borrow()
-                .get(&event_id)
-                .cloned();
-            if let Some(job) = background {
-                browser.handle_background_operation(&context, event, job);
-                return;
-            }
-            if !browser.is_current_operation(event_id) {
-                return;
-            }
-            if !browser.publish_operation_progress(&event) {
-                browser.finish_operation(&context, event);
-            }
+            let reporting = browser.reporting_operation.replace(Some(event_id));
+            browser.dispatch_operation_event(&context, event_id, event);
+            browser.reporting_operation.set(reporting);
         })
+    }
+
+    fn dispatch_operation_event(
+        self: &Rc<Self>,
+        context: &OperationContext,
+        event_id: OperationRequestId,
+        event: OperationEvent,
+    ) {
+        self.track_location_changes(&context.location_changes, &event);
+        let background = self.background_operations.borrow().get(&event_id).cloned();
+        if let Some(job) = background {
+            self.handle_background_operation(context, event, job);
+            return;
+        }
+        if !self.is_current_operation(event_id) {
+            return;
+        }
+        if !self.publish_operation_progress(&event) {
+            self.finish_operation(context, event);
+        }
     }
 
     fn track_location_changes(&self, changes: &LocationChanges, event: &OperationEvent) {

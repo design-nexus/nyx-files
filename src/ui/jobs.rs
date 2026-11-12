@@ -11,7 +11,11 @@ use gtk::{gio, glib, prelude::*};
 
 use crate::services::{JobId, JobService, JobSnapshot, JobStatus, ListenerGuard};
 
-use super::{actions::action_icon, modal::close_on_escape};
+use super::{
+    actions::action_icon,
+    file_operations::{self, FileOperationId, FileOperationSnapshot, FileOperationStatus},
+    modal::close_on_escape,
+};
 
 #[cfg(test)]
 mod tests;
@@ -49,8 +53,23 @@ thread_local! {
 }
 
 pub(crate) fn present_for(anchor: &impl IsA<gtk::Widget>, id: JobId) {
-    let parameter = id.0.to_variant();
-    if anchor.activate_action("jobs.show", Some(&parameter)).is_ok() {
+    present(anchor, id.0);
+}
+
+/// Opens the dashboard without featuring a job, as for file operations.
+pub(crate) fn present_all(anchor: &impl IsA<gtk::Widget>) {
+    present(anchor, NO_JOB);
+}
+
+/// Job ids start at 1.
+const NO_JOB: u64 = 0;
+
+fn present(anchor: &impl IsA<gtk::Widget>, id: u64) {
+    let parameter = id.to_variant();
+    if anchor
+        .activate_action("jobs.show", Some(&parameter))
+        .is_ok()
+    {
         return;
     }
     let window = anchor.as_ref().root();
@@ -67,11 +86,13 @@ pub(crate) fn present_for(anchor: &impl IsA<gtk::Widget>, id: JobId) {
     }
 }
 
-/// Keeps the last window open while background jobs run.
+/// Keeps the last window open while background jobs or file operations run.
 pub(crate) fn guard_close(window: &impl IsA<gtk::Window>) {
     let service = shared();
+    let files = file_operations::shared();
     crate::ui::close_guard::install(window, move |closing_application| {
-        (closing_application && service.running_count() + service.queued_count() > 0).then(|| {
+        let running = service.running_count() + service.queued_count() + files.running_count();
+        (closing_application && running > 0).then(|| {
             crate::ui::close_guard::CloseBlocker {
                 title: crate::i18n::tr("Background jobs are still active"),
                 detail: crate::i18n::tr("Wait for Jobs to finish, or cancel them in the Jobs dashboard before closing the last window. Cancellation does not undo file changes."),
@@ -238,10 +259,15 @@ impl JobsIndicator {
         header.append(&clear);
         header.append(&minimize);
         body.append(&header);
+        let file_list = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        file_list.add_css_class("jobs-list");
         let list = gtk::Box::new(gtk::Orientation::Vertical, 0);
         list.add_css_class("jobs-list");
+        let lists = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        lists.append(&file_list);
+        lists.append(&list);
         let scroll = gtk::ScrolledWindow::builder()
-            .child(&list)
+            .child(&lists)
             .hscrollbar_policy(gtk::PolicyType::Never)
             .vscrollbar_policy(gtk::PolicyType::Automatic)
             .propagate_natural_height(true)
@@ -256,6 +282,8 @@ impl JobsIndicator {
         let refresh_holder: RefreshHolder = Rc::new(RefCell::new(None));
         let weak_holder = Rc::downgrade(&refresh_holder);
         let weak_list = list.downgrade();
+        let weak_file_list = file_list.downgrade();
+        let file_rows: FileRows = Rc::default();
         let weak_clear = clear.downgrade();
         let weak_running = running.downgrade();
         let weak_finished = finished.downgrade();
@@ -274,15 +302,21 @@ impl JobsIndicator {
             let Some(callback) = holder.borrow().clone() else {
                 return;
             };
-            let (Some(list), Some(clear)) = (weak_list.upgrade(), weak_clear.upgrade()) else {
+            let (Some(list), Some(file_list), Some(clear)) = (
+                weak_list.upgrade(),
+                weak_file_list.upgrade(),
+                weak_clear.upgrade(),
+            ) else {
                 return;
             };
+            let files = file_operations::shared();
+            render_file_rows(&file_list, &file_rows, &files.snapshot());
             if let (Some(running), Some(finished)) =
                 (weak_running.upgrade(), weak_finished.upgrade())
             {
-                let active = refresh_state.service.running_count();
+                let active = refresh_state.service.running_count() + files.running_count();
                 let queued = refresh_state.service.queued_count();
-                let history = refresh_state.service.finished_count();
+                let history = refresh_state.service.finished_count() + files.finished_count();
                 running.set_text(&dashboard_activity_label(active, queued));
                 running.set_visible(active + queued > 0);
                 finished.set_text(&format!(
@@ -325,7 +359,8 @@ impl JobsIndicator {
         let clear_service = state.service.clone();
         let clear_refresh = refresh.clone();
         clear.connect_clicked(move |_| {
-            if clear_service.clear_finished() {
+            let jobs = clear_service.clear_finished();
+            if file_operations::shared().clear_finished() || jobs {
                 clear_refresh();
             }
         });
@@ -430,7 +465,7 @@ impl JobsIndicator {
                 }
             }
             if let Some(clear) = weak_clear.upgrade() {
-                clear.set_visible(service.finished_count() > 0);
+                clear.set_visible(finished_count(&service) > 0);
             }
             if let Some(root) = weak_root.upgrade()
                 && root.popover().is_some_and(|popover| popover.is_visible())
@@ -443,11 +478,16 @@ impl JobsIndicator {
         let guard: ObserverHolder = Rc::new(RefCell::new(None));
         guard
             .borrow_mut()
-            .replace(self.state.service.observe(callback));
+            .replace(self.state.service.observe(callback.clone()));
+        let file_guard: ObserverHolder = Rc::new(RefCell::new(None));
+        file_guard
+            .borrow_mut()
+            .replace(file_operations::shared().observe(callback));
         // Window composition retains only the widget, not this builder.
         let refresh_holder = self.refresh_holder.clone();
         self.root.connect_destroy(move |_| {
             guard.borrow_mut().take();
+            file_guard.borrow_mut().take();
             refresh_holder.borrow_mut().take();
         });
     }
@@ -457,8 +497,13 @@ impl JobsIndicator {
         self.label.set_text(&text);
         self.root.set_visible(!text.is_empty());
         self.clear
-            .set_visible(self.state.service.finished_count() > 0);
+            .set_visible(finished_count(&self.state.service) > 0);
     }
+}
+
+/// Finished jobs and file operations, which Clear finished removes together.
+fn finished_count(service: &JobService) -> usize {
+    service.finished_count() + file_operations::shared().finished_count()
 }
 
 fn render_rows(
@@ -517,8 +562,8 @@ fn render_rows(
         list.reorder_child_after(widget, previous);
         previous = Some(widget);
     }
-    clear.set_visible(state.service.finished_count() > 0);
-    if snapshots.is_empty() {
+    clear.set_visible(finished_count(&state.service) > 0);
+    if snapshots.is_empty() && file_operations::shared().snapshot().is_empty() {
         let empty = gtk::Label::new(Some(&crate::i18n::tr("No background jobs.")));
         empty.add_css_class("jobs-empty");
         empty.set_xalign(0.0);
@@ -534,6 +579,172 @@ fn render_rows(
         more.set_xalign(0.0);
         list.append(&more);
     }
+}
+
+type FileRows = Rc<RefCell<HashMap<FileOperationId, FileRow>>>;
+
+/// A copy, move, deletion, restore or archive in the dashboard.
+struct FileRow {
+    root: gtk::Box,
+    status: FileOperationStatus,
+    status_label: gtk::Label,
+    detail: gtk::Label,
+    progress: Option<gtk::ProgressBar>,
+}
+
+impl FileRow {
+    fn new(snapshot: &FileOperationSnapshot) -> Self {
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 14);
+        row.add_css_class("job-row");
+        row.add_css_class(match snapshot.status {
+            FileOperationStatus::Succeeded => "job-succeeded",
+            FileOperationStatus::Failed => "job-failed",
+            FileOperationStatus::Cancelled => "job-cancelled",
+            FileOperationStatus::Running | FileOperationStatus::Cancelling => "job-active",
+        });
+        let bezel = icon_bezel(snapshot.kind.icon());
+        bezel.set_valign(gtk::Align::Start);
+        row.append(&bezel);
+        let content = gtk::Box::new(gtk::Orientation::Vertical, 7);
+        content.set_hexpand(true);
+        row.append(&content);
+        let header = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        header.set_valign(gtk::Align::Center);
+        let name = gtk::Label::builder()
+            .label(snapshot.title.clone())
+            .xalign(0.0)
+            .ellipsize(gtk::pango::EllipsizeMode::End)
+            .max_width_chars(28)
+            .valign(gtk::Align::Center)
+            .build();
+        name.add_css_class("job-name");
+        header.append(&name);
+        let status_label = gtk::Label::new(None);
+        status_label.add_css_class("job-status");
+        status_label.set_valign(gtk::Align::Center);
+        header.append(&status_label);
+        let icon = match snapshot.status {
+            FileOperationStatus::Succeeded => Some(crate::assets::icons::CHECK),
+            FileOperationStatus::Failed | FileOperationStatus::Cancelled => {
+                Some(crate::assets::icons::X)
+            }
+            FileOperationStatus::Running | FileOperationStatus::Cancelling => None,
+        };
+        if let Some(icon) = icon {
+            let icon = crate::assets::primary_icon(icon, 14);
+            icon.set_valign(gtk::Align::Center);
+            header.append(&icon);
+        }
+        let space = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        space.set_hexpand(true);
+        header.append(&space);
+        let id = snapshot.id;
+        match snapshot.status {
+            FileOperationStatus::Running => {
+                let cancel = job_button("Cancel", crate::assets::icons::X);
+                cancel.connect_clicked(move |_| file_operations::shared().cancel(id));
+                header.append(&cancel);
+            }
+            FileOperationStatus::Cancelling => {}
+            _ => {
+                let dismiss = job_button("Dismiss", crate::assets::icons::X);
+                dismiss.connect_clicked(move |_| file_operations::shared().dismiss(id));
+                header.append(&dismiss);
+            }
+        }
+        content.append(&header);
+        let meta = |text: &str| {
+            let label = gtk::Label::builder()
+                .label(text)
+                .xalign(0.0)
+                .ellipsize(gtk::pango::EllipsizeMode::Middle)
+                .max_width_chars(52)
+                .build();
+            label.add_css_class("job-meta");
+            label
+        };
+        if !snapshot.subject.is_empty() {
+            content.append(&meta(&snapshot.subject));
+        }
+        let detail = meta("");
+        content.append(&detail);
+        let progress = snapshot.status.is_active().then(|| {
+            let progress = gtk::ProgressBar::new();
+            progress.add_css_class("job-progress");
+            content.append(&progress);
+            progress
+        });
+        let row = Self {
+            root: row,
+            status: snapshot.status,
+            status_label,
+            detail,
+            progress,
+        };
+        row.update(snapshot);
+        row
+    }
+
+    fn update(&self, snapshot: &FileOperationSnapshot) {
+        let elapsed = format_elapsed(snapshot.elapsed);
+        self.status_label.set_text(&match snapshot.status {
+            FileOperationStatus::Running => {
+                rust_i18n::t!("Running for %{elapsed}", elapsed = elapsed).into_owned()
+            }
+            FileOperationStatus::Cancelling => crate::i18n::tr("Cancelling…"),
+            FileOperationStatus::Succeeded => {
+                rust_i18n::t!("Done in %{elapsed}", elapsed = elapsed).into_owned()
+            }
+            FileOperationStatus::Failed => {
+                rust_i18n::t!("Failed after %{elapsed}", elapsed = elapsed).into_owned()
+            }
+            FileOperationStatus::Cancelled => {
+                rust_i18n::t!("Cancelled after %{elapsed}", elapsed = elapsed).into_owned()
+            }
+        });
+        self.detail.set_text(&snapshot.detail);
+        self.detail.set_visible(!snapshot.detail.is_empty());
+        if let Some(progress) = &self.progress {
+            progress.set_fraction(snapshot.fraction);
+        }
+    }
+}
+
+fn render_file_rows(list: &gtk::Box, rows: &FileRows, snapshots: &[FileOperationSnapshot]) {
+    let shown = &snapshots[..snapshots.len().min(MAX_ROWS)];
+    let mut rows = rows.borrow_mut();
+    rows.retain(|id, row| {
+        shown
+            .iter()
+            .any(|snapshot| snapshot.id == *id && snapshot.status == row.status)
+    });
+    let mut widgets = Vec::new();
+    for snapshot in shown {
+        let row = rows
+            .entry(snapshot.id)
+            .or_insert_with(|| FileRow::new(snapshot));
+        row.update(snapshot);
+        widgets.push(row.root.clone());
+    }
+    let mut child = list.first_child();
+    while let Some(widget) = child {
+        child = widget.next_sibling();
+        if !widgets
+            .iter()
+            .any(|row| row.upcast_ref::<gtk::Widget>() == &widget)
+        {
+            list.remove(&widget);
+        }
+    }
+    let mut previous: Option<&gtk::Box> = None;
+    for widget in &widgets {
+        if widget.parent().is_none() {
+            list.append(widget);
+        }
+        list.reorder_child_after(widget, previous);
+        previous = Some(widget);
+    }
+    list.set_visible(!widgets.is_empty());
 }
 
 fn dashboard_snapshots(state: &DashboardState) -> Vec<JobSnapshot> {
@@ -773,8 +984,20 @@ fn job_button(label: &str, icon: &str) -> gtk::Button {
 }
 
 pub(crate) fn indicator_label(service: &JobService) -> String {
-    let running = service.running_count();
+    let files = file_operations::shared();
+    let running = service.running_count() + files.running_count();
     let queued = service.queued_count();
+    if running == 1
+        && queued == 0
+        && service.running_count() == 0
+        && let Some(operation) = files.snapshot().into_iter().find(|s| s.status.is_active())
+    {
+        return format!(
+            "{} · {}%",
+            crate::i18n::tr(operation.kind.verb()),
+            (operation.fraction * 100.0).floor() as u32
+        );
+    }
     let mut parts = Vec::new();
     if running > 0 {
         parts.push(crate::i18n::count("jobs_running", running));
@@ -785,12 +1008,12 @@ pub(crate) fn indicator_label(service: &JobService) -> String {
     if !parts.is_empty() {
         return parts.join(" · ");
     }
-    let finished = service.finished_count();
+    let finished = service.finished_count() + files.finished_count();
     if finished == 0 {
         return String::new();
     }
     let jobs = crate::i18n::count("jobs_finished", finished);
-    if service.has_failures() {
+    if service.has_failures() || files.has_failures() {
         rust_i18n::t!("%{jobs} · failures", jobs = jobs).into_owned()
     } else {
         jobs

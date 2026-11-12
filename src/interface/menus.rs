@@ -893,6 +893,47 @@ fn archive(
     }
 }
 
+/// New Folder, New File, Paste, Select All and Refresh, as icons at the top.
+fn folder_icons(window: &Rc<Window>, tab: &Rc<Tab>, here: &Location) -> menu::Entry {
+    let t = tab.clone();
+    let new_folder = menu::icon_button(
+        "folder-new-symbolic",
+        &crate::i18n::tr("New Folder…"),
+        move || actions::new_folder(&t),
+    )
+    .key(&keys(bindings::NEW_FOLDER));
+    let t = tab.clone();
+    let new_file = menu::icon_button(
+        "document-new-symbolic",
+        &crate::i18n::tr("New File…"),
+        move || new_file(&t),
+    );
+    let (w, t, h) = (window.clone(), tab.clone(), here.clone());
+    let paste = menu::icon_button(
+        "edit-paste-symbolic",
+        &crate::i18n::tr("Paste"),
+        move || actions::paste(&w, &t, h.clone()),
+    )
+    .key(&keys(bindings::PASTE));
+    let t = tab.clone();
+    let select_all = menu::icon_button(
+        "edit-select-all-symbolic",
+        &crate::i18n::tr("Select All"),
+        move || {
+            t.active_model().selection.select_all();
+        },
+    )
+    .key(&keys(bindings::SELECT_ALL));
+    let t = tab.clone();
+    let refresh = menu::icon_button(
+        "view-refresh-symbolic",
+        &crate::i18n::tr("Refresh"),
+        move || t.browser.reload_active(),
+    )
+    .key(&keys(bindings::REFRESH));
+    menu::icons(vec![new_folder, new_file, paste, select_all, refresh])
+}
+
 /// The menu for the folder showing (a right-click on empty space).
 pub(super) fn folder_menu(window: &Rc<Window>, tab: &Rc<Tab>) -> Vec<menu::Entry> {
     let Some(here) = tab.location() else {
@@ -910,44 +951,7 @@ pub(super) fn folder_menu(window: &Rc<Window>, tab: &Rc<Tab>) -> Vec<menu::Entry
         );
         return items;
     }
-    {
-        let t = tab.clone();
-        items.push(
-            menu::item(&crate::i18n::tr("New Folder…"), move || {
-                actions::new_folder(&t)
-            })
-            .icon("folder-new-symbolic")
-            .key(&keys(bindings::NEW_FOLDER)),
-        );
-    }
-    {
-        let t = tab.clone();
-        items.push(
-            menu::item(&crate::i18n::tr("New File…"), move || new_file(&t))
-                .icon("document-new-symbolic"),
-        );
-    }
-    {
-        let (w, t, h) = (window.clone(), tab.clone(), here.clone());
-        items.push(
-            menu::item(&crate::i18n::tr("Paste"), move || {
-                actions::paste(&w, &t, h.clone())
-            })
-            .icon("edit-paste-symbolic")
-            .key(&keys(bindings::PASTE)),
-        );
-    }
-    {
-        let t = tab.clone();
-        items.push(
-            menu::item(&crate::i18n::tr("Select All"), move || {
-                t.active_model().selection.select_all();
-            })
-            .icon("edit-select-all-symbolic")
-            .key(&keys(bindings::SELECT_ALL)),
-        );
-    }
-    items.push(menu::separator());
+    items.push(folder_icons(window, tab, &here));
     if here.native_path().is_some() {
         let (l, w) = (here.clone(), window.clone());
         items.push(
@@ -974,16 +978,6 @@ pub(super) fn folder_menu(window: &Rc<Window>, tab: &Rc<Tab>) -> Vec<menu::Entry
                 t.browser.toggle_hidden()
             })
             .key(&keys(bindings::HIDDEN_FILES)),
-        );
-    }
-    {
-        let t = tab.clone();
-        items.push(
-            menu::item(&crate::i18n::tr("Refresh"), move || {
-                t.browser.reload_active()
-            })
-            .icon("view-refresh-symbolic")
-            .key(&keys(bindings::REFRESH)),
         );
     }
     if let (Some(input), Some(path)) = (crate::ui::actions::folder_input(&here), here.native_path())

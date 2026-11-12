@@ -1176,6 +1176,8 @@ pub struct Browser {
     operation_destination_label: RefCell<String>,
     transfer_cancel_pending: Cell<bool>,
     current_operation: Cell<Option<OperationRequestId>>,
+    /// The operation whose event is being handled, while its callback runs.
+    reporting_operation: Cell<Option<OperationRequestId>>,
     last_started_operation: Cell<Option<OperationRequestId>>,
     rename_operation: Cell<Option<OperationRequestId>>,
     transfer_operation: Cell<Option<bool>>,
@@ -1262,6 +1264,7 @@ impl Browser {
             operation_destination_label: RefCell::new(String::new()),
             transfer_cancel_pending: Cell::new(false),
             current_operation: Cell::new(None),
+            reporting_operation: Cell::new(None),
             last_started_operation: Cell::new(None),
             rename_operation: Cell::new(None),
             transfer_operation: Cell::new(None),

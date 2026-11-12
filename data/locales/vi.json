@@ -1601,6 +1601,7 @@
   "Remember": "Ghi nhớ",
   "Run in background": "Chạy ở chế độ nền",
   "Running in the background": "Đang chạy ở chế độ nền",
+  "Stopped before it finished": "Đã dừng trước khi hoàn tất",
   "Saved as action.toml under ~/.config/nyx-files/actions/<id>": "Được lưu dưới dạng action.toml trong ~/.config/nyx-files/actions/<id>",
   "Saved password forgotten": "Đã quên mật khẩu đã lưu",
   "Smaller": "Nhỏ hơn",

@@ -57,7 +57,7 @@ pub use jobs::{
     InvocationSource, JobId, JobRequest, JobService, JobSnapshot, JobStatus, ScriptProgress,
     expand_command_arguments,
 };
-pub(crate) use listeners::ListenerGuard;
+pub(crate) use listeners::{ListenerGuard, Listeners};
 pub use mime_type::{EntryType, entry_type};
 pub(crate) use model_preview::ModelRender;
 pub use model_preview::{ModelEncoding, ModelFormat, ModelMesh, ModelPalette, ModelView};

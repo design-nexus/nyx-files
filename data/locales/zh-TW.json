@@ -1601,6 +1601,7 @@
   "Remember": "記住",
   "Run in background": "在背景執行",
   "Running in the background": "正在背景執行",
+  "Stopped before it finished": "在完成前已停止",
   "Saved as action.toml under ~/.config/nyx-files/actions/<id>": "儲存為 ~/.config/nyx-files/actions/<id> 下的 action.toml",
   "Saved password forgotten": "已忘記儲存的密碼",
   "Smaller": "縮小",
