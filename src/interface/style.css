@@ -237,12 +237,6 @@ window.files-window button.customize-icon {
 
 /* Preview drawer: one blended surface with the views */
 
-window.files-window paned.preview-split > separator {
-  background: @theme_bg;
-  min-width: 1px;
-  box-shadow: inset 1px 0 alpha(@theme_text, 0.05);
-}
-
 window.files-window .preview-pane {
   background: @theme_bg;
 }
@@ -525,9 +519,18 @@ window.files-window .column-count {
   margin-right: 2px;
 }
 
-/* The handle on a column's right edge that resizes it. */
+/* The handle on a column's right edge that resizes it, drawn as the line between panes
+ * (none after the last column, which the preview's line or nothing follows). */
 window.files-window .column-resize {
   background: transparent;
+  background-image: linear-gradient(@sheet_line, @sheet_line);
+  background-size: 1px 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+window.files-window .column-strip > box:last-child .column-resize {
+  background-image: none;
 }
 
 window.files-window .column-resize:hover {
