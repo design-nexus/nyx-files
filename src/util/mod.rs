@@ -161,6 +161,11 @@ pub fn modified_date_example(format: DateFormat) -> String {
     modified_date_at(&sample, &now, format)
 }
 
+/// A modification time as the file views show it, in the chosen date format.
+pub(crate) fn modified_text(seconds: i64) -> String {
+    modified_date_for_seconds(seconds, DateDisplay::Preferred)
+}
+
 fn modified_date_for_seconds(seconds: i64, display: DateDisplay) -> String {
     let format = MODIFIED_DATE_FORMAT.with(Cell::get);
     let Some(modified) = glib::DateTime::from_unix_local(seconds).ok() else {

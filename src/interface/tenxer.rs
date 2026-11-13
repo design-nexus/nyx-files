@@ -168,7 +168,7 @@ fn file_key(window: &Rc<Window>, tab: &Rc<Tab>, press: &KeyPress) -> bool {
             menus::restore(window, tab, selected);
         }
     } else if press.is_any(&[JUMP_VISITED, JUMP_RECENT]) {
-        super::search::open(window, super::search::Mode::Folders);
+        super::search::open(window);
     } else if press.is(TENXER_SIDEBAR) {
         window.focus_sidebar();
     } else if press.is(COPY_AS) {

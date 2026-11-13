@@ -13,7 +13,7 @@ use crate::ui::{
     preferences::{ListColumnId, PreferenceManager, TextSize},
 };
 
-use super::{tab::Tab, window::Window};
+use super::tab::Tab;
 
 thread_local! {
     static PROVIDER: gtk::CssProvider = gtk::CssProvider::new();
@@ -323,7 +323,7 @@ fn menu_body() -> gtk::Box {
     body
 }
 
-/// The sort menu of the header's sort button.
+/// The sort menu of the sort button over the Icons grid.
 pub(super) fn sort_menu(current: &CurrentTab) -> gtk::Box {
     let body = menu_body();
     append_sort(&body, current);
@@ -333,12 +333,6 @@ pub(super) fn sort_menu(current: &CurrentTab) -> gtk::Box {
     body
 }
 
-/// The thumbnail size of the header's Icons button.
-pub(super) fn thumbnail_menu(current: &CurrentTab) -> gtk::Box {
-    let body = menu_body();
-    append_icon_size(&body, current);
-    body
-}
 
 fn content(current: &CurrentTab) -> gtk::Box {
     let prefs = PreferenceManager::shared();
@@ -459,13 +453,8 @@ fn content(current: &CurrentTab) -> gtk::Box {
     body
 }
 
-/// The header button; the popover is built fresh each time it opens.
-pub(super) fn button(window: &Rc<Window>) -> gtk::MenuButton {
-    let weak = Rc::downgrade(window);
-    button_for(Rc::new(move || weak.upgrade().and_then(|w| w.current())))
-}
-
-/// The header button acting on whichever tab `current` gives.
+/// The header button acting on whichever tab `current` gives; the popover is
+/// built fresh each time it opens.
 pub(super) fn button_for(current: CurrentTab) -> gtk::MenuButton {
     let button = gtk::MenuButton::new();
     button.set_icon_name("preferences-desktop-appearance-symbolic");

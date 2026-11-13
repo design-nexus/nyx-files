@@ -38,6 +38,11 @@ pub(super) struct Tab {
     columns: ColumnsView,
     list: ListView,
     icons: IconsView,
+    icons_bar: super::icons::IconsBar,
+    /// Whether the folder showing, at this many items, is all photos.
+    photos: RefCell<Option<(Option<Location>, u32, bool)>>,
+    /// The Icons view, for the selection bar over it.
+    pub(super) icons_overlay: gtk::Overlay,
     pub(super) page: gtk::Stack,
     /// The views and the preview beside them.
 
@@ -137,9 +142,15 @@ impl Tab {
         let list = ListView::new(&model);
         list.view.set_enable_rubberband(true);
         let icons = IconsView::new(&model);
+        let icons_bar = super::icons::IconsBar::new();
+        let icons_column = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        icons_column.append(&icons_bar.root);
+        icons_column.append(&icons.root);
+        let icons_overlay = gtk::Overlay::new();
+        icons_overlay.set_child(Some(&icons_column));
         let page = gtk::Stack::new();
         page.add_named(&list.root, Some("list"));
-        page.add_named(&icons.root, Some("icons"));
+        page.add_named(&icons_overlay, Some("icons"));
         page.add_named(&columns.root, Some("columns"));
         let status = gtk::Label::new(None);
         status.add_css_class("dim-label");
@@ -200,6 +211,9 @@ impl Tab {
             columns,
             list,
             icons,
+            icons_bar,
+            photos: RefCell::default(),
+            icons_overlay,
             page,
             container,
             footer,
@@ -232,6 +246,7 @@ impl Tab {
             peek: Default::default(),
         });
         super::peek::install(&tab);
+        tab.icons_bar.wire(Rc::downgrade(&tab));
         tab.single_clicks(&tab.model.clone(), None);
         tab.bind_preferences();
         let weak = Rc::downgrade(&tab);
@@ -679,6 +694,7 @@ impl Tab {
         self.switch_mode(mode);
         self.refresh();
         self.show_page();
+        self.sync_icons_bar();
     }
 
     fn switch_mode(&self, mode: BrowserMode) {
@@ -915,6 +931,49 @@ impl Tab {
         };
         prefs.set_folder_icons_size(location.as_ref(), size);
         self.icons.set_size(size);
+        self.sync_icons_bar();
+    }
+
+    /// The bar over the Icons grid: the folder, how many items (or photos), the size and sort.
+    pub(super) fn sync_icons_bar(&self) {
+        if self.mode.get() != BrowserMode::Icons {
+            return;
+        }
+        let len = self.model.len();
+        let location = self.location();
+        let known = self
+            .photos
+            .borrow()
+            .as_ref()
+            .filter(|(l, n, _)| *l == location && *n == len)
+            .map(|(_, _, photos)| *photos);
+        let photos = known.unwrap_or_else(|| {
+            let photos = len > 0
+                && (0..len).all(|i| {
+                    self.model.entry(i).is_some_and(|e| {
+                        !e.is_directory()
+                            && gtk::gio::content_type_guess(Some(&e.native_name), None::<&[u8]>)
+                                .0
+                                .starts_with("image/")
+                    })
+                });
+            self.photos.replace(Some((location, len, photos)));
+            photos
+        });
+        let count = crate::i18n::count_u64(if photos { "photos" } else { "items" }, u64::from(len));
+        let sort = self
+            .depth()
+            .and_then(|d| self.browser.column_preferences(d))
+            .map_or("Name", |p| match p.sort_key {
+                crate::model::SortKey::Modified => "Modified",
+                crate::model::SortKey::Size => "Size",
+                crate::model::SortKey::Type => "Kind",
+                crate::model::SortKey::DeviceOrder => "Device order",
+                crate::model::SortKey::Recency => "Recently used",
+                crate::model::SortKey::Name => "Name",
+            });
+        self.icons_bar
+            .sync(&self.title(), &count, self.icons.size(), &crate::i18n::tr(sort));
     }
 
     pub(super) fn toggle_preview(&self) {
@@ -932,6 +991,7 @@ impl Tab {
     pub(super) fn set_icons_size(&self, size: i32) {
         PreferenceManager::shared().set_folder_icons_size(self.location().as_ref(), size);
         self.icons.set_size(size);
+        self.sync_icons_bar();
     }
 
     fn apply_grouping(&self) {
@@ -1377,6 +1437,7 @@ impl Tab {
                 f();
             }
         }
+        self.sync_icons_bar();
     }
 
     pub(super) fn open(&self, entry: &FileEntry) {

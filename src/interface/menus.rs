@@ -275,10 +275,16 @@ pub(super) fn transfer_to(
 
 /// Send to: removable drives (their root, a recent folder there, or one chosen).
 fn send_to(window: &Rc<Window>, tab: &Rc<Tab>, entries: &[FileEntry]) -> Option<menu::Entry> {
-    let destinations = crate::ui::window::devices::removable_destinations();
-    if destinations.is_empty() {
+    let items = send_to_items(window, tab, entries);
+    if items.is_empty() {
         return None;
     }
+    Some(menu::sub(&crate::i18n::tr("Send to…"), items).icon("document-send-symbolic"))
+}
+
+/// The drives and their recent folders Send to offers.
+pub(super) fn send_to_items(window: &Rc<Window>, tab: &Rc<Tab>, entries: &[FileEntry]) -> Vec<menu::Entry> {
+    let destinations = crate::ui::window::devices::removable_destinations();
     let sources: Vec<Location> = entries.iter().map(|e| e.location.clone()).collect();
     let mut items = Vec::new();
     for destination in destinations {
@@ -309,7 +315,7 @@ fn send_to(window: &Rc<Window>, tab: &Rc<Tab>, entries: &[FileEntry]) -> Option<
             );
         }
     }
-    Some(menu::sub(&crate::i18n::tr("Send to…"), items).icon("document-send-symbolic"))
+    items
 }
 
 /// Extracts `entry` into a folder chosen in a dialog.
@@ -968,6 +974,15 @@ pub(super) fn folder_menu(window: &Rc<Window>, tab: &Rc<Tab>) -> Vec<menu::Entry
                 w.open_window(l.clone())
             })
             .icon("window-new-symbolic"),
+        );
+    }
+    {
+        let text = here
+            .native_path()
+            .map_or_else(|| here.display_path(), |p| p.display().to_string());
+        items.push(
+            menu::item(&crate::i18n::tr("Copy path"), move || copy_text(&text))
+                .icon("edit-copy-symbolic"),
         );
     }
     let shown = tab.shows_hidden();

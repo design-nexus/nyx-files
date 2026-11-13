@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-//! The sidebar's content: Places, Pinned folders, Cloud Storage and Devices,
-//! rebuilt when pins, drives, cloud accounts or the shown places change.
+//! The sidebar's content: Overview, Recent and Pinned, then Folders, then
+//! Storage (drives, cloud accounts, Network and Trash), rebuilt when pins,
+//! drives, cloud accounts or the shown places change.
 
 use std::{
     cell::{Cell, RefCell},
@@ -30,12 +31,18 @@ pub(super) enum Target {
 type OpenFn = Rc<dyn Fn(Location)>;
 type MenuFn = Rc<dyn Fn(Target, &gtk::Widget, f64, f64)>;
 type DropFn = Rc<dyn Fn(Location, Vec<Location>, gtk::gdk::DragAction)>;
+/// Shows the Overview; `true` scrolls to its pinned folders. The file chooser
+/// has none and lists its pins in the sidebar instead.
+type OverviewFn = Option<Rc<dyn Fn(bool)>>;
 
 pub(super) struct SidebarContent {
     pub(super) sidebar: Rc<Sidebar>,
     rows: RefCell<Vec<(Location, NavItem)>>,
     open: OpenFn,
     menu: MenuFn,
+    overview: OverviewFn,
+    overview_item: RefCell<Option<NavItem>>,
+    overview_shown: Cell<bool>,
     dropped: RefCell<Option<DropFn>>,
     current: RefCell<Option<Location>>,
     pins: RefCell<bookmarks::Pins>,
@@ -117,6 +124,7 @@ fn standard(id: &str) -> Option<(&'static str, &'static str, glib::UserDirectory
 
 thread_local! {
     static TRASH_FULL: Cell<bool> = const { Cell::new(false) };
+    static TRASH_COUNT: Cell<u32> = const { Cell::new(0) };
 }
 
 type Shown = fn(&PreferenceManager) -> bool;
@@ -218,12 +226,16 @@ impl SidebarContent {
     pub(super) fn new(
         open: impl Fn(Location) + 'static,
         menu: impl Fn(Target, &gtk::Widget, f64, f64) + 'static,
+        overview: Option<impl Fn(bool) + 'static>,
     ) -> Rc<Self> {
         let content = Rc::new(SidebarContent {
             sidebar: Sidebar::new(),
             rows: RefCell::default(),
             open: Rc::new(open),
             menu: Rc::new(menu),
+            overview: overview.map(|f| Rc::new(f) as Rc<dyn Fn(bool)>),
+            overview_item: RefCell::default(),
+            overview_shown: Cell::new(false),
             dropped: RefCell::new(None),
             current: RefCell::default(),
             pins: RefCell::new(bookmarks::current()),
@@ -318,8 +330,25 @@ impl SidebarContent {
         );
         content.pin_on_drop();
         content.watch_trash();
+        let weak = Rc::downgrade(&content);
+        content.sidebar.connect_compact(move |compact| {
+            if let Some(c) = weak.upgrade() {
+                c.show_rail_marks(compact);
+            }
+        });
         content.rebuild();
         content
+    }
+
+    /// The icon rail marks where each group starts with a short bar in its colour.
+    fn show_rail_marks(&self, compact: bool) {
+        let mut child = self.sidebar.list.first_child();
+        while let Some(widget) = child {
+            if widget.has_css_class("compact-show") {
+                widget.set_visible(compact);
+            }
+            child = widget.next_sibling();
+        }
     }
 
     fn queue_rebuild(self: &Rc<Self>) {
@@ -384,9 +413,20 @@ impl SidebarContent {
     /// Marks the row for `location` as the one showing.
     pub(super) fn mark(&self, location: Option<&Location>) {
         *self.current.borrow_mut() = location.cloned();
+        let overview = self.overview_shown.get();
         for (row_location, item) in self.rows.borrow().iter() {
-            item.set_active(Some(row_location) == location);
+            item.set_active(!overview && Some(row_location) == location);
         }
+        if let Some(item) = self.overview_item.borrow().as_ref() {
+            item.set_active(overview);
+        }
+    }
+
+    /// Marks Overview as the page showing, or the folder again.
+    pub(super) fn mark_overview(&self, shown: bool) {
+        self.overview_shown.set(shown);
+        let current = self.current.borrow().clone();
+        self.mark(current.as_ref());
     }
 
     fn add_row(
@@ -422,22 +462,97 @@ impl SidebarContent {
         let scroll = self.sidebar.scroller.vadjustment().value();
         self.sidebar.clear();
         self.rows.borrow_mut().clear();
+        self.start();
         self.places();
-        self.pinned();
-        self.cloud();
-        self.devices();
+        if self.overview.is_none() {
+            self.pinned();
+        }
+        self.storage();
         self.sidebar.refresh();
+        self.show_rail_marks(self.sidebar.is_compact());
         let current = self.current.borrow().clone();
         self.mark(current.as_ref());
         let adj = self.sidebar.scroller.vadjustment();
         glib::idle_add_local_once(move || adj.set_value(scroll));
     }
 
+    /// Overview, Recent and Pinned, above the groups.
+    fn start(&self) {
+        self.section.set("places");
+        let show = self.overview.clone();
+        if let Some(show) = &show {
+            let title = crate::i18n::tr("Overview");
+            let overview = sidebar::nav_item("go-home-symbolic", &title, &title);
+            overview.button.add_css_class("section-icon-places");
+            let show = show.clone();
+            overview.button.connect_clicked(move |_| show(false));
+            self.sidebar.append(&overview.button);
+            self.overview_item.replace(Some(overview));
+        }
+        let prefs = PreferenceManager::shared();
+        if prefs.sidebar_show_recent() && recent_available() {
+            let title = crate::i18n::tr("Recent");
+            let location = Location::uri("recent:///");
+            let item = self.add_row(
+                "document-open-recent-symbolic",
+                &title,
+                &title,
+                Some(location.clone()),
+                Target::Place("recent", location),
+            );
+            let week = std::time::Duration::from_secs(7 * 24 * 3600).as_secs() as i64;
+            let now = glib::real_time() / 1_000_000;
+            let count = super::overview::recent_files(usize::MAX)
+                .iter()
+                .filter(|(_, used)| now - used < week)
+                .count();
+            item.set_count(Some(count as u64));
+            self.sidebar.append(&item.button);
+        }
+        let Some(show) = show else { return };
+        let pins = pinned_folders().len();
+        let title = crate::i18n::tr("Pinned");
+        let item = sidebar::nav_item("starred-symbolic", &title, &crate::i18n::tr("Pinned folders, on the Overview"));
+        item.button.add_css_class("section-icon-places");
+        item.set_count(Some(pins as u64));
+        item.button.connect_clicked(move |_| show(true));
+        self.sidebar.append(&item.button);
+    }
+
+    /// The file chooser's pinned folders, as rows.
+    fn pinned(&self) {
+        let pins = pinned_folders();
+        if pins.is_empty() {
+            return;
+        }
+        self.begin_section(
+            sidebar::group_label(&crate::i18n::tr("Pinned"), false),
+            "pinned",
+        );
+        for (location, name) in pins {
+            let icon = if location.native_path().is_some() {
+                "folder-symbolic"
+            } else {
+                "folder-remote-symbolic"
+            };
+            let item = self.add_row(
+                icon,
+                &name,
+                &location.display_path(),
+                Some(location.clone()),
+                Target::Pin(location.clone()),
+            );
+            reorderable(&item.button, &location);
+            self.sidebar.append(&item.button);
+        }
+    }
+
+    /// Folders: Home and the standard folders, in the order Settings gives.
     fn places(&self) {
         let prefs = PreferenceManager::shared();
         let home = super::tab::home();
         self.begin_section(
-            sidebar::group_label(&crate::i18n::tr("Places"), true),
+            sidebar::group_label(&crate::i18n::tr("Folders"), false),
             "places",
         );
         for id in prefs.places_order() {
@@ -445,10 +560,67 @@ impl SidebarContent {
                 continue;
             };
             let id = *id;
-            if !visible(&prefs) {
+            if !visible(&prefs) || matches!(id, "recent" | "network" | "trash") {
                 continue;
             }
-            if id == "recent" && !recent_available() {
+            let Some((icon, name, location)) = place(id, &home) else {
+                continue;
+            };
+            let title = crate::i18n::tr(name);
+            let item = self.add_row(
+                icon,
+                &title,
+                &title,
+                Some(location.clone()),
+                Target::Place(id, location.clone()),
+            );
+            if id == "downloads"
+                && let Some(dir) = location.native_path().map(std::path::Path::to_path_buf)
+            {
+                let badge = item.clone();
+                glib::MainContext::default().spawn_local(async move {
+                    let new = gio::spawn_blocking(move || super::overview::new_downloads(&dir))
+                        .await
+                        .unwrap_or(0);
+                    badge.set_badge(Some(new as u64));
+                });
+            }
+            self.sidebar.append(&item.button);
+        }
+    }
+
+    /// Storage: the system disk, drives, cloud accounts, Network and Trash.
+    fn storage(self: &Rc<Self>) {
+        let prefs = PreferenceManager::shared();
+        self.begin_section(
+            sidebar::group_label(&crate::i18n::tr("Storage"), false),
+            "devices",
+        );
+        let root_listed = self
+            .monitor
+            .mounts()
+            .iter()
+            .any(|m| m.root().path().as_deref() == Some(std::path::Path::new("/")));
+        if !root_listed {
+            let title = crate::i18n::tr("System");
+            let location = Location::local("/");
+            let item = self.add_row(
+                "drive-harddisk-symbolic",
+                &title,
+                &crate::i18n::tr("The system disk"),
+                Some(location.clone()),
+                Target::Place("system", location),
+            );
+            self.sidebar.append(&item.button);
+        }
+        self.devices();
+        self.cloud();
+        let home = super::tab::home();
+        for id in ["network", "trash"] {
+            let Some((_, visible)) = PLACES.iter().find(|(place, _)| *place == id) else {
+                continue;
+            };
+            if !visible(&prefs) {
                 continue;
             }
             let Some((icon, name, location)) = place(id, &home) else {
@@ -462,6 +634,9 @@ impl SidebarContent {
                 Some(location.clone()),
                 Target::Place(id, location),
             );
+            if id == "trash" {
+                item.set_count(Some(u64::from(TRASH_COUNT.with(Cell::get))));
+            }
             self.sidebar.append(&item.button);
         }
     }
@@ -487,39 +662,6 @@ impl SidebarContent {
             .filter(|(l, _)| !is_place(l))
             .map(|(l, _)| l.clone())
             .collect()
-    }
-
-    fn pinned(&self) {
-        let pins: Vec<_> = self
-            .pins
-            .borrow()
-            .clone()
-            .into_iter()
-            .filter(|(l, _)| !is_place(l))
-            .collect();
-        if pins.is_empty() {
-            return;
-        }
-        self.begin_section(
-            sidebar::group_label(&crate::i18n::tr("Pinned"), false),
-            "pinned",
-        );
-        for (location, name) in pins {
-            let icon = if location.native_path().is_some() {
-                "folder-symbolic"
-            } else {
-                "folder-remote-symbolic"
-            };
-            let item = self.add_row(
-                icon,
-                &name,
-                &location.display_path(),
-                Some(location.clone()),
-                Target::Pin(location.clone()),
-            );
-            reorderable(&item.button, &location);
-            self.sidebar.append(&item.button);
-        }
     }
 
     /// Folders dropped on the sidebar's empty space are pinned.
@@ -564,15 +706,6 @@ impl SidebarContent {
             .filter(|m| !m.is_shadowed() && !is_cloud(Some(m.clone())))
             .filter(|m| !m.volume().is_some_and(|v| volumes.contains(&v)))
             .collect();
-        let drives =
-            crate::ui::window::orphaned_password_drives(&volumes, &self.monitor.connected_drives());
-        if volumes.is_empty() && mounts.is_empty() && drives.is_empty() {
-            return;
-        }
-        self.begin_section(
-            sidebar::group_label(&crate::i18n::tr("Devices"), false),
-            "devices",
-        );
         self.password_drives(&volumes);
         for volume in volumes {
             let mount = volume.get_mount();
@@ -658,7 +791,7 @@ impl SidebarContent {
         self.sidebar.append(&line);
     }
 
-    fn mount_volume(self: &Rc<Self>, volume: &gio::Volume, anchor: &gtk::Widget) {
+    pub(super) fn mount_volume(self: &Rc<Self>, volume: &gio::Volume, anchor: &gtk::Widget) {
         let _ = anchor;
         let operation = super::mount::operation();
         let (open, v) = (self.open.clone(), volume.clone());
@@ -717,6 +850,15 @@ pub(super) fn unpin(location: Location) {
     });
 }
 
+/// The pinned folders, in their order, leaving out Home and the standard folders.
+pub(super) fn pinned_folders() -> Vec<(Location, String)> {
+    bookmarks::current()
+        .iter()
+        .filter(|(l, _)| !is_place(l))
+        .cloned()
+        .collect()
+}
+
 pub(super) fn is_place_location(location: &Location) -> bool {
     is_place(location)
 }
@@ -728,7 +870,28 @@ pub(super) fn is_pinned(location: &Location) -> bool {
 impl SidebarContent {
     fn begin_section(&self, heading: gtk::Box, section: &'static str) {
         self.section.set(section);
+        let mark = gtk::Separator::new(gtk::Orientation::Horizontal);
+        mark.add_css_class("nav-divider");
+        mark.add_css_class("compact-show");
+        mark.add_css_class(&format!("section-{section}"));
+        mark.set_visible(false);
+        self.sidebar.append(&mark);
         self.sidebar.append(&sectioned(heading, section));
+    }
+
+    /// The cloud accounts the sidebar last listed.
+    pub(super) fn cloud_accounts(&self) -> Vec<nyx_cloud::Remote> {
+        match self.cloud_listing.borrow().as_ref() {
+            Some(CloudListing::Accounts(remotes)) if PreferenceManager::shared().cloud_sidebar() => {
+                remotes.clone()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// Connects the account `id` if needed, then opens it.
+    pub(super) fn open_cloud_account(self: &Rc<Self>, id: &str) {
+        self.open_cloud(id.to_string(), None);
     }
 }
 
@@ -747,16 +910,10 @@ impl SidebarContent {
             return;
         }
         let holder = gtk::Box::new(gtk::Orientation::Vertical, 1);
-        let heading = sectioned(
-            sidebar::group_label(&crate::i18n::tr("Cloud Storage"), false),
-            "cloud",
-        );
-        heading.set_visible(false);
-        self.sidebar.append(&heading);
         self.sidebar.append(&holder);
         let cached = self.cloud_listing.borrow().clone();
         if let Some(listing) = cached {
-            self.show_cloud(&heading, &holder, &listing);
+            self.show_cloud(&holder, &listing);
         }
         let weak = Rc::downgrade(self);
         glib::MainContext::default().spawn_local(async move {
@@ -803,24 +960,17 @@ impl SidebarContent {
         }
     }
 
-    fn show_cloud(self: &Rc<Self>, heading: &gtk::Box, holder: &gtk::Box, listing: &CloudListing) {
+    fn show_cloud(self: &Rc<Self>, holder: &gtk::Box, listing: &CloudListing) {
         let CloudListing::Accounts(remotes) = listing else {
-            heading.set_visible(true);
-            let note = nyx_ui::widgets::label(&crate::i18n::tr("Cloud Storage unavailable"), "dim");
-            note.set_xalign(0.0);
-            note.set_margin_start(10);
-            note.add_css_class("compact-hide");
-            holder.append(&note);
             return;
         };
-        heading.set_visible(!remotes.is_empty());
         for remote in remotes {
             let item = sidebar::nav_item("weather-overcast-symbolic", &remote.name, &remote.name);
-            item.button.add_css_class("section-icon-cloud");
+            item.button.add_css_class("section-icon-devices");
             let (w, id) = (Rc::downgrade(self), remote.id.clone());
             item.button.connect_clicked(move |b| {
                 if let Some(c) = w.upgrade() {
-                    c.open_cloud(id.clone(), b.clone());
+                    c.open_cloud(id.clone(), Some(b.clone()));
                 }
             });
             holder.append(&item.button);
@@ -834,8 +984,10 @@ impl SidebarContent {
     }
 
     /// Mounts an account if needed (up to 35 s), then opens it.
-    fn open_cloud(self: &Rc<Self>, id: String, button: gtk::Button) {
-        button.set_sensitive(false);
+    fn open_cloud(self: &Rc<Self>, id: String, button: Option<gtk::Button>) {
+        if let Some(button) = &button {
+            button.set_sensitive(false);
+        }
         let open = self.open.clone();
         glib::MainContext::default().spawn_local(async move {
             let result = gio::spawn_blocking(move || -> anyhow::Result<String> {
@@ -860,7 +1012,9 @@ impl SidebarContent {
                 anyhow::bail!("Connection timed out")
             })
             .await;
-            button.set_sensitive(true);
+            if let Some(button) = &button {
+                button.set_sensitive(true);
+            }
             match result {
                 Ok(Ok(path)) => open(Location::local(path)),
                 _ => {
@@ -880,8 +1034,8 @@ impl SidebarContent {
 
 const PIN_PREFIX: &str = "nyx-files-pin:";
 
-/// A pin row can be dragged onto another to move it there.
-fn reorderable(button: &gtk::Button, location: &Location) {
+/// A pin can be dragged onto another to move it there.
+pub(super) fn reorderable(button: &gtk::Button, location: &Location) {
     let source = gtk::DragSource::new();
     source.set_actions(gtk::gdk::DragAction::MOVE);
     let key = format!("{PIN_PREFIX}{}", location.display_path());
@@ -930,17 +1084,19 @@ impl SidebarContent {
             move || {
                 let (weak, trash) = (weak.clone(), trash.clone());
                 glib::MainContext::default().spawn_local(async move {
-                    let full = trash
+                    let count = trash
                         .query_info_future(
                             "trash::item-count",
                             gio::FileQueryInfoFlags::NONE,
                             glib::Priority::LOW,
                         )
                         .await
-                        .is_ok_and(|info| info.attribute_uint32("trash::item-count") > 0);
+                        .map_or(0, |info| info.attribute_uint32("trash::item-count"));
+                    let full = count > 0;
                     TRASH_FULL.with(|t| t.set(full));
+                    let recount = TRASH_COUNT.with(|t| t.replace(count)) != count;
                     if let Some(c) = weak.upgrade()
-                        && c.trash_shown_full.replace(full) != full
+                        && (c.trash_shown_full.replace(full) != full || recount)
                     {
                         c.queue_rebuild();
                     }
@@ -1031,7 +1187,7 @@ pub(super) fn start_drive(drive: &gio::Drive, open: impl Fn(Location) + 'static)
 }
 
 /// Recent needs GTK's recent-files tracking and a `recent:` backend.
-fn recent_available() -> bool {
+pub(super) fn recent_available() -> bool {
     gtk::Settings::default().is_some_and(|s| s.is_gtk_recent_files_enabled())
         && gio::Vfs::default()
             .supported_uri_schemes()

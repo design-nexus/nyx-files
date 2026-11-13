@@ -10,7 +10,7 @@ use crate::model::{FileEntry, MetadataValue};
 pub(crate) mod thumbnail_size;
 pub(crate) use thumbnail_size::ThumbnailResize;
 
-pub(crate) const DEFAULT_ICONS_THUMBNAIL_SIZE: i32 = 64;
+pub(crate) const DEFAULT_ICONS_THUMBNAIL_SIZE: i32 = 112;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum BrowserMode {

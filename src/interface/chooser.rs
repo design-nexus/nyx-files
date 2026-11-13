@@ -306,6 +306,7 @@ impl Chooser {
                 }
             },
             |_, _, _, _| {},
+            None::<fn(bool)>,
         );
         *holder.borrow_mut() = Rc::downgrade(&tab);
 

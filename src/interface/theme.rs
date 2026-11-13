@@ -104,7 +104,7 @@ pub(super) const SECTIONS: &[(&str, &str)] = &[
     ("places", "blue"),
     ("pinned", "amber"),
     ("cloud", "teal"),
-    ("devices", "green"),
+    ("devices", "violet"),
 ];
 
 thread_local! {
@@ -146,6 +146,7 @@ fn sections_css() -> String {
         css.push_str(&format!(
             "window.files-window .section-{section} {{ color: {colour}; }}\n\
              window.files-window .nav-group.section-{section} {{ border-bottom-color: alpha({colour}, 0.35); }}\n\
+             window.files-window separator.nav-divider.section-{section} {{ background: alpha({colour}, 0.6); }}\n\
              window.files-window .sidebar.colored-icons button.nav-item.section-icon-{section} image {{ color: {colour}; }}\n"
         ));
     }

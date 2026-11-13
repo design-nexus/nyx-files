@@ -535,7 +535,7 @@ fn default_full_volume() -> f64 {
 }
 
 fn default_icons_thumbnail_size() -> i32 {
-    64
+    crate::ui::browser_modes::DEFAULT_ICONS_THUMBNAIL_SIZE
 }
 
 fn default_date_format() -> String {

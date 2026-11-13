@@ -806,12 +806,7 @@ fn sidebar(group: &Group) {
         },
     );
     let colors = group.section("Section colors");
-    for (section, title) in [
-        ("places", "Places"),
-        ("pinned", "Pinned"),
-        ("cloud", "Cloud Storage"),
-        ("devices", "Devices"),
-    ] {
+    for (section, title) in [("places", "Folders"), ("devices", "Storage")] {
         let strip = section_swatches(section, title);
         strip.set_halign(gtk::Align::Start);
         let r = row(title, "", None);

@@ -2,7 +2,7 @@
 
 use std::cell::{Cell, RefCell};
 
-use gtk::{gdk, gdk::prelude::*, glib, graphene, prelude::*, subclass::prelude::*};
+use gtk::{gdk, gdk::prelude::*, glib, graphene, gsk, prelude::*, subclass::prelude::*};
 
 
 
@@ -26,6 +26,7 @@ mod imp {
         pub(crate) mark: Cell<crate::ui::browser::ClipboardMark>,
         pub hidden: Cell<bool>,
         pub base_opacity: Cell<f64>,
+        pub(crate) frame: Cell<Option<super::Frame>>,
     }
 
     #[glib::object_subclass]
@@ -51,7 +52,13 @@ mod imp {
             gtk::SizeRequestMode::ConstantSize
         }
 
-        fn measure(&self, _orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
+        fn measure(&self, orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
+            if let Some(frame) = self.frame.get() {
+                return match orientation {
+                    gtk::Orientation::Horizontal => (frame.min_width, frame.width, -1, -1),
+                    _ => (frame.height, frame.height, -1, -1),
+                };
+            }
             let size = self.slot.get().max(1);
             (size, size, -1, -1)
         }
@@ -61,6 +68,10 @@ mod imp {
             let width = f64::from(obj.width());
             let height = f64::from(obj.height());
             if width <= 0.0 || height <= 0.0 {
+                return;
+            }
+            if let Some(frame) = self.frame.get() {
+                self.snapshot_frame(snapshot, frame, width, height);
                 return;
             }
             let mark_icon = match self.mark.get() {
@@ -114,6 +125,66 @@ mod imp {
             }
         }
     }
+
+    impl ThumbnailSlot {
+        /// A thumbnail fills the frame (cropped) or fits inside it, behind rounded
+        /// corners; without one, the item's icon sits in the middle at the slot's size.
+        fn snapshot_frame(&self, snapshot: &gtk::Snapshot, frame: super::Frame, width: f64, height: f64) {
+            let bounds = graphene::Rect::new(0.0, 0.0, width as f32, height as f32);
+            let corner = graphene::Size::new(frame.radius, frame.radius);
+            snapshot.push_rounded_clip(&gsk::RoundedRect::new(bounds, corner, corner, corner, corner));
+            let obj = self.obj();
+            let mark = match self.mark.get() {
+                crate::ui::browser::ClipboardMark::None => None,
+                crate::ui::browser::ClipboardMark::Copy => Some(crate::assets::icons::COPY),
+                crate::ui::browser::ClipboardMark::Cut => Some(crate::assets::icons::SCISSORS),
+            }
+            .and_then(|name| {
+                crate::assets::theme_texture(
+                    name,
+                    obj.icon_pixel_size(),
+                    obj.scale_factor(),
+                    Some(&crate::assets::primary_icon_color()),
+                )
+            });
+            if let Some(texture) = mark {
+                let size = f64::from(obj.icon_pixel_size());
+                snapshot.save();
+                snapshot.translate(&graphene::Point::new(((width - size) / 2.0) as f32, ((height - size) / 2.0) as f32));
+                super::snapshot_texture(snapshot, &texture, size, size);
+                snapshot.restore();
+            } else if let Some(texture) = self.texture.borrow().as_ref() {
+                let (w, h) = (f64::from(texture.width().max(1)), f64::from(texture.height().max(1)));
+                let scale = if frame.cover {
+                    (width / w).max(height / h)
+                } else {
+                    ((width - 24.0) / w).min((height - 16.0) / h).max(0.01)
+                };
+                let (dw, dh) = (w * scale, h * scale);
+                snapshot.append_texture(
+                    texture,
+                    &graphene::Rect::new(((width - dw) / 2.0) as f32, ((height - dh) / 2.0) as f32, dw as f32, dh as f32),
+                );
+            } else if let Some(texture) = self.fallback.borrow().as_ref() {
+                let size = f64::from(obj.icon_pixel_size());
+                snapshot.save();
+                snapshot.translate(&graphene::Point::new(((width - size) / 2.0) as f32, ((height - size) / 2.0) as f32));
+                super::snapshot_texture(snapshot, texture, size, size);
+                snapshot.restore();
+            }
+            snapshot.pop();
+        }
+    }
+}
+
+/// How a slot draws in a card or a tile wider than its icon: see [`ThumbnailSlot::set_frame`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Frame {
+    pub(crate) min_width: i32,
+    pub(crate) width: i32,
+    pub(crate) height: i32,
+    pub(crate) cover: bool,
+    pub(crate) radius: f32,
 }
 
 fn snapshot_texture(snapshot: &gtk::Snapshot, texture: &gdk::Texture, width: f64, height: f64) {
@@ -265,6 +336,14 @@ impl ThumbnailSlot {
     }
 
 
+
+    /// Draws in a `frame` rather than a square of the slot's size; the slot's
+    /// size is then the icon's when there is no thumbnail.
+    pub(crate) fn set_frame(&self, frame: Option<Frame>) {
+        if self.imp().frame.replace(frame) != frame {
+            self.queue_resize();
+        }
+    }
 
     pub(crate) fn icon_pixel_size(&self) -> i32 {
         (self.imp().slot.get() - 2 * self.imp().content_inset.get()).max(1)

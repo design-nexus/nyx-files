@@ -21,7 +21,7 @@ mod slot;
 #[cfg(test)]
 mod tests;
 mod viewport;
-pub(crate) use slot::ThumbnailSlot;
+pub(crate) use slot::{Frame as SlotFrame, ThumbnailSlot};
 
 static NEXT_REQUEST: AtomicU64 = AtomicU64::new(1);
 const MAX_CACHE_ENTRIES: usize = 256;

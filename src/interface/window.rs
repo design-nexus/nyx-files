@@ -20,10 +20,21 @@ use crate::{
 };
 
 use super::{
-    actions, settings,
+    actions,
+    finder::Finder,
+    overview::Overview,
+    settings,
     sidebar::{SidebarContent, Target},
     tab,
 };
+
+/// What the window's page shows: a tab's folder, the Overview, or search results.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Page {
+    Folder,
+    Overview,
+    Search,
+}
 
 thread_local! {
     static WINDOWS: RefCell<Vec<Rc<Window>>> = const { RefCell::new(Vec::new()) };
@@ -34,6 +45,22 @@ pub(super) struct Window {
     pub(super) overlay: gtk::Overlay,
     tab_row: Rc<TabRow>,
     pages: gtk::Stack,
+    /// The folder (tabs), the Overview and search results.
+    body: gtk::Stack,
+    overview: Rc<Overview>,
+    finder: Rc<Finder>,
+    page: Cell<Page>,
+    /// The page search came from, to go back to.
+    before_search: Cell<Page>,
+    /// The folder showing was opened from the Overview, so Back returns there.
+    from_overview: Cell<bool>,
+    path_clamp: nyx_ui::clamp::Clamp,
+    folder_tools: gtk::Box,
+    new_button: gtk::Button,
+    appearance: gtk::MenuButton,
+    /// The app's name in the header, which a narrow window leaves out.
+    app_title: Option<gtk::Widget>,
+    narrow: Cell<bool>,
     sidebar: Rc<Sidebar>,
     sidebar_toggle: gtk::ToggleButton,
     content: Rc<SidebarContent>,
@@ -121,19 +148,24 @@ impl Window {
             "go-up-symbolic",
             &with_keys("Enclosing folder (%{keys})", bindings::PARENT_FOLDER),
         );
-        let navigation = super::header::group();
-        navigation.set_margin_start(6);
+        let navigation = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        navigation.add_css_class("header-nav");
+        navigation.set_valign(gtk::Align::Center);
+        navigation.set_margin_start(4);
         for button in [&back, &forward, &up] {
             navigation.append(button);
         }
         header.start.append(&navigation);
         let path = PathBar::new();
         let path_holder = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        let clamp = nyx_ui::clamp::Clamp::new(&path_holder, 380);
+        let clamp = nyx_ui::clamp::Clamp::new(&path_holder, 340);
         clamp.set_start(true);
-        clamp.set_margin_start(8);
+        clamp.set_margin_start(6);
         clamp.set_hexpand(false);
         header.start.append(&clamp);
+        let finder = Finder::new();
+        header.center.append(&finder.field);
+        let overview = Overview::new();
 
         let filter = gtk::SearchEntry::new();
         filter.add_css_class("header-search");
@@ -145,7 +177,12 @@ impl Window {
         tab_row.set_hide_single(true);
 
         let holder: Rc<RefCell<std::rc::Weak<Window>>> = Rc::default();
-        let (h1, h2) = (holder.clone(), holder.clone());
+        let (h1, h2, h3, h4) = (
+            holder.clone(),
+            holder.clone(),
+            holder.clone(),
+            holder.clone(),
+        );
         let content = SidebarContent::new(
             move |location| {
                 if let Some(w) = h1.borrow().upgrade() {
@@ -157,6 +194,11 @@ impl Window {
                     w.sidebar_menu(target, widget, x, y);
                 }
             },
+            Some(move |pinned| {
+                if let Some(w) = h3.borrow().upgrade() {
+                    w.show_overview(pinned);
+                }
+            }),
         );
         let sidebar = content.sidebar.clone();
         let pages = gtk::Stack::new();
@@ -166,9 +208,15 @@ impl Window {
         let page = gtk::Box::new(gtk::Orientation::Vertical, 0);
         page.append(&tab_row.root);
         page.append(&pages);
+        let body = gtk::Stack::new();
+        body.set_hhomogeneous(false);
+        body.set_vhomogeneous(false);
+        body.add_named(&page, Some("folder"));
+        body.add_named(&overview.root, Some("overview"));
+        body.add_named(&finder.page, Some("search"));
         let frame = nyx_ui::frame::AppFrame::new(&header.root);
         frame.set_sidebar(&sidebar.root);
-        frame.set_page(&page);
+        frame.set_page(&body);
         let overlay = frame.install(&window);
         let progress = super::operations::Progress::new(&overlay);
 
@@ -177,6 +225,20 @@ impl Window {
             overlay,
             tab_row,
             pages,
+            body,
+            overview,
+            finder,
+            page: Cell::new(Page::Folder),
+            before_search: Cell::new(Page::Folder),
+            from_overview: Cell::new(false),
+            path_clamp: clamp,
+            folder_tools: gtk::Box::new(gtk::Orientation::Horizontal, 2),
+            new_button: super::header::new_button(),
+            appearance: super::appearance::button_for(Rc::new(move || {
+                h4.borrow().upgrade().and_then(|w| w.current())
+            })),
+            app_title: super::header::app_title(&header.root),
+            narrow: Cell::new(false),
             sidebar,
             sidebar_toggle,
             content,
@@ -213,40 +275,29 @@ impl Window {
                 settings::open(&w);
             }
         });
-        let path_group = super::header::path_group(&this.path, &this);
+        let path_group = super::header::path_group(&this.path);
         path_group.set_hexpand(false);
         path_holder.append(&path_group);
         let header_actions = super::header::Actions::new(&this, &this.filter);
-        header.end.append(&header_actions.root);
+        this.folder_tools.set_valign(gtk::Align::Center);
+        this.folder_tools.append(&header_actions.root);
         this.header_actions.replace(Some(header_actions));
-        let search_field = super::header::search_field(&this);
-        search_field.set_margin_start(6);
-        header.end.append(&search_field);
-        let new_tab = super::header::group();
-        new_tab.set_margin_start(6);
-        let new_tab_button = widgets::bar_button(
-            "tab-new-symbolic",
-            &with_keys("New tab (%{keys})", bindings::TAB_NEW),
-        );
+        this.folder_tools.append(&this.build_view_switch());
+        header.end.append(&this.folder_tools);
+        super::appearance::install(&this.window);
         let weak = Rc::downgrade(&this);
-        new_tab_button.connect_clicked(move |_| {
+        this.new_button.connect_clicked(move |b| {
             if let Some(w) = weak.upgrade() {
-                let location = w
-                    .current()
-                    .and_then(|t| t.location())
-                    .unwrap_or_else(start_location);
-                w.add_tab(location);
+                nyx_ui::menu::popup_below(b, w.new_menu());
             }
         });
-        new_tab.append(&new_tab_button);
-        header.end.append(&new_tab);
-        header.end.append(&this.build_view_switch());
-        let appearance = super::appearance::button(&this);
-        appearance.add_css_class("header-button");
-        header.end.append(&appearance);
-        super::appearance::install(&this.window);
-        settings_button.add_css_class("header-button");
-        header.end.append(&settings_button);
+        header.end.append(&this.new_button);
+        header.end.append(&super::header::linked(&[
+            this.appearance.upcast_ref(),
+            settings_button.upcast_ref(),
+        ]));
+        this.overview.attach(&this);
+        this.finder.attach(&this);
 
         this.wire();
         *holder.borrow_mut() = Rc::downgrade(&this);
@@ -278,7 +329,13 @@ impl Window {
         this.sidebar_toggle.set_active(expanded);
         this.sidebar.set_collapsed(!expanded);
 
+        let opens_overview =
+            location.is_none() && PreferenceManager::shared().default_directory().is_none();
         this.add_tab(location.unwrap_or_else(start_location));
+        if opens_overview {
+            this.show_overview(false);
+        }
+        this.follow_width();
         crate::ui::jobs::guard_close(&this.window);
         this.window.present();
         crate::metrics::mark_window_presented();
@@ -292,6 +349,31 @@ impl Window {
             glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
                 if let Some(w) = weak.upgrade() {
                     settings::open(&w);
+                }
+            });
+        }
+        // The same for a search (NYX_FILES_SEARCH=query) and a selection in the
+        // folder opened (NYX_FILES_SELECT=name/name).
+        if let Ok(query) = std::env::var("NYX_FILES_SEARCH") {
+            let weak = Rc::downgrade(&this);
+            glib::timeout_add_local_once(std::time::Duration::from_millis(800), move || {
+                if let Some(w) = weak.upgrade() {
+                    w.finder.type_query(&query);
+                }
+            });
+        }
+        if let Ok(names) = std::env::var("NYX_FILES_SELECT") {
+            let weak = Rc::downgrade(&this);
+            glib::timeout_add_local_once(std::time::Duration::from_millis(1500), move || {
+                let Some(tab) = weak.upgrade().and_then(|w| w.current()) else {
+                    return;
+                };
+                let model = tab.active_model();
+                let names: Vec<&str> = names.split('/').collect();
+                for i in 0..model.len() {
+                    if model.entry(i).is_some_and(|e| names.contains(&e.display_name.as_str())) {
+                        model.selection.select_item(i, false);
+                    }
                 }
             });
         }
@@ -343,8 +425,8 @@ impl Window {
         });
         let weak = Rc::downgrade(self);
         self.back.connect_clicked(move |_| {
-            if let Some(tab) = weak.upgrade().and_then(|w| w.current()) {
-                tab.browser.back();
+            if let Some(w) = weak.upgrade() {
+                w.go_back();
             }
         });
         let weak = Rc::downgrade(self);
@@ -355,7 +437,10 @@ impl Window {
         });
         let weak = Rc::downgrade(self);
         self.up.connect_clicked(move |_| {
-            if let Some(tab) = weak.upgrade().and_then(|w| w.current()) {
+            if let Some(w) = weak.upgrade()
+                && let Some(tab) = w.current()
+            {
+                w.show_folder();
                 tab.browser.parent();
             }
         });
@@ -379,6 +464,7 @@ impl Window {
         let weak = Rc::downgrade(self);
         self.tab_row.connect_select(move |i| {
             if let Some(w) = weak.upgrade() {
+                w.show_folder();
                 w.select(i);
             }
         });
@@ -391,11 +477,7 @@ impl Window {
         let weak = Rc::downgrade(self);
         self.tab_row.connect_new(move || {
             if let Some(w) = weak.upgrade() {
-                let location = w
-                    .current()
-                    .and_then(|t| t.location())
-                    .unwrap_or_else(start_location);
-                w.add_tab(location);
+                w.new_tab();
             }
         });
         let weak = Rc::downgrade(self);
@@ -601,10 +683,7 @@ impl Window {
         let tab = self.current();
         let count = self.tabs.borrow().len().max(1);
         if press.is(bindings::TAB_NEW) {
-            let location = tab
-                .and_then(|t| t.location())
-                .unwrap_or_else(start_location);
-            self.add_tab(location);
+            self.new_tab();
         } else if press.is(bindings::TAB_CLOSE) {
             self.close_tab(self.active.get());
         } else if press.is(QUIT) {
@@ -612,19 +691,20 @@ impl Window {
         } else if press.is(bindings::FILTER) {
             self.focus_filter();
         } else if press.is(bindings::SEARCH) {
-            super::search::open(self, super::search::Mode::Everywhere);
+            self.finder.focus();
         } else if press.is(bindings::JUMP_TO_FOLDER) {
-            super::search::open(self, super::search::Mode::Folders);
+            super::search::open(self);
         } else if press.is(bindings::LOCATION) {
             self.edit_path();
         } else if press.is(bindings::SIDEBAR) {
             self.sidebar_toggle
                 .set_active(!self.sidebar_toggle.is_active());
         } else if press.is(bindings::HISTORY_BACK) {
-            tab.iter().for_each(|t| t.browser.back());
+            self.go_back();
         } else if press.is(bindings::HISTORY_FORWARD) {
             tab.iter().for_each(|t| t.browser.forward());
         } else if press.is(bindings::PARENT_FOLDER) {
+            self.show_folder();
             tab.iter().for_each(|t| t.browser.parent());
         } else if press.is(bindings::VIEW_COLUMNS) {
             self.set_mode(BrowserMode::Columns);
@@ -683,10 +763,10 @@ impl Window {
         let mut first: Option<gtk::ToggleButton> = None;
         for (mode, icon, message, binding) in [
             (
-                BrowserMode::Columns,
-                "view-dual-symbolic",
-                "Columns (%{keys})",
-                bindings::VIEW_COLUMNS,
+                BrowserMode::List,
+                "view-list-symbolic",
+                "List (%{keys})",
+                bindings::VIEW_LIST,
             ),
             (
                 BrowserMode::Icons,
@@ -695,10 +775,10 @@ impl Window {
                 bindings::VIEW_ICONS,
             ),
             (
-                BrowserMode::List,
-                "view-list-symbolic",
-                "List (%{keys})",
-                bindings::VIEW_LIST,
+                BrowserMode::Columns,
+                "view-dual-symbolic",
+                "Columns (%{keys})",
+                bindings::VIEW_COLUMNS,
             ),
         ] {
             let button = gtk::ToggleButton::new();
@@ -749,7 +829,17 @@ impl Window {
     }
 
     pub(super) fn open_tab(self: &Rc<Self>, location: Location) {
+        self.show_folder();
         self.add_tab(location);
+    }
+
+    /// A new tab on the folder showing, or the start folder.
+    fn new_tab(self: &Rc<Self>) {
+        let location = self
+            .current()
+            .and_then(|t| t.location())
+            .unwrap_or_else(start_location);
+        self.open_tab(location);
     }
 
     fn show_menu(
@@ -879,6 +969,7 @@ impl Window {
     /// A search result: folders open; files open directly or are previewed
     /// and shown in their folder, as "Open search results directly" says.
     pub(super) fn open_search_result(&self, item: crate::services::SearchItem) {
+        self.show_folder();
         let Some(tab) = self.current() else { return };
         let location = Location::local(item.path.clone());
         if item.is_directory {
@@ -903,7 +994,10 @@ impl Window {
     }
 
     fn navigate(&self, location: Location) {
+        let from_overview = self.page.get() == Page::Overview;
+        self.show_folder();
         if let Some(tab) = self.current() {
+            self.from_overview.set(from_overview);
             tab.browser.navigate(location);
         }
     }
@@ -912,6 +1006,8 @@ impl Window {
         let tab = tab::Tab::new(location);
         // The window shows the Shortcuts button once, under the sidebar.
         tab.footer.remove_shortcuts_button();
+        tab.icons_overlay
+            .add_overlay(&super::icons::selection_bar(self, &tab));
         self.pages.add_child(&tab.container);
         let (weak, weak_tab) = (Rc::downgrade(self), Rc::downgrade(&tab));
         tab.connect_context(move |entry, widget, x, y| {
@@ -1075,26 +1171,248 @@ impl Window {
             })
             .collect();
         self.tab_row.set_tabs(&shown, self.active.get());
-        // One tab needs no strip; the header's New tab button opens a second.
+        // One tab needs no strip; New › New Tab opens a second.
         self.tab_row.root.set_visible(shown.len() > 1);
+        let page = self.page.get();
+        let folder = page == Page::Folder;
+        self.path_clamp.set_visible(folder);
+        self.folder_tools.set_visible(folder);
+        self.appearance.set_visible(folder);
+        self.finder.set_wide(!folder);
+        self.content.mark_overview(page == Page::Overview);
         let Some(tab) = tabs.get(self.active.get()) else {
             return;
         };
         if self.filter.text().trim() != tab.filter_text() {
             self.filter.set_text(&tab.filter_text());
         }
-        let (crumbs, text) = tab.crumbs();
+        let (mut crumbs, text) = tab.crumbs();
+        if self.narrow.get() && crumbs.len() > 1 {
+            crumbs.drain(..crumbs.len() - 1);
+        }
         self.path.set_crumbs(&crumbs, &text);
         super::header::wire_separators(&self.path, &text);
         if let Some(actions) = self.header_actions.borrow().as_ref() {
             actions.sync(tab);
         }
         self.show_mode(tab.mode());
-        self.back.set_sensitive(tab.browser.can_go_back());
-        self.forward.set_sensitive(tab.browser.can_go_forward());
-        self.up.set_sensitive(tab.browser.can_go_parent());
-        let location = tab.location();
+        self.back.set_sensitive(match page {
+            Page::Folder => tab.browser.can_go_back() || self.from_overview.get(),
+            Page::Overview => false,
+            Page::Search => true,
+        });
+        self.forward.set_sensitive(folder && tab.browser.can_go_forward());
+        self.up.set_sensitive(folder && tab.browser.can_go_parent());
+        let location = tab.location().filter(|_| folder);
         self.content.mark(location.as_ref());
-        chrome::set_title(&self.window, "Files", &tab.title());
+        let title = match page {
+            Page::Folder => tab.title(),
+            Page::Overview => crate::i18n::tr("Overview"),
+            Page::Search => crate::i18n::tr("Search"),
+        };
+        chrome::set_title(&self.window, "Files", &title);
+    }
+
+    /// Back: out of search, or to the Overview the folder was opened from.
+    fn go_back(&self) {
+        let Some(tab) = self.current() else { return };
+        match self.page.get() {
+            Page::Search => {
+                self.finder.reset();
+                self.leave_search(true);
+            }
+            Page::Overview => {}
+            Page::Folder if !tab.browser.can_go_back() && self.from_overview.get() => {
+                self.show_overview(false);
+            }
+            Page::Folder => tab.browser.back(),
+        }
+    }
+
+    fn show(&self, page: Page) {
+        if self.page.replace(page) == page {
+            return;
+        }
+        self.body.set_visible_child_name(match page {
+            Page::Folder => "folder",
+            Page::Overview => "overview",
+            Page::Search => "search",
+        });
+        self.sync();
+    }
+
+    /// The Overview; `pinned` scrolls to the pinned folders.
+    pub(super) fn show_overview(&self, pinned: bool) {
+        if self.page.get() == Page::Search {
+            self.finder.reset();
+        }
+        self.from_overview.set(false);
+        self.overview.refresh();
+        self.show(Page::Overview);
+        if pinned {
+            self.overview.show_pinned();
+        }
+    }
+
+    /// The tabs' folders again, from the Overview or search.
+    pub(super) fn show_folder(&self) {
+        if self.page.get() == Page::Search {
+            self.finder.reset();
+        }
+        self.show(Page::Folder);
+    }
+
+    pub(super) fn searching(&self) -> bool {
+        self.page.get() == Page::Search
+    }
+
+    pub(super) fn enter_search(&self) {
+        if self.page.get() != Page::Search {
+            self.before_search.set(self.page.get());
+        }
+        self.show(Page::Search);
+    }
+
+    /// The search is over: back to the page before it, focusing it when `focus`.
+    pub(super) fn leave_search(&self, focus: bool) {
+        if self.page.get() != Page::Search {
+            return;
+        }
+        let before = self.before_search.get();
+        if before == Page::Overview {
+            self.overview.refresh();
+        }
+        self.show(before);
+        if focus && before == Page::Folder
+            && let Some(tab) = self.current()
+        {
+            tab.focus_view();
+        }
+    }
+
+    /// New Folder, New File, New Tab and New Window.
+    fn new_menu(self: &Rc<Self>) -> Vec<nyx_ui::menu::Entry> {
+        use nyx_ui::menu;
+        let Some(tab) = self.current() else {
+            return Vec::new();
+        };
+        let writable = tab
+            .location()
+            .is_some_and(|l| l.native_path().is_some() || l.uri_value().is_some_and(|u| !u.starts_with("trash:") && !u.starts_with("recent:")));
+        let (w, t) = (self.clone(), tab.clone());
+        let folder = menu::item(&crate::i18n::tr("New Folder…"), move || {
+            w.show_folder();
+            actions::new_folder(&t);
+        })
+        .icon("folder-new-symbolic")
+        .key(&actions::keys(bindings::NEW_FOLDER))
+        .enabled(writable);
+        let (w, t) = (self.clone(), tab.clone());
+        let file = menu::item(&crate::i18n::tr("New File…"), move || {
+            w.show_folder();
+            super::menus::new_file(&t);
+        })
+        .icon("document-new-symbolic")
+        .enabled(writable);
+        let w = self.clone();
+        let new_tab = menu::item(&crate::i18n::tr("New Tab"), move || w.new_tab())
+            .icon("tab-new-symbolic")
+            .key(&actions::keys(bindings::TAB_NEW));
+        let w = self.clone();
+        let new_window = menu::item(&crate::i18n::tr("New Window"), move || {
+            let location = w.current().and_then(|t| t.location()).unwrap_or_else(start_location);
+            w.open_window(location);
+        })
+        .icon("window-new-symbolic");
+        vec![folder, file, menu::separator(), new_tab, new_window]
+    }
+
+    /// Below the sidebar's narrow width the header and the Overview tighten.
+    fn follow_width(self: &Rc<Self>) {
+        let weak = Rc::downgrade(self);
+        self.window.add_tick_callback(move |window, _| {
+            let Some(w) = weak.upgrade() else {
+                return glib::ControlFlow::Break;
+            };
+            let width = window.width();
+            let narrow = width > 0 && width < nyx_ui::sidebar::NARROW_WIDTH;
+            if w.narrow.replace(narrow) != narrow {
+                w.overview.set_narrow(narrow);
+                if let Some(title) = &w.app_title {
+                    title.set_visible(!narrow);
+                }
+                w.sync();
+                super::header::set_new_narrow(&w.new_button, narrow);
+                w.finder.set_narrow(narrow);
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
+    /// Opens a file with its app, or a folder in the tab.
+    pub(super) fn open_file(&self, entry: &crate::model::FileEntry) {
+        if entry.is_directory() {
+            self.navigate(entry.location.clone());
+        } else if let Some(tab) = self.current() {
+            tab.open(entry);
+        }
+    }
+
+    /// The item selected in its folder.
+    pub(super) fn reveal(&self, location: &Location) {
+        let Some(parent) = location.parent() else { return };
+        self.show_folder();
+        if let Some(tab) = self.current() {
+            tab.browser.reveal_locations(parent, vec![location.clone()]);
+        }
+    }
+
+    /// Files dropped on `widget` copy or move into `destination`.
+    pub(super) fn drop_on(self: &Rc<Self>, widget: &impl IsA<gtk::Widget>, destination: Location) {
+        let target = gtk::DropTarget::new(
+            gdk::FileList::static_type(),
+            gdk::DragAction::COPY | gdk::DragAction::MOVE,
+        );
+        target.connect_enter(|t, _, _| {
+            if let Some(w) = t.widget() {
+                w.add_css_class("drop-target");
+            }
+            actions::drop_action(t)
+        });
+        target.connect_motion(|t, _, _| actions::drop_action(t));
+        target.connect_leave(|t| {
+            if let Some(w) = t.widget() {
+                w.remove_css_class("drop-target");
+            }
+        });
+        let weak = Rc::downgrade(self);
+        target.connect_drop(move |t, value, _, _| {
+            if let Some(w) = t.widget() {
+                w.remove_css_class("drop-target");
+            }
+            let (Some(w), Some(sources)) = (weak.upgrade(), actions::dropped(value)) else {
+                return false;
+            };
+            let Some(tab) = w.current() else { return false };
+            actions::drop_into(&w, &tab, destination.clone(), sources, actions::forced_action(t));
+            true
+        });
+        widget.add_controller(target);
+    }
+
+    pub(super) fn cloud_accounts(&self) -> Vec<nyx_cloud::Remote> {
+        self.content.cloud_accounts()
+    }
+
+    pub(super) fn mount_and_open(&self, volume: &gtk::gio::Volume, anchor: &gtk::Widget) {
+        self.content.mount_volume(volume, anchor);
+    }
+
+    pub(super) fn open_cloud(&self, id: &str) {
+        self.content.open_cloud_account(id);
+    }
+
+    pub(super) fn recent_available(&self) -> bool {
+        super::sidebar::recent_available()
     }
 }

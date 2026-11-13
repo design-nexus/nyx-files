@@ -574,3 +574,505 @@ window.files-window button.sidebar-shortcuts:hover {
   background: @row_hover;
   color: @theme_text;
 }
+
+/* The header: navigation, the path, search in the middle, then the folder's
+ * view switch, New and Settings. */
+window.files-window .path-group {
+  background: transparent;
+}
+
+window.files-window .finder-field {
+  min-height: 32px;
+  min-width: 340px;
+  padding: 0 5px 0 10px;
+  background: @field;
+  border-radius: var(--nyx-radius-small);
+  color: @theme_dim_text;
+}
+
+window.files-window .finder-field.wide {
+  min-width: 520px;
+}
+
+window.files-window .finder-field.narrow {
+  min-width: 150px;
+}
+
+window.files-window .finder-field.narrow.wide {
+  min-width: 250px;
+}
+
+window.files-window .finder-field:focus-within {
+  box-shadow: inset 0 0 0 1px alpha(@theme_accent, 0.7);
+  color: @theme_text;
+}
+
+window.files-window .finder-field text {
+  background: transparent;
+  color: @theme_text;
+}
+
+window.files-window .finder-key {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: alpha(@theme_text, 0.06);
+  color: @theme_text_tertiary;
+  font-size: 0.8em;
+}
+
+window.files-window .app-header button.new-button {
+  min-height: 32px;
+  padding: 0 8px 0 10px;
+  margin: 0 4px;
+  background: @field;
+  color: @theme_text;
+  font-weight: 500;
+}
+
+window.files-window .app-header button.new-button:hover {
+  background: @row_hover;
+}
+
+window.files-window .new-arrow {
+  -gtk-icon-size: 12px;
+  color: @theme_text_tertiary;
+}
+
+window.files-window .new-icon {
+  -gtk-icon-size: 16px;
+}
+
+window.files-window .new-label {
+  margin-top: 1px;
+}
+
+/* View and Settings: one raised block, split by a hairline. */
+window.files-window .app-header .header-linked {
+  background: @field;
+  border-radius: var(--nyx-radius-small);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+window.files-window .app-header .header-linked > button.bar-button,
+window.files-window .app-header .header-linked > menubutton.bar-button > button {
+  min-width: 34px;
+  border-radius: 0;
+  background: transparent;
+  color: @theme_text;
+}
+
+window.files-window .app-header .header-linked > :first-child,
+window.files-window .app-header .header-linked > :first-child > button {
+  border-top-left-radius: var(--nyx-radius-small);
+  border-bottom-left-radius: var(--nyx-radius-small);
+}
+
+window.files-window .app-header .header-linked > :last-child,
+window.files-window .app-header .header-linked > :last-child > button {
+  border-top-right-radius: var(--nyx-radius-small);
+  border-bottom-right-radius: var(--nyx-radius-small);
+}
+
+window.files-window .app-header .header-linked > separator.linked-split {
+  min-width: 1px;
+  min-height: 16px;
+  margin: 8px 0;
+  background: alpha(@theme_text, 0.1);
+}
+
+window.files-window .app-header .header-linked > button.bar-button:hover,
+window.files-window .app-header .header-linked > menubutton.bar-button > button:hover,
+window.files-window .app-header .header-linked > menubutton.bar-button > button:checked {
+  background: @row_hover;
+  color: @theme_accent;
+}
+
+/* Overview */
+window.files-window .overview-scroll,
+window.files-window .overview-scroll > viewport {
+  background: transparent;
+}
+
+window.files-window .overview {
+  padding: 14px 20px 24px;
+}
+
+window.files-window .overview.narrow {
+  padding: 10px 10px 18px;
+}
+
+window.files-window .overview-head {
+  margin: 22px 0 10px;
+  min-height: 24px;
+}
+
+window.files-window .overview-head:first-child {
+  margin-top: 0;
+}
+
+window.files-window .overview-title {
+  font-size: 1.077em;
+  font-weight: 600;
+}
+
+window.files-window button.overview-link {
+  min-height: 24px;
+  padding: 0 6px;
+  background: transparent;
+  color: @theme_accent;
+  font-size: 0.923em;
+  font-weight: 500;
+}
+
+window.files-window button.overview-link:hover {
+  background: alpha(@theme_accent, 0.1);
+}
+
+window.files-window .overview-note {
+  color: @theme_text_tertiary;
+}
+
+window.files-window .overview-card {
+  padding: 0;
+  background: @theme_card;
+  border-radius: var(--nyx-radius-card);
+  box-shadow: inset 0 0 0 1px alpha(@theme_text, 0.07);
+}
+
+window.files-window button.overview-card:hover,
+window.files-window .storage-card:hover {
+  background: mix(@theme_card, @theme_text, 0.04);
+}
+
+window.files-window .overview-card .card-name {
+  font-weight: 500;
+}
+
+window.files-window .overview-card .card-detail {
+  color: @theme_text_tertiary;
+  font-size: 0.846em;
+}
+
+window.files-window .recent-thumb {
+  background: @field;
+}
+
+window.files-window .recent-text {
+  padding: 9px 12px 11px;
+}
+
+window.files-window button.pin-card {
+  padding: 14px 16px;
+}
+
+window.files-window button.pin-card .card-name {
+  font-weight: 600;
+}
+
+window.files-window button.pin-card .card-detail {
+  font-size: 0.923em;
+}
+
+window.files-window .pin-icon {
+  color: @theme_dim_text;
+}
+
+window.files-window button.pin-remove {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  background: @field;
+}
+
+window.files-window .storage-card {
+  padding: 12px 14px;
+}
+
+window.files-window .storage-top {
+  min-height: 26px;
+}
+
+window.files-window .storage-card .card-detail {
+  font-size: 0.923em;
+}
+
+window.files-window button.storage-eject {
+  min-height: 24px;
+  padding: 0 8px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px alpha(@theme_text, 0.1);
+  font-size: 0.923em;
+}
+
+window.files-window button.storage-eject:hover {
+  background: @row_hover;
+}
+
+window.files-window button.download-row {
+  padding: 8px 12px;
+}
+
+window.files-window .kind-icon {
+  -gtk-icon-size: 18px;
+}
+
+window.files-window .kind-accent {
+  color: @theme_accent;
+}
+
+window.files-window .kind-dim {
+  color: @theme_dim_text;
+}
+
+window.files-window .overview-trash {
+  margin-top: 16px;
+  min-height: 34px;
+  padding: 6px 8px 6px 14px;
+  border-radius: var(--nyx-radius-card);
+  box-shadow: inset 0 0 0 1px alpha(@theme_text, 0.07);
+  color: @theme_dim_text;
+}
+
+window.files-window .overview-trash b {
+  color: @theme_text;
+}
+
+window.files-window button.danger-text {
+  background: alpha(@theme_danger, 0.1);
+  color: @theme_danger;
+}
+
+window.files-window button.danger-text:hover {
+  background: alpha(@theme_danger, 0.18);
+}
+
+/* Search everywhere */
+window.files-window .finder-bar {
+  min-height: 56px;
+  padding: 0 6px 0 12px;
+}
+
+window.files-window .finder-title {
+  font-size: 1.154em;
+  font-weight: 600;
+}
+
+window.files-window .finder-subtitle,
+window.files-window .finder-folder,
+window.files-window .finder-date,
+window.files-window .inspector-kind {
+  color: @theme_text_tertiary;
+  font-size: 0.923em;
+}
+
+window.files-window .finder-bar .segmented button.segment {
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+window.files-window .finder-chips {
+  padding: 0 12px 12px;
+  border-bottom: 1px solid @sheet_line;
+}
+
+window.files-window .finder-chips button.chip {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 0.923em;
+}
+
+window.files-window .finder-chips button.chip.selected {
+  background: @nav_active;
+  color: @theme_text;
+  box-shadow: inset 0 0 0 1px alpha(@theme_accent, 0.45);
+}
+
+window.files-window list.finder-results {
+  background: transparent;
+  padding: 8px 4px 0;
+}
+
+window.files-window list.finder-results > row {
+  padding: 7px 10px;
+  border-radius: var(--nyx-radius-small);
+}
+
+window.files-window list.finder-results > row:hover {
+  background: @row_hover;
+}
+
+window.files-window list.finder-results > row:selected {
+  background: @nav_active;
+}
+
+window.files-window .finder-name {
+  font-weight: 500;
+}
+
+window.files-window .finder-note {
+  margin: 12px 14px;
+  color: @theme_text_tertiary;
+  font-size: 0.923em;
+}
+
+window.files-window .finder-inspector {
+  padding: 4px 0 8px 8px;
+}
+
+window.files-window .finder-preview {
+  min-height: 214px;
+  border-radius: var(--nyx-radius-card);
+  background: @field;
+  box-shadow: inset 0 0 0 1px alpha(@theme_text, 0.07);
+}
+
+window.files-window .inspector-names {
+  padding: 12px 4px 0;
+}
+
+window.files-window .inspector-name {
+  font-size: 1.077em;
+  font-weight: 600;
+}
+
+window.files-window .inspector-actions {
+  padding: 12px 0 8px 2px;
+}
+
+window.files-window .inspector-actions button {
+  min-height: 30px;
+}
+
+window.files-window .inspector-facts {
+  margin-top: 4px;
+  padding: 2px 0;
+  background: @theme_card;
+  border-radius: var(--nyx-radius-card);
+}
+
+window.files-window .fact-row {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+window.files-window .fact-key {
+  color: @theme_dim_text;
+}
+
+/* Icons: the bar over the grid, framed thumbnails, and the selection bar. */
+window.files-window .icons-bar {
+  min-height: 44px;
+  padding: 0 4px 0 12px;
+  border-bottom: 1px solid @sheet_line;
+}
+
+window.files-window .icons-title {
+  font-size: 1.077em;
+  font-weight: 600;
+}
+
+window.files-window .icons-count {
+  margin-left: 4px;
+  color: @theme_text_tertiary;
+  font-size: 0.923em;
+}
+
+window.files-window .icons-size {
+  margin-right: 6px;
+  color: @theme_text_tertiary;
+}
+
+window.files-window menubutton.icons-sort > button {
+  min-height: 30px;
+  padding: 0 10px;
+  background: @field;
+  color: @theme_text;
+}
+
+window.files-window gridview.file-grid {
+  padding: 16px 16px 84px;
+}
+
+window.files-window gridview.file-grid > child {
+  padding: 0 0 6px;
+  border-radius: 10px;
+}
+
+window.files-window gridview.file-grid > child:hover,
+window.files-window gridview.file-grid > child:selected {
+  background: transparent;
+}
+
+window.files-window gridview.file-grid .tile-icon {
+  border-radius: 8px;
+  background: @field;
+}
+
+window.files-window gridview.file-grid > child:hover .tile-icon {
+  box-shadow: 0 0 0 1px alpha(@theme_text, 0.18);
+}
+
+window.files-window gridview.file-grid > child:selected .tile-icon {
+  box-shadow: 0 0 0 2px @theme_accent;
+}
+
+window.files-window gridview.file-grid > child:focus-visible .tile-icon {
+  box-shadow: 0 0 0 2px alpha(@theme_accent, 0.7);
+}
+
+window.files-window .tile-check {
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 11px;
+  background: @theme_accent;
+  color: @theme_on_accent;
+  -gtk-icon-size: 13px;
+  opacity: 0;
+}
+
+window.files-window gridview.file-grid > child:selected .tile-check {
+  opacity: 1;
+}
+
+window.files-window gridview.file-grid .tile-name {
+  color: @theme_dim_text;
+  font-size: 0.923em;
+}
+
+window.files-window gridview.file-grid > child:selected .tile-name {
+  color: @theme_text;
+  font-weight: 600;
+}
+
+window.files-window .selection-bar {
+  padding: 6px 6px 6px 14px;
+  border-radius: var(--nyx-radius-card);
+  background: @theme_popover;
+  box-shadow: 0 6px 24px alpha(black, 0.35), inset 0 0 0 1px alpha(@theme_text, 0.08);
+}
+
+window.files-window .selection-bar separator {
+  min-height: 20px;
+  margin: 0 6px;
+  background: alpha(@theme_text, 0.1);
+}
+
+window.files-window .selection-count {
+  font-weight: 600;
+}
+
+window.files-window .selection-size {
+  margin-left: 6px;
+  color: @theme_text_tertiary;
+}
+
+window.files-window button.selection-action {
+  min-height: 30px;
+  padding: 0 10px;
+  color: @theme_text;
+}
+
+window.files-window button.selection-action.danger-label {
+  color: @theme_danger;
+}

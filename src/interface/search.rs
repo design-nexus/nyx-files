@@ -1,42 +1,23 @@
 // SPDX-License-Identifier: MIT
 
-//! Search: a card over the window for Home and the mounted drives (Ctrl+K)
-//! or folders visited before (Ctrl+Shift+K), and the filter that narrows the
-//! folder showing (the header field, Ctrl+F, / or typing).
+//! Jump to a folder visited before (Ctrl+Shift+K): a card over the window.
+//! Search across Home and the drives is the header's field (`finder`).
 
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-    sync::mpsc::TryRecvError,
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc};
 
 use gtk::{gio, glib, prelude::*};
 use nyx_ui::widgets;
 
-use crate::{
-    services::{NavigationHistory, SearchEvent, SearchHandle, SearchItem},
-    ui::{preferences::PreferenceManager, window::devices::global_search_roots},
-};
+use crate::services::{NavigationHistory, SearchItem};
 
 use super::window::Window;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Mode {
-    Everywhere,
-    Folders,
-}
 
 struct Card {
     veil: gtk::Box,
     entry: gtk::SearchEntry,
     list: gtk::ListBox,
     status: gtk::Label,
-    spinner: gtk::Spinner,
     items: RefCell<Vec<SearchItem>>,
-    handle: RefCell<Option<SearchHandle>>,
-    mode: Cell<Mode>,
-    generation: Cell<u64>,
     /// The window the card is open in, where results open.
     window: RefCell<std::rc::Weak<Window>>,
 }
@@ -96,10 +77,7 @@ impl Card {
         self.status.set_visible(items.is_empty());
         self.status
             .set_text(&crate::i18n::tr(if query.trim().is_empty() {
-                match self.mode.get() {
-                    Mode::Everywhere => "Type to search Home and mounted local drives",
-                    Mode::Folders => "Type to find a folder you visited",
-                }
+                "Type to find a folder you visited"
             } else {
                 "No matches"
             }));
@@ -108,16 +86,7 @@ impl Card {
 
     fn query(&self) {
         let text = self.entry.text().trim().to_string();
-        match self.mode.get() {
-            Mode::Folders => self.render(NavigationHistory::shared().search(&text)),
-            Mode::Everywhere => {
-                if text.is_empty() {
-                    self.render(Vec::new());
-                } else if let Some(handle) = self.handle.borrow().as_ref() {
-                    handle.query(&text);
-                }
-            }
-        }
+        self.render(NavigationHistory::shared().search(&text));
     }
 
     fn step(&self, delta: i32) {
@@ -135,8 +104,6 @@ impl Card {
     }
 
     fn close(&self) {
-        self.generation.set(self.generation.get() + 1);
-        self.handle.borrow_mut().take();
         self.veil.set_visible(false);
     }
 }
@@ -157,8 +124,6 @@ fn build(window: &Rc<Window>) -> Rc<Card> {
     let entry = gtk::SearchEntry::new();
     entry.set_hexpand(true);
     head.append(&entry);
-    let spinner = gtk::Spinner::new();
-    head.append(&spinner);
     card.append(&head);
     let status = widgets::label("", "dim");
     status.set_margin_start(6);
@@ -182,11 +147,7 @@ fn build(window: &Rc<Window>) -> Rc<Card> {
         entry,
         list,
         status,
-        spinner,
         items: RefCell::default(),
-        handle: RefCell::default(),
-        mode: Cell::new(Mode::Everywhere),
-        generation: Cell::new(0),
         window: RefCell::new(Rc::downgrade(window)),
     });
     let weak = Rc::downgrade(&state);
@@ -260,8 +221,8 @@ fn build(window: &Rc<Window>) -> Rc<Card> {
     state
 }
 
-/// Opens the card in `mode`, building it the first time.
-pub(super) fn open(window: &Rc<Window>, mode: Mode) {
+/// Opens the card, building it the first time.
+pub(super) fn open(window: &Rc<Window>) {
     let card = CARD.with(|c| c.borrow().clone()).unwrap_or_else(|| {
         let card = build(window);
         CARD.with(|c| *c.borrow_mut() = Some(card.clone()));
@@ -274,63 +235,10 @@ pub(super) fn open(window: &Rc<Window>, mode: Mode) {
         window.overlay.add_overlay(&card.veil);
     }
     *card.window.borrow_mut() = Rc::downgrade(window);
-    card.generation.set(card.generation.get() + 1);
-    card.mode.set(mode);
-    card.handle.borrow_mut().take();
     card.entry.set_text("");
     card.entry
-        .set_placeholder_text(Some(&crate::i18n::tr(match mode {
-            Mode::Everywhere => "Search files and folders…",
-            Mode::Folders => "Jump to a folder…",
-        })));
+        .set_placeholder_text(Some(&crate::i18n::tr("Jump to a folder…")));
     card.veil.set_visible(true);
     card.entry.grab_focus();
-    card.spinner.set_visible(false);
-    if mode == Mode::Everywhere {
-        let prefs = PreferenceManager::shared();
-        let roots = global_search_roots();
-        let (handle, receiver) = crate::services::index_trees_with_exclusions(
-            roots,
-            prefs.sort_preferences().show_hidden,
-            prefs.search_exclusions(),
-            prefs.search_limits(),
-        );
-        card.handle.replace(Some(handle));
-        card.spinner.set_visible(true);
-        card.spinner.start();
-        let (weak, generation) = (Rc::downgrade(&card), card.generation.get());
-        glib::timeout_add_local(Duration::from_millis(16), move || {
-            let Some(card) = weak.upgrade() else {
-                return glib::ControlFlow::Break;
-            };
-            if card.generation.get() != generation || !card.veil.is_visible() {
-                return glib::ControlFlow::Break;
-            }
-            let mut latest = None;
-            loop {
-                match receiver.try_recv() {
-                    Ok(event) => latest = Some(event),
-                    Err(TryRecvError::Empty) => break,
-                    Err(TryRecvError::Disconnected) => return glib::ControlFlow::Break,
-                }
-            }
-            if let Some(SearchEvent::Results {
-                query,
-                items,
-                indexing,
-                ..
-            }) = latest
-            {
-                card.spinner.set_visible(indexing);
-                if !query.is_empty() && query == card.entry.text().trim() {
-                    card.render(items);
-                }
-            }
-            glib::ControlFlow::Continue
-        });
-    }
-    card.render(Vec::new());
-    if mode == Mode::Folders {
-        card.query();
-    }
+    card.query();
 }
