@@ -64,6 +64,12 @@ fn a_local_favorite_is_looked_at_only_when_its_mount_answers() {
 
 #[test]
 fn a_remote_favorite_counts_only_while_its_server_is_mounted() {
+    // Without GVfs (a build sandbox), sftp URIs are GIO's dummy files, whose has_prefix
+    // never matches a server root.
+    if !gio::Vfs::default().supported_uri_schemes().iter().any(|s| s == "sftp") {
+        eprintln!("Skipping a_remote_favorite_counts_only_while_its_server_is_mounted: GVfs doesn't handle sftp here");
+        return;
+    }
     let notes = Location::uri("sftp://host/home/me/notes.txt");
     let share = Location::uri("sftp://host/");
     let mounted = [gio::File::for_uri("sftp://host/")];
