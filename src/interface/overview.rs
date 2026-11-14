@@ -31,6 +31,8 @@ pub(super) struct Overview {
     window: RefCell<Weak<Window>>,
     narrow: Cell<bool>,
     editing_pins: Cell<bool>,
+    /// The pins last seen: reading them reports them again, changed or not.
+    pins: RefCell<crate::adapters::bookmarks::Pins>,
     /// Bumped by each rebuild so late results from an older one are dropped.
     generation: Cell<u64>,
     keep: RefCell<Vec<Box<dyn std::any::Any>>>,
@@ -429,6 +431,7 @@ impl Overview {
             window: RefCell::default(),
             narrow: Cell::new(false),
             editing_pins: Cell::new(false),
+            pins: RefCell::default(),
             generation: Cell::new(0),
             keep: RefCell::default(),
             queued: Cell::new(false),
@@ -437,12 +440,18 @@ impl Overview {
 
     pub(super) fn attach(self: &Rc<Self>, window: &Rc<Window>) {
         *self.window.borrow_mut() = Rc::downgrade(window);
+        self.pins.replace(crate::adapters::bookmarks::current());
         let weak = Rc::downgrade(self);
-        let pins = crate::adapters::bookmarks::watch_changes(move |_| {
+        let pins = crate::adapters::bookmarks::watch_changes(move |result| {
             let Some(o) = weak.upgrade() else {
                 return false;
             };
-            o.queue_refresh();
+            if let Ok(pins) = result
+                && *o.pins.borrow() != *pins
+            {
+                *o.pins.borrow_mut() = pins.clone();
+                o.queue_refresh();
+            }
             true
         });
         self.keep.borrow_mut().push(Box::new(pins));
@@ -473,7 +482,7 @@ impl Overview {
     }
 
     /// Rebuilds once the current burst of changes is over, while showing.
-    fn queue_refresh(self: &Rc<Self>) {
+    pub(super) fn queue_refresh(self: &Rc<Self>) {
         if self.queued.replace(true) {
             return;
         }
@@ -963,6 +972,7 @@ fn storage_card(window: &Rc<Window>, store: &Store) -> (gtk::Box, gtk::LevelBar,
     }
     card.append(&top);
     let bar = widgets::usage_bar();
+    bar.set_visible(store.path.is_some());
     card.append(&bar);
     let sub = widgets::label(&store.note, "card-detail");
     sub.set_ellipsize(gtk::pango::EllipsizeMode::End);

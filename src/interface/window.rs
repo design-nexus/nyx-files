@@ -297,6 +297,12 @@ impl Window {
             settings_button.upcast_ref(),
         ]));
         this.overview.attach(&this);
+        let overview = Rc::downgrade(&this.overview);
+        this.content.on_cloud_change(move || {
+            if let Some(o) = overview.upgrade() {
+                o.queue_refresh();
+            }
+        });
         this.finder.attach(&this);
 
         this.wire();

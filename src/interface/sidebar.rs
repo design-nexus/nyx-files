@@ -57,6 +57,8 @@ pub(super) struct SidebarContent {
     /// The accounts nyx-cloud last listed, drawn at once on each rebuild so
     /// Cloud Storage keeps its place above Devices while a new listing loads.
     cloud_listing: RefCell<Option<CloudListing>>,
+    /// Told when a new listing of cloud accounts arrives (the Overview lists them too).
+    cloud_changed: RefCell<Option<Rc<dyn Fn()>>>,
 }
 
 #[derive(Clone)]
@@ -246,6 +248,7 @@ impl SidebarContent {
             trash_shown_full: Cell::new(false),
             section: Cell::new("places"),
             cloud_listing: RefCell::default(),
+            cloud_changed: RefCell::default(),
         });
         let weak = Rc::downgrade(&content);
         let pins = bookmarks::watch_changes(move |result| {
@@ -879,6 +882,10 @@ impl SidebarContent {
         self.sidebar.append(&sectioned(heading, section));
     }
 
+    pub(super) fn on_cloud_change(&self, changed: impl Fn() + 'static) {
+        self.cloud_changed.replace(Some(Rc::new(changed)));
+    }
+
     /// The cloud accounts the sidebar last listed.
     pub(super) fn cloud_accounts(&self) -> Vec<nyx_cloud::Remote> {
         match self.cloud_listing.borrow().as_ref() {
@@ -930,6 +937,10 @@ impl SidebarContent {
             if !unchanged {
                 content.cloud_listing.replace(Some(listing));
                 content.queue_rebuild();
+                let changed = content.cloud_changed.borrow().clone();
+                if let Some(changed) = changed {
+                    changed();
+                }
             }
         });
         if !self.cloud_watch.get() {
