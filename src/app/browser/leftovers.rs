@@ -26,7 +26,7 @@ fn lists_leftovers(location: &Location) -> bool {
         || location.uri_value().is_some_and(|uri| {
             !uri.get(..6)
                 .is_some_and(|scheme| scheme.eq_ignore_ascii_case("trash:"))
-                && !location.is_recent_location()
+                && !location.is_virtual_list()
         })
 }
 

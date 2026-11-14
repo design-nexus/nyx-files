@@ -1630,5 +1630,13 @@
   "Deleting": "삭제 중",
   "Restoring": "복원 중",
   "Recommended": "추천",
-  "Type to find a folder you visited": "입력하여 방문한 폴더를 찾으세요"
+  "Type to find a folder you visited": "입력하여 방문한 폴더를 찾으세요",
+  "Favorites": "즐겨찾기",
+  "Add to Favorites": "즐겨찾기에 추가",
+  "Remove from Favorites": "즐겨찾기에서 제거",
+  "Files and folders you starred. Drop items here to add them.": "별표한 파일과 폴더입니다. 항목을 여기에 놓으면 추가됩니다.",
+  "No favorites yet": "아직 즐겨찾기가 없습니다",
+  "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.": "자주 쓰는 파일과 폴더를 여기에 모아 두세요. 마우스 오른쪽 버튼을 눌러 즐겨찾기에 추가를 선택하거나, 미리 보기에서 별표하거나, 여기로 끌어다 놓으세요.",
+  "Your favorites aren't available right now": "지금은 즐겨찾기를 사용할 수 없습니다",
+  "They come back when their drive or server is connected again.": "드라이브나 서버가 다시 연결되면 돌아옵니다."
 }

@@ -86,7 +86,7 @@ impl Browser {
         if !matches!(&change, DirectoryChange::Rescan) {
             Self::refresh_search_indexes_for(watched, Some(&change));
         }
-        let removed = (!watched.is_recent_root())
+        let removed = (!watched.is_recent_root() && !watched.is_favorites_root())
             .then(|| removed_location(&change).cloned())
             .flatten();
         if self.file_operation_defers_changes() {

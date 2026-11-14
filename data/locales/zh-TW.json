@@ -1630,5 +1630,13 @@
   "Deleting": "正在刪除",
   "Restoring": "正在還原",
   "Recommended": "推薦",
-  "Type to find a folder you visited": "輸入以尋找造訪過的資料夾"
+  "Type to find a folder you visited": "輸入以尋找造訪過的資料夾",
+  "Favorites": "我的最愛",
+  "Add to Favorites": "加入我的最愛",
+  "Remove from Favorites": "從我的最愛移除",
+  "Files and folders you starred. Drop items here to add them.": "你加上星號的檔案和資料夾。將項目拖放到這裡即可加入。",
+  "No favorites yet": "尚無我的最愛",
+  "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.": "把常用的檔案和資料夾放在這裡。按右鍵並選擇「加入我的最愛」、在預覽中加上星號，或拖放到這裡。",
+  "Your favorites aren't available right now": "你的我的最愛目前無法使用",
+  "They come back when their drive or server is connected again.": "重新連接所在的磁碟或伺服器後就會恢復。"
 }

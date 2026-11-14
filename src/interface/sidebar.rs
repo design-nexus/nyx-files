@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-//! The sidebar's content: Overview, Recent and Pinned, then Folders, then
-//! Storage (drives, cloud accounts, Network and Trash), rebuilt when pins,
-//! drives, cloud accounts or the shown places change.
+//! The sidebar's content: Overview, Recent and Favorites, then Folders, then
+//! Pinned, then Storage (drives, cloud accounts, Network and Trash), rebuilt
+//! when pins, favorites, drives, cloud accounts or the shown places change.
 
 use std::{
     cell::{Cell, RefCell},
@@ -13,7 +13,7 @@ use gtk::{gio, glib, prelude::*};
 use nyx_ui::sidebar::{self, NavItem, Sidebar};
 
 use crate::{
-    adapters::bookmarks,
+    adapters::{bookmarks, favorites},
     model::Location,
     ui::{preferences::PreferenceManager, window::device_release},
 };
@@ -265,6 +265,20 @@ impl SidebarContent {
         });
         content.keep.borrow_mut().push(Box::new(pins));
         let weak = Rc::downgrade(&content);
+        let starred = favorites::watch_changes(move |_| {
+            if let Some(c) = weak.upgrade() {
+                c.queue_rebuild();
+            }
+        });
+        content.keep.borrow_mut().push(Box::new(starred));
+        let weak = Rc::downgrade(&content);
+        let counted = favorites::watch_count(move || {
+            if let Some(c) = weak.upgrade() {
+                c.queue_rebuild();
+            }
+        });
+        content.keep.borrow_mut().push(Box::new(counted));
+        let weak = Rc::downgrade(&content);
         let releases = device_release::watch_sidebars(move || {
             if let Some(c) = weak.upgrade() {
                 c.queue_rebuild();
@@ -445,7 +459,7 @@ impl SidebarContent {
             .add_css_class(&format!("section-icon-{}", self.section.get()));
         if let Some(location) = location
             .clone()
-            .filter(|l| !l.is_recent_location() && l.uri_value() != Some("network:///"))
+            .filter(|l| !l.is_virtual_list() && l.uri_value() != Some("network:///"))
         {
             let l = location.clone();
             self.drop_target(&item.button, move || Some(l.clone()));
@@ -467,9 +481,7 @@ impl SidebarContent {
         self.rows.borrow_mut().clear();
         self.start();
         self.places();
-        if self.overview.is_none() {
-            self.pinned();
-        }
+        self.pinned();
         self.storage();
         self.sidebar.refresh();
         self.show_rail_marks(self.sidebar.is_compact());
@@ -479,7 +491,7 @@ impl SidebarContent {
         glib::idle_add_local_once(move || adj.set_value(scroll));
     }
 
-    /// Overview, Recent and Pinned, above the groups.
+    /// Overview, Recent and Favorites, above the groups.
     fn start(&self) {
         self.section.set("places");
         let show = self.overview.clone();
@@ -512,17 +524,21 @@ impl SidebarContent {
             item.set_count(Some(count as u64));
             self.sidebar.append(&item.button);
         }
-        let Some(show) = show else { return };
-        let pins = pinned_folders().len();
-        let title = crate::i18n::tr("Pinned");
-        let item = sidebar::nav_item("starred-symbolic", &title, &crate::i18n::tr("Pinned folders, on the Overview"));
-        item.button.add_css_class("section-icon-places");
-        item.set_count(Some(pins as u64));
-        item.button.connect_clicked(move |_| show(true));
+        let title = crate::i18n::tr("Favorites");
+        let location = Location::favorites();
+        let item = self.add_row(
+            "starred-symbolic",
+            &title,
+            &crate::i18n::tr("Files and folders you starred. Drop items here to add them."),
+            Some(location.clone()),
+            Target::Place("favorites", location),
+        );
+        item.set_count(favorites::reachable().map(|n| n as u64));
+        favorite_drop(&item.button);
         self.sidebar.append(&item.button);
     }
 
-    /// The file chooser's pinned folders, as rows.
+    /// Pinned folders, as rows.
     fn pinned(&self) {
         let pins = pinned_folders();
         if pins.is_empty() {
@@ -851,6 +867,38 @@ pub(super) fn unpin(location: Location) {
             tracing::warn!(%error, "unable to unpin a folder");
         }
     });
+}
+
+/// Files dropped here become favorites; they aren't copied or moved.
+pub(super) fn favorite_drop(widget: &impl IsA<gtk::Widget>) {
+    let target = gtk::DropTarget::new(
+        gtk::gdk::FileList::static_type(),
+        gtk::gdk::DragAction::COPY,
+    );
+    // Copy, never move: the source then leaves its files alone.
+    target.connect_enter(|t, _, _| {
+        if let Some(w) = t.widget() {
+            w.add_css_class("drop-target");
+        }
+        gtk::gdk::DragAction::COPY
+    });
+    target.connect_motion(|_, _, _| gtk::gdk::DragAction::COPY);
+    target.connect_leave(|t| {
+        if let Some(w) = t.widget() {
+            w.remove_css_class("drop-target");
+        }
+    });
+    target.connect_drop(|t, value, _, _| {
+        if let Some(w) = t.widget() {
+            w.remove_css_class("drop-target");
+        }
+        let Some(locations) = super::actions::dropped(value) else {
+            return false;
+        };
+        favorites::add(locations);
+        true
+    });
+    widget.add_controller(target);
 }
 
 /// The pinned folders, in their order, leaving out Home and the standard folders.

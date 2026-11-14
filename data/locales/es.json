@@ -1630,5 +1630,13 @@
   "Deleting": "Eliminando",
   "Restoring": "Restaurando",
   "Recommended": "Recomendadas",
-  "Type to find a folder you visited": "Escribe para buscar una carpeta que hayas visitado"
+  "Type to find a folder you visited": "Escribe para buscar una carpeta que hayas visitado",
+  "Favorites": "Favoritos",
+  "Add to Favorites": "Añadir a favoritos",
+  "Remove from Favorites": "Quitar de favoritos",
+  "Files and folders you starred. Drop items here to add them.": "Archivos y carpetas que marcaste con una estrella. Suelta elementos aquí para añadirlos.",
+  "No favorites yet": "Aún no hay favoritos",
+  "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.": "Guarda aquí los archivos y carpetas que usas a menudo. Haz clic derecho en uno y elige Añadir a favoritos, márcalo con una estrella en la vista previa o arrástralo aquí.",
+  "Your favorites aren't available right now": "Tus favoritos no están disponibles ahora",
+  "They come back when their drive or server is connected again.": "Volverán cuando su unidad o servidor se conecte de nuevo."
 }

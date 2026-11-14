@@ -194,6 +194,9 @@ struct PreviewState {
     raw_details_scroll: gtk::ScrolledWindow,
     raw_metadata_load: RefCell<Option<super::raw_details::MetadataLoad>>,
     open: gtk::Button,
+    /// Stars the item shown, or takes its star away (Favorites).
+    star: gtk::Button,
+    favorites_watch: RefCell<Option<crate::adapters::favorites::FavoritesWatch>>,
     close: gtk::Button,
     /// Key hints under a popup preview.
     footer: gtk::Box,
@@ -292,6 +295,8 @@ impl PreviewDrawer {
         title.set_xalign(0.0);
         let open = header_action("document-open-symbolic", "Open in default application");
         open.set_visible(allow_external_open);
+        let star = header_action("non-starred-symbolic", "Add to Favorites");
+        star.set_visible(false);
         let model_spinner = gtk::Spinner::builder()
             .valign(gtk::Align::Center)
             .visible(false)
@@ -369,6 +374,7 @@ impl PreviewDrawer {
         header.append(&document_view_button);
         header.append(&find_button);
         header.append(&model_spinner);
+        header.append(&star);
         header.append(&open);
         header.append(&print);
         header.append(&wrap);
@@ -453,6 +459,8 @@ impl PreviewDrawer {
             raw_details_scroll,
             raw_metadata_load: RefCell::new(None),
             open: open.clone(),
+            star: star.clone(),
+            favorites_watch: RefCell::new(None),
             close: close.clone(),
             footer,
             print: print.clone(),
@@ -499,6 +507,21 @@ impl PreviewDrawer {
             released_from: Cell::new(None),
             operations: RefCell::new(None),
         });
+        let weak = Rc::downgrade(&state);
+        star.connect_clicked(move |_| {
+            let Some(state) = weak.upgrade() else { return };
+            let location = state.current.borrow().as_ref().map(|e| e.location.clone());
+            if let Some(location) = location {
+                crate::adapters::favorites::toggle(vec![location]);
+            }
+        });
+        let weak = Rc::downgrade(&state);
+        let watch = crate::adapters::favorites::watch_changes(move |_| {
+            if let Some(state) = weak.upgrade() {
+                state.sync_star();
+            }
+        });
+        state.favorites_watch.replace(Some(watch));
         let weak = Rc::downgrade(&state);
         state.enabled_action.connect_activate(move |_, _| {
             if let Some(state) = weak.upgrade() {
@@ -963,11 +986,13 @@ impl PreviewState {
                 self.sizing.defer_load();
             }
             self.current.replace(Some(entry));
+            self.sync_star();
             self.sync_split(split);
             return;
         }
         if !was_open {
             self.current.replace(Some(entry.clone()));
+            self.sync_star();
             if let Some(split) = split.as_ref() {
                 self.animate_reveal(split, true, |_| {});
             } else {
@@ -1376,6 +1401,7 @@ impl PreviewState {
         self.open.set_sensitive(true);
         self.header_handle.set_cursor_from_name(Some("grab"));
         self.current.replace(Some(entry.clone()));
+        self.sync_star();
         self.icon
             .set_icon_name(Some(&super::file_icons::name_for(&entry)));
         self.title.set_text(&entry.display_name);
@@ -3600,6 +3626,30 @@ fn document_view_action(view: DocumentView) -> (&'static str, &'static str) {
     match view {
         DocumentView::Rendered => ("View source", "text-x-generic-symbolic"),
         DocumentView::Source => ("View rendered", "x-office-document-symbolic"),
+    }
+}
+
+impl PreviewState {
+    /// The star shows whether the item previewed is a favorite.
+    fn sync_star(&self) {
+        let location = self.current.borrow().as_ref().map(|e| e.location.clone());
+        let Some(location) = location.filter(|l| {
+            !l.uri_value().is_some_and(|uri| uri.starts_with("trash:"))
+        }) else {
+            self.star.set_visible(false);
+            return;
+        };
+        let starred = crate::adapters::favorites::contains(&location);
+        let (icon, tooltip) = if starred {
+            ("starred-symbolic", "Remove from Favorites")
+        } else {
+            ("non-starred-symbolic", "Add to Favorites")
+        };
+        let label = crate::i18n::tr(tooltip);
+        self.star.set_icon_name(icon);
+        self.star.set_tooltip_text(Some(&label));
+        super::accessibility::set_label(&self.star, &label);
+        self.star.set_visible(true);
     }
 }
 

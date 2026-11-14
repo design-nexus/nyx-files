@@ -1630,5 +1630,13 @@
   "Deleting": "削除中",
   "Restoring": "復元中",
   "Recommended": "おすすめ",
-  "Type to find a folder you visited": "入力して、開いたことのあるフォルダーを探します"
+  "Type to find a folder you visited": "入力して、開いたことのあるフォルダーを探します",
+  "Favorites": "お気に入り",
+  "Add to Favorites": "お気に入りに追加",
+  "Remove from Favorites": "お気に入りから削除",
+  "Files and folders you starred. Drop items here to add them.": "スターを付けたファイルとフォルダー。ここに項目をドロップすると追加されます。",
+  "No favorites yet": "お気に入りはまだありません",
+  "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.": "よく使うファイルやフォルダーをここにまとめられます。右クリックして「お気に入りに追加」を選ぶか、プレビューでスターを付けるか、ここにドラッグしてください。",
+  "Your favorites aren't available right now": "お気に入りは今は利用できません",
+  "They come back when their drive or server is connected again.": "ドライブやサーバーが再び接続されると表示されます。"
 }

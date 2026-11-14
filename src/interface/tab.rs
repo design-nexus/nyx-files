@@ -57,6 +57,10 @@ pub(super) struct Tab {
     result_open: RefCell<Option<ResultFn>>,
     events: RefCell<Option<EventFn>>,
     status: gtk::Label,
+    /// What an empty Favorites view says: nothing starred yet, or none reachable now.
+    favorites_title: gtk::Label,
+    favorites_hint: gtk::Label,
+    favorites_empty: Cell<bool>,
     mode: Cell<BrowserMode>,
     /// The folder whose saved view the tab shows; folders opened inside
     /// Columns keep the view of the folder Columns was entered at.
@@ -157,6 +161,8 @@ impl Tab {
         status.set_wrap(true);
         status.set_justify(gtk::Justification::Center);
         page.add_named(&status, Some("status"));
+        let (favorites_page, favorites_title, favorites_hint) = favorites_empty_page();
+        page.add_named(&favorites_page, Some("favorites-empty"));
         let results = gtk::ListBox::new();
         results.add_css_class("search-results");
         results.add_css_class("filter-results");
@@ -225,6 +231,9 @@ impl Tab {
             result_open: RefCell::new(None),
             events: RefCell::new(None),
             status,
+            favorites_title,
+            favorites_hint,
+            favorites_empty: Cell::new(false),
             mode: Cell::new(initial_mode),
             view_anchor: RefCell::new(Some(location.clone())),
             pending_jump: Cell::new(false),
@@ -1191,11 +1200,29 @@ impl Tab {
         }
     }
 
+    fn word_favorites_empty(&self) {
+        let (title, hint) = if crate::adapters::favorites::current().is_empty() {
+            (
+                "No favorites yet",
+                "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.",
+            )
+        } else {
+            (
+                "Your favorites aren't available right now",
+                "They come back when their drive or server is connected again.",
+            )
+        };
+        self.favorites_title.set_text(&crate::i18n::tr(title));
+        self.favorites_hint.set_text(&crate::i18n::tr(hint));
+    }
+
     fn show_page(&self) {
         let page = if self.filtering() && !self.filters_in_place() {
             "results"
         } else if self.failed.get() {
             "status"
+        } else if self.favorites_empty.get() && !self.filtering() {
+            "favorites-empty"
         } else {
             self.view_page()
         };
@@ -1363,6 +1390,14 @@ impl Tab {
             self.status.set_text(error);
         }
         self.failed.set(snapshot.error.is_some());
+        let favorites_empty = snapshot.location.is_favorites_root()
+            && !snapshot.loading
+            && snapshot.error.is_none()
+            && snapshot.count == 0;
+        if favorites_empty {
+            self.word_favorites_empty();
+        }
+        self.favorites_empty.set(favorites_empty);
         self.show_page();
         let columns = self.mode.get() == BrowserMode::Columns;
         if columns {
@@ -1499,6 +1534,29 @@ impl Tab {
         crumbs.reverse();
         (crumbs, location.display_path())
     }
+}
+
+/// The page an empty Favorites view shows instead of an empty list; it takes drops too.
+fn favorites_empty_page() -> (gtk::Box, gtk::Label, gtk::Label) {
+    let page = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    page.add_css_class("favorites-empty");
+    page.set_valign(gtk::Align::Center);
+    page.set_halign(gtk::Align::Center);
+    let star = gtk::Image::from_icon_name("non-starred-symbolic");
+    star.set_pixel_size(56);
+    star.add_css_class("favorites-empty-icon");
+    page.append(&star);
+    let title = gtk::Label::new(None);
+    title.add_css_class("favorites-empty-title");
+    page.append(&title);
+    let hint = gtk::Label::new(None);
+    hint.add_css_class("favorites-empty-hint");
+    hint.set_wrap(true);
+    hint.set_justify(gtk::Justification::Center);
+    hint.set_max_width_chars(46);
+    page.append(&hint);
+    super::sidebar::favorite_drop(&page);
+    (page, title, hint)
 }
 
 fn target_of(location: &Location) -> String {

@@ -191,8 +191,22 @@ impl Location {
         })
     }
 
+    pub fn favorites() -> Self {
+        Self::uri("favorites:///")
+    }
+
+    pub fn is_favorites_root(&self) -> bool {
+        self.uri_value()
+            .is_some_and(|uri| uri_scheme_eq(uri, "favorites"))
+    }
+
+    /// Recent and Favorites list items kept elsewhere: nothing is made or put in them.
+    pub fn is_virtual_list(&self) -> bool {
+        self.is_recent_location() || self.is_favorites_root()
+    }
+
     pub fn parent(&self) -> Option<Self> {
-        if self.is_recent_root() {
+        if self.is_recent_root() || self.is_favorites_root() {
             return None;
         }
         match &self.kind {
@@ -394,6 +408,9 @@ impl Location {
     pub fn display_name(&self) -> String {
         if self.is_recent_root() {
             return crate::i18n::tr("Recent");
+        }
+        if self.is_favorites_root() {
+            return crate::i18n::tr("Favorites");
         }
         if self.is_camera_photo_root() {
             return crate::i18n::tr("Photos");

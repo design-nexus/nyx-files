@@ -1630,5 +1630,13 @@
   "Deleting": "Удаление",
   "Restoring": "Восстановление",
   "Recommended": "Рекомендуемые",
-  "Type to find a folder you visited": "Начните вводить, чтобы найти посещённую папку"
+  "Type to find a folder you visited": "Начните вводить, чтобы найти посещённую папку",
+  "Favorites": "Избранное",
+  "Add to Favorites": "Добавить в избранное",
+  "Remove from Favorites": "Удалить из избранного",
+  "Files and folders you starred. Drop items here to add them.": "Файлы и папки, отмеченные звёздочкой. Перетащите сюда элементы, чтобы добавить их.",
+  "No favorites yet": "В избранном пока пусто",
+  "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.": "Держите здесь файлы и папки, которыми часто пользуетесь. Щёлкните правой кнопкой и выберите «Добавить в избранное», отметьте звёздочкой в просмотре или перетащите сюда.",
+  "Your favorites aren't available right now": "Избранное сейчас недоступно",
+  "They come back when their drive or server is connected again.": "Они вернутся, когда их диск или сервер снова будет подключён."
 }

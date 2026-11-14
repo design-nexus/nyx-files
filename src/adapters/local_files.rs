@@ -44,6 +44,7 @@ use crate::{
 use futures_channel::oneshot;
 
 mod camera_photos;
+mod favorites;
 mod monitors;
 
 pub(crate) use monitors::watch;
@@ -363,7 +364,7 @@ fn remote_stamp(uri: &str, info: &gio::FileInfo, read_at: SystemTime) -> Directo
 
 fn stamped_remotely(location: &Location) -> bool {
     location.uri_value().is_some_and(|uri| {
-        !location.is_recent_location()
+        !location.is_virtual_list()
             && !location.is_camera_photo_root()
             && glib::Uri::parse_scheme(uri).is_some_and(|scheme| scheme != "trash")
     })
@@ -1456,6 +1457,10 @@ impl FileSource for LocalFileSource {
             });
             return LoadHandle::new(move || task.abort());
         }
+        if location.is_favorites_root() {
+            let task = glib::MainContext::default().spawn_local(async move { emit(Ok(())) });
+            return LoadHandle::new(move || task.abort());
+        }
         let uri = location.uri_value().unwrap_or_default().to_owned();
         let task = glib::MainContext::default().spawn_local(async move {
             let query = gio::File::for_uri(&uri).query_info_future(
@@ -1487,6 +1492,9 @@ impl FileSource for LocalFileSource {
         }
         if location.is_camera_photo_root() {
             return camera_photos::enumerate(request, emit);
+        }
+        if location.is_favorites_root() {
+            return favorites::enumerate(request, emit, started);
         }
 
         let task = glib::MainContext::default().spawn_local(async move {
@@ -1818,6 +1826,9 @@ impl FileSource for LocalFileSource {
         notify: Rc<dyn Fn(DirectoryChange)>,
         report: Rc<dyn Fn(Watching)>,
     ) -> LoadHandle {
+        if location.is_favorites_root() {
+            return favorites::watch(notify, report);
+        }
         let started = monitors::start(
             &location,
             super::local_operations::Watched::Folder,
@@ -1854,7 +1865,10 @@ impl FileSource for LocalFileSource {
     fn responsiveness(&self, location: &Location) -> Responsiveness {
         match location.native_path() {
             Some(path) => mount_lanes::responsiveness(path),
-            None if location.is_recent_root() || location.is_camera_photo_root() => {
+            None if location.is_recent_root()
+                || location.is_favorites_root()
+                || location.is_camera_photo_root() =>
+            {
                 Responsiveness::Answering
             }
             None => mount_lanes::remote_responsiveness(mount_lanes::authority(

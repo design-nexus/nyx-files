@@ -1630,5 +1630,13 @@
   "Deleting": "正在删除",
   "Restoring": "正在恢复",
   "Recommended": "推荐",
-  "Type to find a folder you visited": "输入以查找访问过的文件夹"
+  "Type to find a folder you visited": "输入以查找访问过的文件夹",
+  "Favorites": "收藏",
+  "Add to Favorites": "添加到收藏",
+  "Remove from Favorites": "从收藏中移除",
+  "Files and folders you starred. Drop items here to add them.": "你加星标的文件和文件夹。将项目拖放到此处即可添加。",
+  "No favorites yet": "还没有收藏",
+  "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.": "把常用的文件和文件夹放在这里。右键点击并选择“添加到收藏”，在预览中加星标，或拖放到这里。",
+  "Your favorites aren't available right now": "你的收藏暂时无法访问",
+  "They come back when their drive or server is connected again.": "重新连接其所在的驱动器或服务器后就会恢复。"
 }

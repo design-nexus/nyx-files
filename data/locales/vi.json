@@ -1630,5 +1630,13 @@
   "Deleting": "Đang xóa",
   "Restoring": "Đang khôi phục",
   "Recommended": "Đề xuất",
-  "Type to find a folder you visited": "Nhập để tìm thư mục bạn đã mở"
+  "Type to find a folder you visited": "Nhập để tìm thư mục bạn đã mở",
+  "Favorites": "Yêu thích",
+  "Add to Favorites": "Thêm vào Yêu thích",
+  "Remove from Favorites": "Xóa khỏi Yêu thích",
+  "Files and folders you starred. Drop items here to add them.": "Các tệp và thư mục bạn đã gắn sao. Thả mục vào đây để thêm.",
+  "No favorites yet": "Chưa có mục yêu thích",
+  "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.": "Giữ ở đây các tệp và thư mục bạn hay dùng. Nhấp chuột phải vào một mục và chọn Thêm vào Yêu thích, gắn sao trong phần xem trước, hoặc kéo mục đó vào đây.",
+  "Your favorites aren't available right now": "Các mục yêu thích hiện không khả dụng",
+  "They come back when their drive or server is connected again.": "Chúng sẽ trở lại khi ổ đĩa hoặc máy chủ được kết nối lại."
 }

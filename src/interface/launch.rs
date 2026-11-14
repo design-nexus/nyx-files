@@ -63,6 +63,9 @@ pub(super) fn present_open(application: &gtk::Application, file: &gio::File) {
         return;
     };
     let window = Window::open(application, Some(location.clone()));
+    if location.is_favorites_root() {
+        return;
+    }
     let file = file.clone();
     glib::MainContext::default().spawn_local(async move {
         let operation = super::mount::operation();

@@ -1630,5 +1630,13 @@
   "Deleting": "Deleting",
   "Restoring": "Restoring",
   "Recommended": "Recommended",
-  "Type to find a folder you visited": "Type to find a folder you visited"
+  "Type to find a folder you visited": "Type to find a folder you visited",
+  "Favorites": "Favorites",
+  "Add to Favorites": "Add to Favorites",
+  "Remove from Favorites": "Remove from Favorites",
+  "Files and folders you starred. Drop items here to add them.": "Files and folders you starred. Drop items here to add them.",
+  "No favorites yet": "No favorites yet",
+  "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.": "Keep files and folders you use often here. Right-click one and choose Add to Favorites, star it in the preview, or drag it here.",
+  "Your favorites aren't available right now": "Your favorites aren't available right now",
+  "They come back when their drive or server is connected again.": "They come back when their drive or server is connected again."
 }

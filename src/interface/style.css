@@ -733,6 +733,29 @@ window.files-window .overview-note {
   color: @theme_text_tertiary;
 }
 
+window.files-window .favorites-empty {
+  padding: 24px;
+  border-radius: 14px;
+}
+
+window.files-window .favorites-empty.drop-target {
+  background: alpha(@theme_accent, 0.08);
+}
+
+window.files-window .favorites-empty-icon {
+  color: @theme_text_tertiary;
+  margin-bottom: 4px;
+}
+
+window.files-window .favorites-empty-title {
+  font-size: 1.154em;
+  font-weight: 600;
+}
+
+window.files-window .favorites-empty-hint {
+  color: @theme_dim_text;
+}
+
 window.files-window .overview-card {
   padding: 0;
   background: @theme_card;

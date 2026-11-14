@@ -2576,7 +2576,7 @@ impl Browser {
         name: String,
         unique_name: bool,
     ) {
-        if parent.is_recent_location() {
+        if parent.is_virtual_list() {
             return;
         }
         if let Err(message) = validate_basename(&name) {
@@ -2625,7 +2625,7 @@ impl Browser {
     }
 
     fn create_file_with_naming(self: &Rc<Self>, parent: Location, name: String, unique_name: bool) {
-        if parent.is_recent_location() {
+        if parent.is_virtual_list() {
             return;
         }
         if let Err(message) = validate_basename(&name) {
@@ -2678,7 +2678,7 @@ impl Browser {
         reveal: bool,
         replace_cursor: bool,
     ) {
-        if items.is_empty() || destination.is_recent_location() {
+        if items.is_empty() || destination.is_virtual_list() {
             return;
         }
         let Some(provider) = self.operation_provider.borrow().clone() else {
@@ -4569,7 +4569,8 @@ impl Browser {
             }
         }
         for (depth, watched) in open_locations {
-            let removed = if watched.is_recent_root() || watched.is_camera_photo_root() {
+            let lists_anything = watched.is_recent_root() || watched.is_favorites_root();
+            let removed = if lists_anything || watched.is_camera_photo_root() {
                 if locations.len() > MAX_INCREMENTAL_OPERATION_UPDATES {
                     if !rescanning.contains(&depth) {
                         self.refresh_column(depth);
@@ -4579,7 +4580,7 @@ impl Browser {
                 locations
                     .iter()
                     .filter(|location| {
-                        watched.is_recent_root() || watched.contains_camera_photo_location(location)
+                        lists_anything || watched.contains_camera_photo_location(location)
                     })
                     .cloned()
                     .collect()

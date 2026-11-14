@@ -61,7 +61,7 @@ impl ChooserFileSource {
         if !self.allows_navigation(location) {
             return Err(LocationValidationError::Refused(OUTSIDE_ROOT));
         }
-        if location.native_path().is_none() && !location.is_recent_root() {
+        if location.native_path().is_none() && !location.is_recent_root() && !location.is_favorites_root() {
             return Err(LocationValidationError::Refused(
                 "The system file chooser supports local files and folders only.",
             ));
@@ -115,7 +115,7 @@ impl FileSource for ChooserFileSource {
     }
 
     fn supports_metadata_fill(&self, location: &Location) -> bool {
-        (location.native_path().is_some() || location.is_recent_root())
+        (location.native_path().is_some() || location.is_recent_root() || location.is_favorites_root())
             && self.source.supports_metadata_fill(location)
     }
 

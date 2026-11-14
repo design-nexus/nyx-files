@@ -18,6 +18,38 @@ use crate::{
 
 use super::list::{entry_icon, kind};
 
+/// A star that adds the item to Favorites, or takes it out.
+fn star_button(location: &crate::model::Location) -> gtk::Button {
+    use crate::adapters::favorites;
+    let button = widgets::icon_button("non-starred-symbolic", &crate::i18n::tr("Add to Favorites"));
+    button.add_css_class("flat");
+    button.set_valign(gtk::Align::Center);
+    let show = {
+        let (button, location) = (button.downgrade(), location.clone());
+        move || {
+            let Some(button) = button.upgrade() else { return };
+            let (icon, tooltip) = if favorites::contains(&location) {
+                ("starred-symbolic", "Remove from Favorites")
+            } else {
+                ("non-starred-symbolic", "Add to Favorites")
+            };
+            let label = crate::i18n::tr(tooltip);
+            button.set_icon_name(icon);
+            button.set_tooltip_text(Some(&label));
+            button.update_property(&[gtk::accessible::Property::Label(&label)]);
+        }
+    };
+    show();
+    let watch = favorites::watch_changes(move |_| show());
+    let location = location.clone();
+    button.connect_clicked(move |_| favorites::toggle(vec![location.clone()]));
+    // The watch lasts as long as the button.
+    button.connect_destroy(move |_| {
+        let _held = &watch;
+    });
+    button
+}
+
 fn row(parent: &gtk::Box, title: &str, value: &str) -> gtk::Label {
     let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     line.add_css_class("properties-row");
@@ -50,7 +82,11 @@ pub(super) fn show(entry: &FileEntry) {
     name.set_wrap_mode(gtk::pango::WrapMode::WordChar);
     names.append(&name);
     names.append(&widgets::label(&kind(entry), "dim"));
+    names.set_hexpand(true);
     head.append(&names);
+    if !entry.location.uri_value().is_some_and(|uri| uri.starts_with("trash:")) {
+        head.append(&star_button(&entry.location));
+    }
     card.append(&head);
 
     let details = gtk::Box::new(gtk::Orientation::Vertical, 6);

@@ -634,12 +634,14 @@ pub(super) fn sidebar_menu(
         }
         Target::Place(id, _) => {
             let id = *id;
-            items.push(
-                menu::item(&crate::i18n::tr("Hide from sidebar"), move || {
-                    hide_place(id)
-                })
-                .icon("view-conceal-symbolic"),
-            );
+            if id != "favorites" {
+                items.push(
+                    menu::item(&crate::i18n::tr("Hide from sidebar"), move || {
+                        hide_place(id)
+                    })
+                    .icon("view-conceal-symbolic"),
+                );
+            }
             if id == "network" {
                 let w = window.clone();
                 items.push(

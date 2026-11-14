@@ -706,6 +706,21 @@ pub(super) fn item_menu(
             );
         }
     }
+    if !trashed && !entries.is_empty() {
+        let locations: Vec<_> = entries.iter().map(|e| e.location.clone()).collect();
+        let starred = crate::adapters::favorites::all_favorites(&locations);
+        let (label, icon) = if starred {
+            ("Remove from Favorites", "non-starred-symbolic")
+        } else {
+            ("Add to Favorites", "starred-symbolic")
+        };
+        items.push(
+            menu::item(&crate::i18n::tr(label), move || {
+                crate::adapters::favorites::toggle(locations.clone())
+            })
+            .icon(icon),
+        );
+    }
     if let Some(entry) = one.as_ref()
         && let Some(path) = entry.location.native_path()
     {
@@ -819,7 +834,7 @@ fn copy_and_move(
     if let Some(send) = send_to(window, tab, entries) {
         items.push(send);
     }
-    if native && tab.location().is_some_and(|l| !l.is_recent_location()) {
+    if native && tab.location().is_some_and(|l| !l.is_virtual_list()) {
         let (w, t, e) = (window.clone(), tab.clone(), entries.to_vec());
         items.push(
             menu::item(&crate::i18n::tr("New Folder with Selection"), move || {
