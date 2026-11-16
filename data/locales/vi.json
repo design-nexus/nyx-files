@@ -659,6 +659,7 @@
   "Omarchy variant": "Biến thể Omarchy",
   "On": "Bật",
   "On Arch or Omarchy, install the required GStreamer plugins, then restart Files.": "Trên Arch hoặc Omarchy, hãy cài đặt các plugin GStreamer cần thiết rồi khởi động lại Files.",
+  "Files can't preview this kind of media. Open it in a media player.": "Files không thể xem trước loại phương tiện này. Hãy mở nó bằng trình phát đa phương tiện.",
   "On failure": "Khi thất bại",
   "Once, or once per selected item": "Một lần, hoặc một lần cho mỗi mục đã chọn",
   "One argument per line; {path}, {paths}, or {parent}": "Mỗi dòng một đối số; {path}, {paths} hoặc {parent}",

@@ -659,6 +659,7 @@
   "Omarchy variant": "Omarchy 主题变体",
   "On": "开",
   "On Arch or Omarchy, install the required GStreamer plugins, then restart Files.": "在 Arch 或 Omarchy 上，请安装所需的 GStreamer 插件，然后重启 Files。",
+  "Files can't preview this kind of media. Open it in a media player.": "Files 无法预览此类媒体。请在媒体播放器中打开。",
   "On failure": "出错时",
   "Once, or once per selected item": "运行一次，或对每个所选项目各运行一次",
   "One argument per line; {path}, {paths}, or {parent}": "每行一个参数；可使用 {path}、{paths} 或 {parent}",

@@ -659,6 +659,7 @@
   "Omarchy variant": "Variante do Omarchy",
   "On": "Ativado",
   "On Arch or Omarchy, install the required GStreamer plugins, then restart Files.": "No Arch ou no Omarchy, instale os plugins do GStreamer necessários e reinicie o Files.",
+  "Files can't preview this kind of media. Open it in a media player.": "O Files não consegue pré-visualizar este tipo de mídia. Abra-o em um reprodutor de mídia.",
   "On failure": "Em caso de falha",
   "Once, or once per selected item": "Uma vez, ou uma vez por item selecionado",
   "One argument per line; {path}, {paths}, or {parent}": "Um argumento por linha; {path}, {paths} ou {parent}",

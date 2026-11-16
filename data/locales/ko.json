@@ -659,6 +659,7 @@
   "Omarchy variant": "Omarchy 변형",
   "On": "켬",
   "On Arch or Omarchy, install the required GStreamer plugins, then restart Files.": "Arch 또는 Omarchy에서는 필요한 GStreamer 플러그인을 설치한 후 Files를 다시 시작하세요.",
+  "Files can't preview this kind of media. Open it in a media player.": "Files에서 이 종류의 미디어를 미리 볼 수 없습니다. 미디어 플레이어에서 여세요.",
   "On failure": "실패 시",
   "Once, or once per selected item": "한 번 또는 선택한 항목마다 한 번",
   "One argument per line; {path}, {paths}, or {parent}": "한 줄에 인수 하나; {path}, {paths} 또는 {parent}",

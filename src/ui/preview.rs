@@ -3861,12 +3861,21 @@ fn media_error_feedback(message: &str) -> (String, String, Option<&'static str>)
     .iter()
     .any(|marker| normalized.contains(marker))
     {
+        // Arch's packages are a command away; elsewhere (NyxOS) Files' own build has
+        // the media support it ships with.
+        if crate::portal_setup::omarchy_is_present() || std::path::Path::new("/usr/bin/pacman").exists() {
+            return (
+                crate::i18n::tr("Additional media support required"),
+                crate::i18n::tr(
+                    "On Arch or Omarchy, install the required GStreamer plugins, then restart Files.",
+                ),
+                Some(MEDIA_PLUGIN_INSTALL_COMMAND),
+            );
+        }
         return (
             crate::i18n::tr("Additional media support required"),
-            crate::i18n::tr(
-                "On Arch or Omarchy, install the required GStreamer plugins, then restart Files.",
-            ),
-            Some(MEDIA_PLUGIN_INSTALL_COMMAND),
+            crate::i18n::tr("Files can't preview this kind of media. Open it in a media player."),
+            None,
         );
     }
     (

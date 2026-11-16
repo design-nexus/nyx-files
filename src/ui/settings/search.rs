@@ -259,18 +259,6 @@ const TARGETS: &[Target] = &[
         aliases: "encrypted luks password udiskie automount usb volume desktop integration omarchy",
     },
     Target {
-        id: "omarchy",
-        page: "theme",
-        title: "Follow Omarchy",
-        aliases: "appearance system theme quattro",
-    },
-    Target {
-        id: "omarchy-variant",
-        page: "theme",
-        title: "Omarchy variant",
-        aliases: "appearance system theme quattro palette original normal darker dark high contrast brightness",
-    },
-    Target {
         id: "current-theme",
         page: "theme",
         title: "Theme",
