@@ -277,18 +277,24 @@ pub(super) fn set_new_narrow(button: &gtk::Button, narrow: bool) {
     }
 }
 
-/// Clicking an arrow between the crumbs turns the path into a field to type
-/// in, as clicking the path's empty end does.
-pub(super) fn wire_separators(path: &Rc<nyx_ui::pathbar::PathBar>, text: &str) {
-    let mut stack = vec![path.root.clone().upcast::<gtk::Widget>()];
+fn walk_widgets(root: &gtk::Widget, mut f: impl FnMut(&gtk::Widget)) {
+    let mut stack = vec![root.clone()];
     while let Some(widget) = stack.pop() {
         let mut child = widget.first_child();
         while let Some(c) = child {
             stack.push(c.clone());
             child = c.next_sibling();
         }
+        f(&widget);
+    }
+}
+
+/// Clicking an arrow between the crumbs turns the path into a field to type
+/// in, as clicking the path's empty end does.
+pub(super) fn wire_separators(path: &Rc<nyx_ui::pathbar::PathBar>, text: &str) {
+    walk_widgets(path.root.upcast_ref(), |widget| {
         if !widget.has_css_class("crumb-sep") || widget.has_css_class("edit-wired") {
-            continue;
+            return;
         }
         widget.add_css_class("edit-wired");
         widget.set_cursor_from_name(Some("text"));
@@ -301,5 +307,23 @@ pub(super) fn wire_separators(path: &Rc<nyx_ui::pathbar::PathBar>, text: &str) {
             }
         });
         widget.add_controller(click);
-    }
+    });
+}
+
+/// Makes each breadcrumb folder button accept dropped files.
+pub(super) fn wire_crumb_drops(window: &Rc<Window>, path: &nyx_ui::pathbar::PathBar) {
+    walk_widgets(path.root.upcast_ref(), |widget| {
+        if !widget.has_css_class("crumb") || widget.has_css_class("drop-wired") {
+            return;
+        }
+        widget.add_css_class("drop-wired");
+        let Some(target) = widget.tooltip_text() else {
+            return;
+        };
+        let location = super::tab::location_of(target.as_str());
+        if location.is_virtual_list() || location.uri_value() == Some("network:///") {
+            return;
+        }
+        window.drop_on(widget, location);
+    });
 }

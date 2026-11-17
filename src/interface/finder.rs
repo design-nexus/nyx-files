@@ -638,6 +638,7 @@ impl Finder {
     pub(super) fn set_narrow(&self, narrow: bool) {
         self.narrow.set(narrow);
         self.key.set_visible(!narrow);
+        self.field.set_size_request(if narrow { 160 } else { 300 }, -1);
         if narrow {
             self.field.add_css_class("narrow");
         } else {

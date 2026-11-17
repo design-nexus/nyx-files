@@ -344,11 +344,14 @@ pub(super) fn dnd_on(child: &impl IsA<gtk::Widget>, item: &gtk::ListItem, hooks:
     );
     target.set_preload(true);
     let weak = item.downgrade();
-    target.connect_accept(move |_, _| {
-        weak.upgrade()
-            .and_then(|i| i.item())
-            .and_then(|o| row_of(&o).map(|r| r.entry.is_directory()))
-            .unwrap_or(false)
+    target.connect_accept(move |_, drop| {
+        drop.formats()
+            .contains_type(gtk::gdk::FileList::static_type())
+            && weak
+                .upgrade()
+                .and_then(|i| i.item())
+                .and_then(|o| row_of(&o).map(|r| r.entry.is_directory()))
+                .unwrap_or(false)
     });
     target.connect_enter(|t, _, _| {
         if let Some(w) = t.widget() {

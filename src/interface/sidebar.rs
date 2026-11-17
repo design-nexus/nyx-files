@@ -394,11 +394,24 @@ impl SidebarContent {
         &self,
         widget: &impl IsA<gtk::Widget>,
         accepts: impl Fn() -> Option<Location> + 'static,
+        pin_reorder: Option<Location>,
     ) {
         let target = gtk::DropTarget::new(
-            gtk::gdk::FileList::static_type(),
+            glib::Type::INVALID,
             gtk::gdk::DragAction::COPY | gtk::gdk::DragAction::MOVE,
         );
+        if pin_reorder.is_some() {
+            target.set_types(&[gtk::gdk::FileList::static_type(), String::static_type()]);
+        } else {
+            target.set_types(&[gtk::gdk::FileList::static_type()]);
+        }
+        target.set_preload(true);
+        let allow_pin = pin_reorder.is_some();
+        target.connect_accept(move |_, drop| {
+            drop.formats()
+                .contains_type(gtk::gdk::FileList::static_type())
+                || (allow_pin && drop.formats().contains_type(String::static_type()))
+        });
         target.connect_enter(|t, _, _| {
             if let Some(w) = t.widget() {
                 w.add_css_class("drop-target");
@@ -415,6 +428,31 @@ impl SidebarContent {
         target.connect_drop(move |t, value, _, _| {
             if let Some(w) = t.widget() {
                 w.remove_css_class("drop-target");
+            }
+            if let Some(here) = pin_reorder.as_ref()
+                && let Some(from) = value
+                    .get::<String>()
+                    .ok()
+                    .and_then(|v| v.strip_prefix(PIN_PREFIX).map(str::to_string))
+            {
+                let here = here.clone();
+                glib::MainContext::default().spawn_local(async move {
+                    let edit = move |contents: &[u8]| {
+                        let mut places = bookmarks::parse_pinned_places(contents);
+                        let source = places.iter().position(|(l, _)| l.display_path() == from)?;
+                        let entry = places.remove(source);
+                        let target = places
+                            .iter()
+                            .position(|(l, _)| *l == here)
+                            .unwrap_or(places.len());
+                        places.insert(target, entry);
+                        Some(bookmarks::serialize_pinned_places(&places).into_bytes())
+                    };
+                    if let Err(error) = bookmarks::update(edit).await {
+                        tracing::warn!(%error, "unable to reorder pins");
+                    }
+                });
+                return true;
             }
             let (Some(destination), Some(sources), Some(f)) =
                 (accepts(), super::actions::dropped(value), dropped.as_ref())
@@ -461,8 +499,12 @@ impl SidebarContent {
             .clone()
             .filter(|l| !l.is_virtual_list() && l.uri_value() != Some("network:///"))
         {
+            let pin_reorder = match &target {
+                Target::Pin(here) => Some(here.clone()),
+                _ => None,
+            };
             let l = location.clone();
-            self.drop_target(&item.button, move || Some(l.clone()));
+            self.drop_target(&item.button, move || Some(l.clone()), pin_reorder);
         }
         if let Some(location) = location {
             let (open, target_location) = (self.open.clone(), location.clone());
@@ -549,13 +591,9 @@ impl SidebarContent {
             "pinned",
         );
         for (location, name) in pins {
-            let icon = if location.native_path().is_some() {
-                "folder-symbolic"
-            } else {
-                "folder-remote-symbolic"
-            };
+            let icon = crate::ui::file_icons::symbolic_folder_icon(&location);
             let item = self.add_row(
-                icon,
+                &icon,
                 &name,
                 &location.display_path(),
                 Some(location.clone()),
@@ -1102,36 +1140,6 @@ pub(super) fn reorderable(button: &gtk::Button, location: &Location) {
         Some(gtk::gdk::ContentProvider::for_value(&key.to_value()))
     });
     button.add_controller(source);
-    let target = gtk::DropTarget::new(String::static_type(), gtk::gdk::DragAction::MOVE);
-    let here = location.clone();
-    target.connect_drop(move |_, value, _, _| {
-        let Some(from) = value
-            .get::<String>()
-            .ok()
-            .and_then(|v| v.strip_prefix(PIN_PREFIX).map(str::to_string))
-        else {
-            return false;
-        };
-        let here = here.clone();
-        glib::MainContext::default().spawn_local(async move {
-            let edit = move |contents: &[u8]| {
-                let mut places = bookmarks::parse_pinned_places(contents);
-                let source = places.iter().position(|(l, _)| l.display_path() == from)?;
-                let entry = places.remove(source);
-                let target = places
-                    .iter()
-                    .position(|(l, _)| *l == here)
-                    .unwrap_or(places.len());
-                places.insert(target, entry);
-                Some(bookmarks::serialize_pinned_places(&places).into_bytes())
-            };
-            if let Err(error) = bookmarks::update(edit).await {
-                tracing::warn!(%error, "unable to reorder pins");
-            }
-        });
-        true
-    });
-    button.add_controller(target);
 }
 
 impl SidebarContent {

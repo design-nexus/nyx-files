@@ -310,7 +310,7 @@ impl Tab {
                 );
             }
         }));
-        tab.wire_dnd(&tab.model.clone());
+        tab.wire_dnd(&tab.model.clone(), None);
         keep_arrows(tab.list.view.upcast_ref());
         let weak = Rc::downgrade(&tab);
         tab.list.connect_sort(move |key, direction| {
@@ -663,7 +663,7 @@ impl Tab {
         *self.dropped.borrow_mut() = Some(Box::new(f));
     }
 
-    fn wire_dnd(self: &Rc<Self>, model: &Rc<EntryModel>) {
+    fn wire_dnd(self: &Rc<Self>, model: &Rc<EntryModel>, column_depth: Option<usize>) {
         let m = Rc::downgrade(model);
         *model.hooks.drag.borrow_mut() = Some(Box::new(move |index| {
             let Some(model) = m.upgrade() else {
@@ -677,7 +677,11 @@ impl Tab {
             let Some(tab) = weak.upgrade() else {
                 return false;
             };
-            let Some(destination) = folder.map(|f| f.location).or_else(|| tab.location()) else {
+            let Some(destination) = folder.map(|f| f.location).or_else(|| {
+                column_depth
+                    .and_then(|d| tab.browser.location_at(d))
+                    .or_else(|| tab.location())
+            }) else {
                 return false;
             };
             if let Some(f) = tab.dropped.borrow().as_ref() {
@@ -1027,7 +1031,7 @@ impl Tab {
     }
 
     fn wire_column(self: &Rc<Self>, depth: usize, column: &Rc<Column>) {
-        self.wire_dnd(&column.model);
+        self.wire_dnd(&column.model, Some(depth));
         self.single_clicks(&column.model, Some(depth));
         let click = gtk::GestureClick::new();
         click.set_button(0);

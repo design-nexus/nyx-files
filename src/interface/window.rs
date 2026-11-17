@@ -160,6 +160,7 @@ impl Window {
         let path_holder = gtk::Box::new(gtk::Orientation::Horizontal, 0);
         let clamp = nyx_ui::clamp::Clamp::new(&path_holder, 340);
         clamp.set_start(true);
+        clamp.set_shrink(true);
         clamp.set_margin_start(6);
         clamp.set_hexpand(false);
         header.start.append(&clamp);
@@ -1198,6 +1199,14 @@ impl Window {
         }
         self.path.set_crumbs(&crumbs, &text);
         super::header::wire_separators(&self.path, &text);
+        if let Some(win) = WINDOWS.with(|w| {
+            w.borrow()
+                .iter()
+                .find(|win| std::ptr::eq(Rc::as_ptr(*win), self))
+                .cloned()
+        }) {
+            super::header::wire_crumb_drops(&win, &self.path);
+        }
         if let Some(actions) = self.header_actions.borrow().as_ref() {
             actions.sync(tab);
         }
@@ -1347,6 +1356,7 @@ impl Window {
                 if let Some(title) = &w.app_title {
                     title.set_visible(!narrow);
                 }
+                w.path_clamp.set_max(if narrow { 180 } else { 340 });
                 w.sync();
                 super::header::set_new_narrow(&w.new_button, narrow);
                 w.finder.set_narrow(narrow);
@@ -1379,6 +1389,8 @@ impl Window {
             gdk::FileList::static_type(),
             gdk::DragAction::COPY | gdk::DragAction::MOVE,
         );
+        target.set_preload(true);
+        target.connect_accept(|_, drop| drop.formats().contains_type(gdk::FileList::static_type()));
         target.connect_enter(|t, _, _| {
             if let Some(w) = t.widget() {
                 w.add_css_class("drop-target");
