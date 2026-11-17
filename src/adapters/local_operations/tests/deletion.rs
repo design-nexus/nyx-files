@@ -1487,8 +1487,8 @@ fn waited_since(start: SystemTime) -> Result<Duration, Box<dyn Error>> {
 enum Holding {
     Unnamed,
     Program,
-    StrataRead,
-    StrataOperation,
+    FilesRead,
+    FilesOperation,
     TheDeleteItself,
 }
 
@@ -1553,9 +1553,9 @@ fn a_folder_only_leftovers_keep_goes_once_they_do_within_the_mount_s_wait()
         ]
     };
     let rows: [(&str, Preset, Duration, &[Meanwhile]); 6] = [
-        ("nfs3", Quirks::nfs3, fuse_and_nfs, &renamed(StrataRead)),
+        ("nfs3", Quirks::nfs3, fuse_and_nfs, &renamed(FilesRead)),
         ("nfs42", Quirks::nfs42, fuse_and_nfs, &renamed(Program)),
-        ("cifs", Quirks::cifs, smb, &renamed(StrataOperation)),
+        ("cifs", Quirks::cifs, smb, &renamed(FilesOperation)),
         (
             "cifs-posix",
             Quirks::cifs_posix,
@@ -1605,19 +1605,19 @@ fn a_folder_only_leftovers_keep_goes_once_they_do_within_the_mount_s_wait()
             );
             folder_with_an_open_file(&folder, &holds)?;
             let real_folder = folder.canonicalize()?;
-            let read_by_strata = real_folder.join("open.txt");
-            let _read = matches!(holding, StrataRead)
-                .then(|| file_activity::hold([&read_by_strata], || {}))
+            let read_by_files = real_folder.join("open.txt");
+            let _read = matches!(holding, FilesRead)
+                .then(|| file_activity::hold([&read_by_files], || {}))
                 .transpose()?;
-            let _other_operation = matches!(holding, StrataOperation).then(|| {
+            let _other_operation = matches!(holding, FilesOperation).then(|| {
                 file_activity::begin(file_activity::OperationScope {
-                    roots: vec![read_by_strata.clone()],
+                    roots: vec![read_by_files.clone()],
                     folders: Vec::new(),
                 })
             });
             let _this_delete = matches!(holding, TheDeleteItself).then(|| {
                 file_activity::begin(file_activity::OperationScope {
-                    roots: vec![real_folder.clone(), read_by_strata.clone()],
+                    roots: vec![real_folder.clone(), read_by_files.clone()],
                     folders: Vec::new(),
                 })
             });
@@ -1651,8 +1651,8 @@ fn a_folder_only_leftovers_keep_goes_once_they_do_within_the_mount_s_wait()
                             program = "Text Editor"
                         )
                         .into_owned(),
-                        (StrataRead | StrataOperation, _) => crate::i18n::tr(
-                            "A file in it is still in use by Strata. Try again when its other operation or search ends.",
+                        (FilesRead | FilesOperation, _) => crate::i18n::tr(
+                            "A file in it is still in use by Files. Try again when its other operation or search ends.",
                         ),
                         (Unnamed | TheDeleteItself, "cifs") => crate::i18n::tr(
                             "A file in it is still open in a program on this or another computer.",
@@ -1679,7 +1679,7 @@ fn a_folder_only_leftovers_keep_goes_once_they_do_within_the_mount_s_wait()
                     );
                     let scanned = scope.count(Op::Holders);
                     match holding {
-                        StrataRead | StrataOperation => assert_eq!(scanned, 0, "{row}"),
+                        FilesRead | FilesOperation => assert_eq!(scanned, 0, "{row}"),
                         Unnamed | Program | TheDeleteItself => assert_eq!(scanned, 1, "{row}"),
                     }
                 }
