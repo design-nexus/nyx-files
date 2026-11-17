@@ -21,7 +21,7 @@ rar = []
 invariant-checks = []
 
 [dependencies]
-nyx-cloud = { git = "https://github.com/design-nexus/nyx-cloud.git", rev = "657627984e97ecc679f4a79d9a5511a735446476" }
+nyx-cloud = { git = "https://github.com/design-nexus/nyx-cloud.git", rev = "a65d14cce64bc0cbce1a8ecfa711fae8a0290835" }
 nyx-core = { git = "https://github.com/design-nexus/nyx-core.git", rev = "a258c315f056ac649586fdb55e98613056221411" }
 nyx-actions = { git = "https://github.com/design-nexus/nyx-core.git", rev = "a258c315f056ac649586fdb55e98613056221411", default-features = false }
 nyx-theme = { git = "https://github.com/design-nexus/nyx-design.git", rev = "914b14ec5574ca04cbb985b571cfbfb0a42aae15" }
