@@ -23,6 +23,8 @@ and selectable preview presentation. Its origin and licenses are in
 
 ## Install
 
+On NyxOS, Files comes with the system. On Omarchy:
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/design-nexus/nyx-files/main/install.sh | bash
 ```
