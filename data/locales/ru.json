@@ -659,6 +659,7 @@
   "Omarchy variant": "Вариант Omarchy",
   "On": "Вкл.",
   "On Arch or Omarchy, install the required GStreamer plugins, then restart Files.": "В Arch или Omarchy установите необходимые плагины GStreamer, затем перезапустите Files.",
+  "Files can't preview this kind of media. Open it in a media player.": "Files не может показать предпросмотр этого типа медиафайлов. Откройте его в медиаплеере.",
   "On failure": "При ошибке",
   "Once, or once per selected item": "Один раз или по разу для каждого выбранного элемента",
   "One argument per line; {path}, {paths}, or {parent}": "По одному аргументу в строке; {path}, {paths} или {parent}",
