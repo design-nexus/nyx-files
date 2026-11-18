@@ -10,7 +10,7 @@ use gtk::{gdk, glib, prelude::*};
 
 use crate::ui::{
     browser_modes::{BrowserDensity, BrowserMode, DensityScale, FrameDensity},
-    preferences::{ListColumnId, PreferenceManager, TextSize},
+    preferences::{PreferenceManager, TextSize},
 };
 
 use super::tab::Tab;
@@ -253,34 +253,18 @@ fn labelled(title: &str, control: &impl IsA<gtk::Widget>) -> gtk::Box {
 /// The tab the menu acts on: the window's current one, or the chooser's.
 pub(super) type CurrentTab = Rc<dyn Fn() -> Option<Rc<Tab>>>;
 
-fn append_columns(body: &gtk::Box) {
+fn append_columns(body: &gtk::Box, current: &CurrentTab) {
     body.append(&heading("Columns"));
-    for id in [
-        ListColumnId::Mode,
-        ListColumnId::Size,
-        ListColumnId::Type,
-        ListColumnId::Modified,
-    ] {
-        let title = match id {
-            ListColumnId::Type => "Kind",
-            other => other.title(),
-        };
+    for id in super::list::TOGGLEABLE_COLUMNS {
+        let current = current.clone();
         body.append(&check(
-            title,
+            super::list::column_title(id),
+            move || super::list::is_column_visible(id),
             move || {
-                !PreferenceManager::shared()
-                    .list_hidden_columns()
-                    .contains(&id)
-            },
-            move || {
-                let p = PreferenceManager::shared();
-                let mut hidden = p.list_hidden_columns();
-                if let Some(i) = hidden.iter().position(|h| *h == id) {
-                    hidden.remove(i);
-                } else {
-                    hidden.push(id);
+                super::list::toggle_column(id);
+                if let Some(tab) = current() {
+                    tab.sync_list_columns();
                 }
-                p.set_list_hidden_columns(hidden);
             },
         ));
     }
@@ -388,7 +372,7 @@ fn content(current: &CurrentTab) -> gtk::Box {
     append_sort(&body, current);
     if mode == BrowserMode::List {
         body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-        append_columns(&body);
+        append_columns(&body, current);
     }
     if mode == BrowserMode::Icons {
         body.append(&gtk::Separator::new(gtk::Orientation::Horizontal));

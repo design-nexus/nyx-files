@@ -1014,6 +1014,10 @@ impl Tab {
         self.list.set_grouped(grouped);
     }
 
+    pub(super) fn sync_list_columns(&self) {
+        self.list.sync_columns();
+    }
+
     /// The model the selection and menus act on: the active column's in Columns.
     pub(super) fn active_model(&self) -> Rc<EntryModel> {
         if self.mode.get() == BrowserMode::Columns

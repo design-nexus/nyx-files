@@ -1010,6 +1010,26 @@ pub(super) fn folder_menu(window: &Rc<Window>, tab: &Rc<Tab>) -> Vec<menu::Entry
             .key(&keys(bindings::HIDDEN_FILES)),
         );
     }
+    if tab.mode() == crate::ui::browser_modes::BrowserMode::List {
+        let w = window.clone();
+        let t = Rc::downgrade(tab);
+        items.push(
+            menu::item(&crate::i18n::tr("Columns"), move || {
+                if let Some((anchor, x, y)) = w.menu_point() {
+                    let t = t.clone();
+                    let sync: Rc<dyn Fn()> = Rc::new(move || {
+                        if let Some(tab) = t.upgrade() {
+                            tab.sync_list_columns();
+                        }
+                    });
+                    glib::idle_add_local_once(move || {
+                        super::list::popup_columns(&anchor, x, y, Some(sync))
+                    });
+                }
+            })
+            .icon("view-list-symbolic"),
+        );
+    }
     if let (Some(input), Some(path)) = (crate::ui::actions::folder_input(&here), here.native_path())
     {
         if let Some(custom) = custom_actions(

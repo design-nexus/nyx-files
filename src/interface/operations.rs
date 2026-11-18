@@ -68,6 +68,8 @@ impl Progress {
         let head = widgets::hbox(8);
         let title = widgets::label("", "operation-title");
         title.set_hexpand(true);
+        title.set_max_width_chars(1);
+        title.set_single_line_mode(true);
         title.set_ellipsize(gtk::pango::EllipsizeMode::End);
         head.append(&title);
         let background =
@@ -79,6 +81,9 @@ impl Progress {
         let bar = gtk::ProgressBar::new();
         card.append(&bar);
         let detail = widgets::label("", "dim");
+        detail.set_hexpand(true);
+        detail.set_max_width_chars(1);
+        detail.set_single_line_mode(true);
         detail.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
         card.append(&detail);
         holder.set_visible(false);
