@@ -31,7 +31,7 @@ fn in_trash(location: &Location) -> bool {
         .is_some_and(|uri| uri.starts_with("trash:"))
 }
 
-fn copy_text(text: &str) {
+pub(super) fn copy_text(text: &str) {
     if let Some(display) = gtk::gdk::Display::default() {
         display.clipboard().set_text(text);
     }

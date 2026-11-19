@@ -207,6 +207,7 @@ pub(super) struct Chooser {
     back: gtk::Button,
     forward: gtk::Button,
     up: gtk::Button,
+    new_folder: gtk::Button,
     view_switch: RefCell<Vec<(BrowserMode, gtk::ToggleButton)>>,
     source: Rc<ChooserFileSource>,
     filename: Option<gtk::Entry>,
@@ -286,6 +287,10 @@ impl Chooser {
         let up = widgets::bar_button(
             "go-up-symbolic",
             &with_keys("Enclosing folder (%{keys})", PARENT_FOLDER),
+        );
+        let new_folder = widgets::bar_button(
+            "folder-new-symbolic",
+            &with_keys("New folder (%{keys})", NEW_FOLDER),
         );
         for button in [&back, &forward, &up] {
             header.start.append(button);
@@ -433,6 +438,7 @@ impl Chooser {
             back,
             forward,
             up,
+            new_folder,
             view_switch: RefCell::default(),
             source,
             filename,
@@ -455,6 +461,7 @@ impl Chooser {
             download_progress: RefCell::default(),
             dialog: RefCell::default(),
         });
+        header.end.append(&chooser.new_folder);
         header.end.append(&chooser.build_view_switch());
         let weak = Rc::downgrade(&chooser.tab);
         header
@@ -477,10 +484,10 @@ impl Chooser {
         let mut first: Option<gtk::ToggleButton> = None;
         for (mode, icon, message, binding) in [
             (
-                BrowserMode::Columns,
-                "view-dual-symbolic",
-                "Columns (%{keys})",
-                VIEW_COLUMNS,
+                BrowserMode::List,
+                "view-list-symbolic",
+                "List (%{keys})",
+                VIEW_LIST,
             ),
             (
                 BrowserMode::Icons,
@@ -489,10 +496,10 @@ impl Chooser {
                 VIEW_ICONS,
             ),
             (
-                BrowserMode::List,
-                "view-list-symbolic",
-                "List (%{keys})",
-                VIEW_LIST,
+                BrowserMode::Columns,
+                "view-dual-symbolic",
+                "Columns (%{keys})",
+                VIEW_COLUMNS,
             ),
         ] {
             let button = gtk::ToggleButton::new();
@@ -665,6 +672,18 @@ impl Chooser {
             }
         });
         let weak = Rc::downgrade(&self.tab);
+        self.new_folder.connect_clicked(move |_| {
+            if let Some(tab) = weak.upgrade() {
+                super::actions::new_folder(&tab);
+            }
+        });
+        let weak = Rc::downgrade(self);
+        self.tab.connect_context(move |entry, widget, x, y| {
+            if let Some(c) = weak.upgrade() {
+                c.show_menu(entry, widget, x, y);
+            }
+        });
+        let weak = Rc::downgrade(&self.tab);
         self.path.connect_open(move |target| {
             if let Some(tab) = weak.upgrade() {
                 tab.browser.navigate(super::tab::location_of(target));
@@ -717,6 +736,7 @@ impl Chooser {
         self.forward
             .set_sensitive(self.tab.browser.can_go_forward());
         self.up.set_sensitive(self.tab.browser.can_go_parent());
+        self.new_folder.set_sensitive(self.tab.location().is_some());
         self.content.mark(self.tab.location().as_ref());
         self.show_mode(self.tab.mode());
     }
@@ -823,6 +843,8 @@ impl Chooser {
             }
         } else if press.is(SELECT_ALL) && self.multiple() {
             tab.active_model().selection.select_all();
+        } else if press.is(NEW_FOLDER) {
+            super::actions::new_folder(tab);
         } else if press.is(PROPERTIES) {
             super::menus::properties(tab.selected());
         } else if press.is(FILTER_SLASH) || press.is(FILTER) {
@@ -832,6 +854,119 @@ impl Chooser {
             return false;
         }
         true
+    }
+
+    fn show_menu(
+        self: &Rc<Self>,
+        entry: Option<FileEntry>,
+        widget: &gtk::Widget,
+        x: f64,
+        y: f64,
+    ) {
+        use nyx_ui::menu;
+
+        let tab = &self.tab;
+        let selected = tab.selected();
+        let mut items = Vec::new();
+        let copy_location = |location: &Location| {
+            location
+                .native_path()
+                .map_or_else(|| location.display_path(), |p| p.display().to_string())
+        };
+
+        if entry.is_some() && !selected.is_empty() {
+            let t = tab.clone();
+            let e = selected.clone();
+            items.push(
+                menu::item(&crate::i18n::tr("Open"), move || {
+                    e.iter().for_each(|x| t.open(x))
+                })
+                .icon("document-open-symbolic")
+                .key(&crate::i18n::tr("keys.name.enter")),
+            );
+            if tab.location().is_some() {
+                let t = tab.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("New Folder…"), move || {
+                        super::actions::new_folder(&t)
+                    })
+                    .icon("folder-new-symbolic")
+                    .key(&super::actions::keys(NEW_FOLDER)),
+                );
+            }
+            if selected.len() == 1 {
+                let text = copy_location(&selected[0].location);
+                items.push(
+                    menu::item(&crate::i18n::tr("Copy path"), move || {
+                        super::menus::copy_text(&text)
+                    })
+                    .icon("edit-copy-symbolic"),
+                );
+            }
+            let sel = selected;
+            items.push(
+                menu::item(&crate::i18n::tr("Properties"), move || {
+                    super::menus::properties(sel.clone())
+                })
+                .icon("document-properties-symbolic")
+                .key(&super::actions::keys(PROPERTIES)),
+            );
+        } else {
+            let Some(here) = tab.location() else {
+                return;
+            };
+            {
+                let t = tab.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("New Folder…"), move || {
+                        super::actions::new_folder(&t)
+                    })
+                    .icon("folder-new-symbolic")
+                    .key(&super::actions::keys(NEW_FOLDER)),
+                );
+            }
+            if self.multiple() {
+                let t = tab.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("Select All"), move || {
+                        t.active_model().selection.select_all();
+                    })
+                    .icon("edit-select-all-symbolic")
+                    .key(&super::actions::keys(SELECT_ALL)),
+                );
+            }
+            {
+                let t = tab.clone();
+                items.push(
+                    menu::item(&crate::i18n::tr("Refresh"), move || {
+                        t.browser.reload_active();
+                    })
+                    .icon("view-refresh-symbolic")
+                    .key(&super::actions::keys(REFRESH)),
+                );
+            }
+            {
+                let text = copy_location(&here);
+                items.push(
+                    menu::item(&crate::i18n::tr("Copy path"), move || {
+                        super::menus::copy_text(&text)
+                    })
+                    .icon("edit-copy-symbolic"),
+                );
+            }
+            let shown = tab.shows_hidden();
+            let t = tab.clone();
+            items.push(
+                menu::check(&crate::i18n::tr("Show hidden files"), shown, move |_| {
+                    t.browser.toggle_hidden()
+                })
+                .key(&super::actions::keys(HIDDEN_FILES)),
+            );
+        }
+
+        if !items.is_empty() {
+            nyx_ui::menu::popup_at(widget, x, y, items);
+        }
     }
 
     fn multiple(&self) -> bool {
